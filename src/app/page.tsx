@@ -1111,7 +1111,7 @@ export default function Home() {
             <div className="flex flex-col sm:grid sm:grid-cols-3 gap-3 sm:gap-4">
               {/* Đã nhận - full width trên mobile */}
               <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{ aspectRatio: '21/9' }}>
-                <img src="/job-done.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <img src="/job-done.webp" alt="" className="absolute inset-0 w-full h-full object-cover" />
                 <div className="relative px-5 py-4 text-white h-full flex flex-col justify-center">
                   <p className="text-xs sm:text-sm font-medium mb-1 flex items-center gap-1.5 drop-shadow">
                     <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Đã nhận — {monthLabel(selectedMonth)}
@@ -1127,7 +1127,7 @@ export default function Home() {
               <div className="grid grid-cols-2 sm:contents gap-3 sm:gap-0">
                 {/* Đang làm */}
                 <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{ aspectRatio: '21/9' }}>
-                  <img src="/working.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <img src="/working.webp" alt="" className="absolute inset-0 w-full h-full object-cover" />
                   <div className="relative px-3 sm:px-5 py-3 sm:py-4 text-white h-full flex flex-col justify-center">
                     <p className="text-[10px] sm:text-sm font-medium mb-0.5 sm:mb-1 flex items-center gap-1 drop-shadow leading-tight">
                       <Clock className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
@@ -1142,7 +1142,7 @@ export default function Home() {
 
                 {/* Còn trên chợ */}
                 <div className="relative overflow-hidden rounded-2xl shadow-lg" style={{ aspectRatio: '21/9' }}>
-                  <img src="/job-market.png" alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <img src="/job-market.webp" alt="" className="absolute inset-0 w-full h-full object-cover" />
                   <div className="relative px-3 sm:px-5 py-3 sm:py-4 text-white h-full flex flex-col justify-center">
                     <p className="text-[10px] sm:text-sm font-medium mb-0.5 sm:mb-1 flex items-center gap-1 drop-shadow leading-tight">
                       <Briefcase className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
