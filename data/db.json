@@ -1,0 +1,100 @@
+{
+  "employees": [
+    {
+      "id": "9nj0ba",
+      "name": "Trần Anh Dũng",
+      "balance": 2000000
+    },
+    {
+      "id": "avlcsd",
+      "name": "Đinh Duy Bảo",
+      "balance": 750000
+    },
+    {
+      "id": "mui8a",
+      "name": "Đinh Duy Quang",
+      "balance": 0
+    }
+  ],
+  "jobs": [
+    {
+      "id": "0mn8a",
+      "title": "Hậu trường",
+      "description": "",
+      "totalSalary": 1000000,
+      "status": "COMPLETED",
+      "createdAt": "2026-02-25T16:36:14.816Z",
+      "month": "2026-02",
+      "assignments": [
+        {
+          "id": "kka1lm",
+          "employeeId": "9nj0ba",
+          "employeeName": "Trần Anh Dũng",
+          "percentage": 50,
+          "salaryEarned": 500000,
+          "assignedAt": "2026-02-25T16:36:21.944Z",
+          "status": "APPROVED",
+          "approvedAt": "2026-02-25T16:36:38.874Z"
+        }
+      ]
+    },
+    {
+      "id": "zwpc6",
+      "title": "Dựng Sát Giới 2",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "IN_PROGRESS",
+      "createdAt": "2026-02-25T14:55:58.621Z",
+      "assignments": [
+        {
+          "id": "bq25fm",
+          "employeeId": "avlcsd",
+          "employeeName": "Đinh Duy Bảo",
+          "percentage": 25,
+          "salaryEarned": 750000,
+          "assignedAt": "2026-02-25T16:27:46.201Z",
+          "status": "APPROVED",
+          "approvedAt": "2026-02-25T16:36:00.101Z",
+          "note": "ổn"
+        },
+        {
+          "id": "3ei6yc",
+          "employeeId": "mui8a",
+          "employeeName": "Đinh Duy Quang",
+          "percentage": 50,
+          "salaryEarned": 1500000,
+          "assignedAt": "2026-02-25T16:27:56.624Z",
+          "status": "PENDING_APPROVAL"
+        }
+      ]
+    },
+    {
+      "id": "fu5ohk",
+      "title": "Dựng Sát Giới 1",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "COMPLETED",
+      "createdAt": "2026-02-25T14:51:02.678Z",
+      "assignments": [
+        {
+          "id": "kwq8j",
+          "employeeId": "9nj0ba",
+          "employeeName": "Dũng",
+          "percentage": 50,
+          "salaryEarned": 1500000,
+          "assignedAt": "2026-02-25T14:51:08.763Z",
+          "status": "APPROVED"
+        },
+        {
+          "id": "l0lqy",
+          "employeeId": "db8jaf",
+          "employeeName": "Bảo",
+          "percentage": 25,
+          "salaryEarned": 750000,
+          "assignedAt": "2026-02-25T14:51:21.529Z",
+          "status": "APPROVED"
+        }
+      ]
+    }
+  ]
+}
