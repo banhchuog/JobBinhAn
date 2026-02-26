@@ -1225,9 +1225,9 @@ export default function Home() {
               (a) => a.employeeId === currentEmployee?.id && a.status === "APPROVED"
             );
             const myApprovedPct = myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
-            // Đang có assignment chưa xong (WORKING hoặc PENDING_APPROVAL)
-            const myActiveAssignment = job.assignments.find(
-              (a) => a.employeeId === currentEmployee?.id && (a.status === "WORKING" || a.status === "PENDING_APPROVAL")
+            // Đang PENDING_APPROVAL (chờ duyệt) → không cho nhận thêm
+            const myPendingAssignment = job.assignments.find(
+              (a) => a.employeeId === currentEmployee?.id && a.status === "PENDING_APPROVAL"
             );
 
             const borderClass = theme === "amber"
@@ -1255,7 +1255,7 @@ export default function Home() {
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>
                     {theme === "green" ? "✓ Xong"
                       : theme === "blue" ? `${myAssignment?.percentage ?? 0}%`
-                      : myActiveAssignment ? `Đang làm ${myActiveAssignment.percentage}%`
+                      : myPendingAssignment ? `Chờ duyệt`
                       : `Còn ${100 - totalClaimed}%`}
                   </span>
                 </div>
@@ -1276,12 +1276,12 @@ export default function Home() {
                     {theme === "amber" && myApprovedPct > 0 && (
                       <span className="text-xs text-green-600 font-medium">✓ {myApprovedPct}%</span>
                     )}
-                    {theme === "amber" && myActiveAssignment && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
-                        {myActiveAssignment.status === "PENDING_APPROVAL" ? "Chờ duyệt" : `Đang làm ${myActiveAssignment.percentage}%`}
+                    {theme === "amber" && myPendingAssignment && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">
+                        Chờ duyệt
                       </span>
                     )}
-                    {theme === "amber" && !myActiveAssignment && (
+                    {theme === "amber" && !myPendingAssignment && (
                       <button onClick={() => setSelectedJob(job)}
                         className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                         {myApprovedPct > 0 ? `Nhận thêm` : `Nhận việc`} <ChevronRight className="w-4 h-4" />

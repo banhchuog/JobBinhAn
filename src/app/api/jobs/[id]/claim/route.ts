@@ -13,13 +13,13 @@ export async function POST(
     const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
-    // Không cho nhận thêm khi đang có assignment chưa xong
-    const alreadyActive = job.assignments.some(
-      (a) => a.employeeId === employeeId && (a.status === "WORKING" || a.status === "PENDING_APPROVAL")
+    // Không cho nhận thêm khi đang chờ duyệt
+    const pendingApproval = job.assignments.some(
+      (a) => a.employeeId === employeeId && a.status === "PENDING_APPROVAL"
     );
-    if (alreadyActive) {
+    if (pendingApproval) {
       return NextResponse.json(
-        { error: "Bạn đang làm job này rồi! Hãy hoàn thành và chờ duyệt trước." },
+        { error: "Bạn đang chờ duyệt! Hãy đợi Giám đốc duyệt trước." },
         { status: 400 }
       );
     }
