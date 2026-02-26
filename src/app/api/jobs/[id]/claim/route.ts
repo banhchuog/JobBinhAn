@@ -13,17 +13,6 @@ export async function POST(
     const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
-    // Không cho nhận thêm khi đang chờ duyệt
-    const pendingApproval = job.assignments.some(
-      (a) => a.employeeId === employeeId && a.status === "PENDING_APPROVAL"
-    );
-    if (pendingApproval) {
-      return NextResponse.json(
-        { error: "Bạn đang chờ duyệt! Hãy đợi Giám đốc duyệt trước." },
-        { status: 400 }
-      );
-    }
-
     const currentTotal = job.assignments.reduce((acc, a) => acc + a.percentage, 0);
     if (currentTotal + percentage > 100) {
       return NextResponse.json(
