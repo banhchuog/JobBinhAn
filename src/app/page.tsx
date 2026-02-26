@@ -152,7 +152,7 @@ export default function Home() {
   const [aiError, setAiError] = useState<string | null>(null);
 
   // ─────────────────────────────────────────────────────
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (autoLoginCheck = false) => {
     setLoading(true);
     try {
       const [jobsRes, empRes] = await Promise.all([
@@ -160,12 +160,31 @@ export default function Home() {
         fetch("/api/employees"),
       ]);
       if (jobsRes.ok) setJobs(await jobsRes.json());
-      if (empRes.ok) setEmployees(await empRes.json());
+      if (empRes.ok) {
+        const empList: Employee[] = await empRes.json();
+        setEmployees(empList);
+        if (autoLoginCheck) {
+          const savedId = localStorage.getItem("savedEmployeeId");
+          if (savedId) {
+            const found = empList.find((e) => e.id === savedId);
+            if (found) {
+              setCurrentEmployee(found);
+              setView("EMPLOYEE");
+            }
+          }
+        }
+      }
     } catch {
       // ignore network errors, keep existing state
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Lần đầu load trang: tự kiểm tra đăng nhập đã lưu
+  useEffect(() => {
+    fetchAll(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -197,11 +216,13 @@ export default function Home() {
   const handleEmployeeLogin = (emp: Employee) => {
     setCurrentEmployee(emp);
     setView("EMPLOYEE");
+    localStorage.setItem("savedEmployeeId", emp.id);
   };
 
   const handleLogout = () => {
     setView("LOGIN");
     setCurrentEmployee(null);
+    localStorage.removeItem("savedEmployeeId");
   };
 
   // ─── Director: Create Job ────────────────────────────
