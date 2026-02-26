@@ -448,7 +448,7 @@ export default function Home() {
               <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">Giám đốc</span>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={fetchAll} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
+              <button onClick={() => fetchAll()} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               </button>
               <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-red-600 p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -1044,7 +1044,7 @@ export default function Home() {
 
           {/* Actions */}
           <div className="flex items-center gap-1">
-            <button onClick={fetchAll} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => fetchAll()} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
             <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded-lg transition-colors">
