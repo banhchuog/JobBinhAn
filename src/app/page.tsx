@@ -1248,7 +1248,15 @@ export default function Home() {
             return (
               <div className={`p-4 sm:p-5 rounded-xl border-2 transition-colors ${borderClass}`}>
                 <div className="flex justify-between items-start mb-2 gap-2">
-                  <h3 className="font-semibold text-gray-900 leading-snug">{job.title}</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 leading-snug">{job.title}</h3>
+                    {theme === "amber" && job.expiresAt && (
+                      <p className="text-xs text-orange-500 font-medium mt-0.5 flex items-center gap-1">
+                        <Timer className="w-3 h-3" />
+                        Ngày quay {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}
+                      </p>
+                    )}
+                  </div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>
                     {theme === "green" ? "✓ Xong"
                       : theme === "blue" ? `${myAssignment?.percentage ?? 0}%`
@@ -1321,20 +1329,64 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Chợ việc */}
+              {/* Chợ việc — nhóm theo ngày quay */}
               <div>
                 <h2 className="text-base font-bold text-amber-600 mb-3 flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
                   Chợ Việc Làm ({openJobs.length})
                 </h2>
-                {openJobs.length === 0
-                  ? <EmptyBlock text="Không còn job nào để nhận." />
-                  : (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {openJobs.map((job) => <JobCard key={job.id} job={job} theme="amber" />)}
+                {openJobs.length === 0 ? (
+                  <EmptyBlock text="Không còn job nào để nhận." />
+                ) : (() => {
+                  // Nhóm job theo groupId; job lẻ (không có groupId) vào nhóm "standalone"
+                  const groups = new Map<string, { label: string; date?: string; jobs: Job[] }>();
+
+                  for (const job of openJobs) {
+                    if (job.groupId) {
+                      if (!groups.has(job.groupId)) {
+                        // Lấy ngày từ expiresAt của job tại chỗ trong nhóm
+                        const onSiteJob = openJobs.find(j => j.groupId === job.groupId && j.expiresAt);
+                        let dateLabel = "";
+                        if (onSiteJob?.expiresAt) {
+                          const d = new Date(onSiteJob.expiresAt);
+                          dateLabel = `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+                        }
+                        groups.set(job.groupId, { label: job.groupName ?? job.groupId, date: dateLabel, jobs: [] });
+                      }
+                      groups.get(job.groupId)!.jobs.push(job);
+                    } else {
+                      const key = "__standalone__";
+                      if (!groups.has(key)) groups.set(key, { label: "", jobs: [] });
+                      groups.get(key)!.jobs.push(job);
+                    }
+                  }
+
+                  return (
+                    <div className="space-y-6">
+                      {Array.from(groups.entries()).map(([groupId, group]) => (
+                        <div key={groupId}>
+                          {groupId !== "__standalone__" && (
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 flex-1">
+                                <CalendarDays className="w-4 h-4 text-orange-500 shrink-0" />
+                                <div>
+                                  <p className="text-sm font-bold text-orange-700 leading-none">{group.label}</p>
+                                  {group.date && (
+                                    <p className="text-xs text-orange-500 mt-0.5">📅 Ngày quay: {group.date}</p>
+                                  )}
+                                </div>
+                                <span className="ml-auto text-xs text-orange-500 font-medium shrink-0">{group.jobs.length} job</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {group.jobs.map((job) => <JobCard key={job.id} job={job} theme="amber" />)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )
-                }
+                  );
+                })()}
               </div>
 
               {/* Đã hoàn thành */}
