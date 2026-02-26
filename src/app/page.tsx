@@ -6,7 +6,7 @@ import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
-  Search, Download, Copy, MessageSquare, X, Sparkles, Timer,
+  Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2,
 } from "lucide-react";
 
 type View = "LOGIN" | "DIRECTOR" | "EMPLOYEE";
@@ -142,6 +142,10 @@ export default function Home() {
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // ── Share job state ──────────────────────────────────
+  const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number } | null>(null);
+  const [sharePercInput, setSharePercInput] = useState("");
 
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -344,6 +348,31 @@ export default function Home() {
     setSubmitting(true);
     try {
       await fetch(`/api/jobs/${jobId}/assignments/${assignmentId}/done`, { method: "POST" });
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Employee: Share Job ─────────────────────────────
+  const handleShareJob = async () => {
+    if (!sharingItem) return;
+    const pct = Number(sharePercInput);
+    if (!pct || pct <= 0 || pct > sharingItem.currentPct) {
+      alert(`Nhập % hợp lệ (1 – ${sharingItem.currentPct})`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/jobs/${sharingItem.jobId}/assignments/${sharingItem.assignmentId}/share`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ percentage: pct }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Lỗi!"); return; }
+      setSharingItem(null);
+      setSharePercInput("");
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -1247,6 +1276,14 @@ export default function Home() {
                         <CheckCircle2 className="w-4 h-4" /> Xong
                       </button>
                     )}
+                    {theme === "blue" && myAssignment?.status === "WORKING" && (
+                      <button
+                        onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: myAssignment.percentage }); setSharePercInput(""); }}
+                        disabled={submitting}
+                        className="flex items-center gap-1.5 bg-gray-100 hover:bg-orange-50 hover:text-orange-600 text-gray-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                        <Share2 className="w-3.5 h-3.5" /> Nhường
+                      </button>
+                    )}
                     {theme === "blue" && myAssignment?.status === "PENDING_APPROVAL" && (
                       <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">Chờ duyệt</span>
                     )}
@@ -1360,6 +1397,69 @@ export default function Home() {
                 <button onClick={handleClaimJob} disabled={submitting}
                   className="flex-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors">
                   {submitting ? "Đang xử lý..." : "Xác nhận"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Share / Nhường job modal ── */}
+      {sharingItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl">
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <div className="px-5 pb-6 pt-3 sm:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center shrink-0">
+                  <Share2 className="w-5 h-5 text-orange-500" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 leading-snug">Nhường việc ra chợ</h3>
+                  <p className="text-sm text-gray-500 line-clamp-1">{sharingItem.jobTitle}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Bạn đang giữ <span className="font-bold text-blue-600">{sharingItem.currentPct}%</span>. Nhập % muốn nhường lại để người khác nhận:
+              </p>
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                {[25, 50, 75, sharingItem.currentPct].filter((v, i, a) => a.indexOf(v) === i).map((pct) => {
+                  const disabled = pct > sharingItem.currentPct;
+                  return (
+                    <button key={pct} disabled={disabled}
+                      onClick={() => setSharePercInput(String(pct))}
+                      className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                        Number(sharePercInput) === pct ? "bg-orange-500 text-white border-orange-500"
+                        : disabled ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-orange-400"
+                      }`}>
+                      {pct}%
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                type="number"
+                min={1}
+                max={sharingItem.currentPct}
+                value={sharePercInput}
+                onChange={(e) => setSharePercInput(e.target.value)}
+                placeholder={`Hoặc nhập 1–${sharingItem.currentPct}`}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-400 text-sm mb-4"
+              />
+              {Number(sharePercInput) === sharingItem.currentPct && (
+                <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
+                  ⚠️ Nhường hết {sharingItem.currentPct}% — bạn sẽ rời khỏi job này.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button onClick={() => { setSharingItem(null); setSharePercInput(""); }}
+                  className="flex-1 py-3 text-gray-600 hover:bg-gray-100 rounded-xl font-medium border border-gray-200 transition-colors">Hủy</button>
+                <button onClick={handleShareJob} disabled={submitting || !sharePercInput}
+                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white rounded-xl font-semibold transition-colors">
+                  {submitting ? "Đang xử lý..." : "Nhường"}
                 </button>
               </div>
             </div>
