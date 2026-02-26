@@ -1202,11 +1202,8 @@ export default function Home() {
 
           const openJobs = jobs.filter((job) => {
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
-            const hasActiveAssignment = job.assignments.some(
-              (a) => a.employeeId === currentEmployee?.id &&
-                (a.status === "WORKING" || a.status === "PENDING_APPROVAL")
-            );
-            return claimed < 100 && !hasActiveAssignment;
+            // Hiện trên chợ nếu còn % chưa được nhận (kể cả khi mình đang làm 1 phần)
+            return claimed < 100;
           });
 
           const myActiveJobs = jobs.filter((job) =>
@@ -1228,6 +1225,10 @@ export default function Home() {
               (a) => a.employeeId === currentEmployee?.id && a.status === "APPROVED"
             );
             const myApprovedPct = myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
+            // Đang có assignment chưa xong (WORKING hoặc PENDING_APPROVAL)
+            const myActiveAssignment = job.assignments.find(
+              (a) => a.employeeId === currentEmployee?.id && (a.status === "WORKING" || a.status === "PENDING_APPROVAL")
+            );
 
             const borderClass = theme === "amber"
               ? "border-amber-300 bg-amber-50/40"
@@ -1252,7 +1253,10 @@ export default function Home() {
                 <div className="flex justify-between items-start mb-2 gap-2">
                   <h3 className="font-semibold text-gray-900 leading-snug">{job.title}</h3>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>
-                    {theme === "green" ? "✓ Xong" : theme === "blue" ? `${myAssignment?.percentage ?? 0}%` : `Còn ${100 - totalClaimed}%`}
+                    {theme === "green" ? "✓ Xong"
+                      : theme === "blue" ? `${myAssignment?.percentage ?? 0}%`
+                      : myActiveAssignment ? `Đang làm ${myActiveAssignment.percentage}%`
+                      : `Còn ${100 - totalClaimed}%`}
                   </span>
                 </div>
                 {job.description && <p className="text-gray-500 text-sm mb-3 line-clamp-2">{job.description}</p>}
@@ -1272,7 +1276,12 @@ export default function Home() {
                     {theme === "amber" && myApprovedPct > 0 && (
                       <span className="text-xs text-green-600 font-medium">✓ {myApprovedPct}%</span>
                     )}
-                    {theme === "amber" && (
+                    {theme === "amber" && myActiveAssignment && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                        {myActiveAssignment.status === "PENDING_APPROVAL" ? "Chờ duyệt" : `Đang làm ${myActiveAssignment.percentage}%`}
+                      </span>
+                    )}
+                    {theme === "amber" && !myActiveAssignment && (
                       <button onClick={() => setSelectedJob(job)}
                         className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                         {myApprovedPct > 0 ? `Nhận thêm` : `Nhận việc`} <ChevronRight className="w-4 h-4" />
