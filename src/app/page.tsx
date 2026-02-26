@@ -59,7 +59,6 @@ function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] }
     const filmName = match[1].trim();
     const day = parseInt(match[2]);
     const month = parseInt(match[3]);
-    // Nếu tháng đã qua nhiều tháng → sang năm sau
     const year = (month < now.getMonth() + 1 - 3) ? currentYear + 1 : currentYear;
     const ym = `${year}-${String(month).padStart(2, "0")}`;
     const expiresAt = new Date(year, month - 1, day, 23, 59, 59, 999).toISOString();
@@ -70,23 +69,32 @@ function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] }
 
     const jobs: PreviewJob[] = [];
 
-    // Hậu kỳ — 1 job dựng / tập (không hết hạn)
+    // ── Tại chỗ (hết hạn cuối ngày quay) ──────────────
+    // 2 Đạo diễn × 3tr
+    for (let i = 1; i <= 2; i++) {
+      jobs.push({ title: `Đạo diễn ${filmName} (${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 3_000_000, month: ym, expiresAt, isOnSite: true });
+    }
+    // 2 Quay phim × 1.2tr
+    for (let i = 1; i <= 2; i++) {
+      jobs.push({ title: `Quay phim ${filmName} (Máy ${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 1_200_000, month: ym, expiresAt, isOnSite: true });
+    }
+    // 2 Ánh sáng × 800k
+    for (let i = 1; i <= 2; i++) {
+      jobs.push({ title: `Ánh sáng ${filmName} (${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 800_000, month: ym, expiresAt, isOnSite: true });
+    }
+    // 1 Thu âm hiện trường × 1tr
+    jobs.push({ title: `Thu âm hiện trường ${filmName}`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 1_000_000, month: ym, expiresAt, isOnSite: true });
+
+    // ── Hậu kỳ — 1 job dựng / tập × 3tr (không hết hạn) ──
     for (const ep of episodes) {
       jobs.push({
-        title: `Dựng tập ${ep} ${filmName}`,
+        title: `Dựng phim ${filmName} — Tập ${ep}`,
         description: `Hậu kỳ tập ${ep} — ${filmName}`,
         totalSalary: 3_000_000,
         month: ym,
         isOnSite: false,
       });
     }
-
-    // Tại chỗ — hết hạn cuối ngày quay
-    for (let i = 1; i <= 2; i++) {
-      jobs.push({ title: `Quay phim ${filmName} (Máy ${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 1_200_000, month: ym, expiresAt, isOnSite: true });
-      jobs.push({ title: `Ánh sáng ${filmName} (${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 700_000, month: ym, expiresAt, isOnSite: true });
-    }
-    jobs.push({ title: `Âm thanh ${filmName}`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 1_000_000, month: ym, expiresAt, isOnSite: true });
 
     return { groupName: `Ngày quay ${filmName} ${day}/${month}`, jobs };
   }
@@ -887,10 +895,10 @@ export default function Home() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Mô tả sự kiện</label>
                 <textarea value={groupInput} onChange={(e) => setGroupInput(e.target.value)}
-                  rows={3} placeholder={"Ví dụ:\nNgày quay Sát Giới 27/2 Tập 1 2"}
+                  rows={3} placeholder={"Ví dụ:\nNgày quay Sát Giới 27/2 Tập 1 2\nNgày quay Hào Kiệt 5/3 Tập 5"}
                   className="w-full border border-gray-300 rounded-xl p-3 text-sm resize-none focus:ring-2 focus:ring-purple-500 outline-none"
                 />
-                <p className="text-xs text-gray-400 mt-1">Mô tả bằng tiếng Việt, AI sẽ tự sinh danh sách job phù hợp.</p>
+                <p className="text-xs text-gray-400 mt-1">Nhập tên phim, ngày quay, số tập — AI tự tạo đủ 7 job tại chỗ + job dựng mỗi tập.</p>
               </div>
               {aiError && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600 flex items-start gap-2">

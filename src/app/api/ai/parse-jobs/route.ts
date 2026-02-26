@@ -18,13 +18,25 @@ Từ mô tả sự kiện, hãy trả về JSON hợp lệ (không markdown, kh�
   ]
 }
 
+Cấu trúc chuẩn cho 1 ngày quay phim (LUÔN tạo đúng thứ tự và số lượng này):
+
+[TẠI CHỖ — isOnSite=true, expiresAt=cuối ngày quay]
+1. Đạo diễn <tên phim> (1) — 3.000.000đ
+2. Đạo diễn <tên phim> (2) — 3.000.000đ
+3. Quay phim <tên phim> (Máy 1) — 1.200.000đ
+4. Quay phim <tên phim> (Máy 2) — 1.200.000đ
+5. Ánh sáng <tên phim> (1) — 800.000đ
+6. Ánh sáng <tên phim> (2) — 800.000đ
+7. Thu âm hiện trường <tên phim> — 1.000.000đ
+
+[HẬU KỲ — isOnSite=false, expiresAt=null, mỗi tập = 1 job riêng]
+8+. Dựng phim <tên phim> — Tập <N> — 3.000.000đ/tập (tạo N job nếu có N tập)
+
 Quy tắc:
-- Job "tại chỗ" (quay phim, ánh sáng, âm thanh, đạo cụ, make-up, hậu trường...): isOnSite=true, expiresAt=cuối ngày sự kiện
-- Job "hậu kỳ" (dựng phim, color, mix âm thanh, motion graphic...): isOnSite=false, expiresAt=null
-- Lương tham khảo: quay phim 1.2tr/ngày, ánh sáng 700k/người, âm thanh 1tr, dựng 3tr/tập, color 1.5tr/tập
-- Tạo đủ job cho 1 ngày quay thực tế (ít nhất: quay×2, ánh sáng×2, âm thanh×1, dựng×số tập)
 - Số tiền là số nguyên VNĐ, không có dấu phẩy
-- expiresAt phải là ISO 8601 (cuối ngày: T23:59:59.000Z) hoặc null`;
+- expiresAt phải là ISO 8601 (cuối ngày sự kiện: T16:59:59.000Z tức 23:59 giờ VN) hoặc null
+- Nếu không đề cập số tập → tạo 1 job dựng duy nhất
+- groupName ngắn gọn, ví dụ: "Ngày quay Sát Giới 27/2"`;
 
 export async function POST(req: Request) {
   if (!GEMINI_API_KEY) {
