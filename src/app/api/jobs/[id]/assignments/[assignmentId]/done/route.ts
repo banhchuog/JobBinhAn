@@ -8,7 +8,7 @@ export async function POST(
   try {
     const { id, assignmentId } = await params;
 
-    const job = getJobById(id);
+    const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
     const assignments = job.assignments.map((a) =>
@@ -18,7 +18,7 @@ export async function POST(
     );
 
     const updatedJob = { ...job, assignments };
-    updateJob(updatedJob);
+    await updateJob(updatedJob);
     return NextResponse.json(updatedJob);
   } catch {
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });

@@ -4,7 +4,7 @@ import { Employee } from "@/types";
 
 export async function GET() {
   try {
-    return NextResponse.json(getAllEmployees());
+    return NextResponse.json(await getAllEmployees());
   } catch {
     return NextResponse.json({ error: "Không thể đọc dữ liệu" }, { status: 500 });
   }
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       name: body.name,
       balance: 0,
     };
-    return NextResponse.json(createEmployee(employee), { status: 201 });
+    return NextResponse.json(await createEmployee(employee), { status: 201 });
   } catch {
     return NextResponse.json({ error: "Không thể tạo nhân viên" }, { status: 500 });
   }

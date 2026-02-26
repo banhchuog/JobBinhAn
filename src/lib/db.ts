@@ -1,97 +1,80 @@
-import fs from "fs";
-import path from "path";
+import { Pool } from "pg";
 import { Job, Employee } from "@/types";
 
-const DB_PATH = path.join(process.cwd(), "data", "db.json");
+let _pool: Pool | null = null;
 
-interface Database {
-  employees: Employee[];
-  jobs: Job[];
+function getPool(): Pool {
+  if (!_pool) {
+    _pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+  return _pool;
 }
 
-export function readDb(): Database {
-  const raw = fs.readFileSync(DB_PATH, "utf-8");
-  return JSON.parse(raw) as Database;
+// ─── Schema init ───────────────────────────────────────
+export async function initSchema(): Promise<void> {
+  const pool = getPool();
+  await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
 }
 
-export function writeDb(data: Database): void {
-  fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
-}
-
-// ─── Jobs ─────────────────────────────────────────────
-export function getAllJobs(): Job[] {
+// ─── Jobs ──────────────────────────────────────────────
+export async function getAllJobs(): Promise<Job[]> {
   const now = new Date();
-  return readDb().jobs
-    .map((j) => ({
-      ...j,
-      month: j.month ?? j.createdAt.slice(0, 7),
-    }))
+  const { rows } = await getPool().query(`SELECT data FROM jobs ORDER BY (data->>'createdAt') DESC`);
+  return rows
+    .map((r) => r.data as Job)
+    .map((j) => ({ ...j, month: j.month ?? j.createdAt.slice(0, 7) }))
     .filter((j) => {
-      // Auto-ẩn job tại chỗ còn OPEN đã qua ngày hết hạn
       if (j.expiresAt && j.status === "OPEN" && new Date(j.expiresAt) < now) return false;
       return true;
     });
 }
 
-export function createJob(job: Job): Job {
-  const db = readDb();
-  db.jobs = [job, ...db.jobs];
-  writeDb(db);
+export async function createJob(job: Job): Promise<Job> {
+  await getPool().query(`INSERT INTO jobs (id, data) VALUES ($1, $2)`, [job.id, JSON.stringify(job)]);
   return job;
 }
 
-export function updateJob(updatedJob: Job): Job | null {
-  const db = readDb();
-  const index = db.jobs.findIndex((j) => j.id === updatedJob.id);
-  if (index === -1) return null;
-  db.jobs[index] = updatedJob;
-  writeDb(db);
-  return updatedJob;
+export async function updateJob(updatedJob: Job): Promise<Job | null> {
+  const { rowCount } = await getPool().query(`UPDATE jobs SET data = $1 WHERE id = $2`, [JSON.stringify(updatedJob), updatedJob.id]);
+  return (rowCount ?? 0) > 0 ? updatedJob : null;
 }
 
-export function getJobById(id: string): Job | null {
-  return readDb().jobs.find((j) => j.id === id) ?? null;
+export async function getJobById(id: string): Promise<Job | null> {
+  const { rows } = await getPool().query(`SELECT data FROM jobs WHERE id = $1`, [id]);
+  return rows.length > 0 ? (rows[0].data as Job) : null;
 }
 
-export function deleteJob(id: string): boolean {
-  const db = readDb();
-  const before = db.jobs.length;
-  db.jobs = db.jobs.filter((j) => j.id !== id);
-  if (db.jobs.length === before) return false;
-  writeDb(db);
-  return true;
+export async function deleteJob(id: string): Promise<boolean> {
+  const { rowCount } = await getPool().query(`DELETE FROM jobs WHERE id = $1`, [id]);
+  return (rowCount ?? 0) > 0;
 }
 
-// ─── Employees ────────────────────────────────────────
-export function getAllEmployees(): Employee[] {
-  return readDb().employees;
+// ─── Employees ─────────────────────────────────────────
+export async function getAllEmployees(): Promise<Employee[]> {
+  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance FROM employees ORDER BY name`);
+  return rows as Employee[];
 }
 
-export function createEmployee(employee: Employee): Employee {
-  const db = readDb();
-  db.employees = [...db.employees, employee];
-  writeDb(db);
+export async function getEmployeeById(id: string): Promise<Employee | null> {
+  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance FROM employees WHERE id = $1`, [id]);
+  return rows.length > 0 ? (rows[0] as Employee) : null;
+}
+
+export async function createEmployee(employee: Employee): Promise<Employee> {
+  await getPool().query(`INSERT INTO employees (id, name, balance) VALUES ($1, $2, $3)`, [employee.id, employee.name, employee.balance]);
   return employee;
 }
 
-export function updateEmployee(updated: Employee): Employee | null {
-  const db = readDb();
-  const index = db.employees.findIndex((e) => e.id === updated.id);
-  if (index === -1) return null;
-  db.employees[index] = updated;
-  writeDb(db);
-  return updated;
+export async function updateEmployee(updated: Employee): Promise<Employee | null> {
+  const { rowCount } = await getPool().query(`UPDATE employees SET name = $1, balance = $2 WHERE id = $3`, [updated.name, updated.balance, updated.id]);
+  return (rowCount ?? 0) > 0 ? updated : null;
 }
 
-export function deleteEmployee(id: string): boolean {
-  const db = readDb();
-  const before = db.employees.length;
-  db.employees = db.employees.filter((e) => e.id !== id);
-  if (db.employees.length === before) return false;
-  writeDb(db);
-  return true;
-}
-
-export function getEmployeeById(id: string): Employee | null {
-  return readDb().employees.find((e) => e.id === id) ?? null;
+export async function deleteEmployee(id: string): Promise<boolean> {
+  const { rowCount } = await getPool().query(`DELETE FROM employees WHERE id = $1`, [id]);
+  return (rowCount ?? 0) > 0;
 }

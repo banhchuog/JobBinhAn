@@ -4,7 +4,7 @@ import { Job } from "@/types";
 
 export async function GET() {
   try {
-    const jobs = getAllJobs();
+    const jobs = await getAllJobs();
     return NextResponse.json(jobs);
   } catch {
     return NextResponse.json({ error: "Không thể đọc dữ liệu" }, { status: 500 });
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
       ...(body.groupId ? { groupId: body.groupId } : {}),
       ...(body.groupName ? { groupName: body.groupName } : {}),
     };
-    const created = createJob(job);
+    const created = await createJob(job);
     return NextResponse.json(created, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Không thể tạo job" }, { status: 500 });

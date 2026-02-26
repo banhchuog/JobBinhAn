@@ -8,7 +8,7 @@ export async function POST(
   try {
     const { id, assignmentId } = await params;
 
-    const job = getJobById(id);
+    const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
     const assignment = job.assignments.find((a) => a.id === assignmentId);
@@ -31,12 +31,12 @@ export async function POST(
       assignments,
       status: allApproved ? ("COMPLETED" as const) : job.status,
     };
-    updateJob(updatedJob);
+    await updateJob(updatedJob);
 
     // Credit salary to employee balance
-    const employee = getEmployeeById(assignment.employeeId);
+    const employee = await getEmployeeById(assignment.employeeId);
     if (employee) {
-      updateEmployee({ ...employee, balance: employee.balance + assignment.salaryEarned });
+      await updateEmployee({ ...employee, balance: employee.balance + assignment.salaryEarned });
     }
 
     return NextResponse.json(updatedJob);

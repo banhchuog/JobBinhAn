@@ -37,7 +37,7 @@ export async function POST(req: Request) {
         ...(item.groupName ? { groupName: item.groupName } : {}),
         ...(item.expiresAt ? { expiresAt: item.expiresAt } : {}),
       };
-      createJob(job);
+      await createJob(job);
       created.push(job);
     }
 

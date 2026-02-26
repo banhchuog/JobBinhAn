@@ -8,9 +8,9 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const employee = getEmployeeById(id);
+    const employee = await getEmployeeById(id);
     if (!employee) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });
-    const updated = updateEmployee({ ...employee, name: body.name ?? employee.name });
+    const updated = await updateEmployee({ ...employee, name: body.name ?? employee.name });
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });
@@ -23,7 +23,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const ok = deleteEmployee(id);
+    const ok = await deleteEmployee(id);
     if (!ok) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch {

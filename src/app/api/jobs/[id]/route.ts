@@ -7,7 +7,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const ok = deleteJob(id);
+    const ok = await deleteJob(id);
     if (!ok) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch {

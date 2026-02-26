@@ -10,7 +10,7 @@ export async function POST(
     const { id } = await params;
     const { employeeId, employeeName, percentage } = await req.json();
 
-    const job = getJobById(id);
+    const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
     const currentTotal = job.assignments.reduce((acc, a) => acc + a.percentage, 0);
@@ -37,7 +37,7 @@ export async function POST(
       status: "IN_PROGRESS" as const,
     };
 
-    updateJob(updatedJob);
+    await updateJob(updatedJob);
     return NextResponse.json(updatedJob);
   } catch {
     return NextResponse.json({ error: "Không thể nhận job" }, { status: 500 });
