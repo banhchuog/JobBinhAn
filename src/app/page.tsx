@@ -159,8 +159,10 @@ export default function Home() {
         fetch("/api/jobs"),
         fetch("/api/employees"),
       ]);
-      setJobs(await jobsRes.json());
-      setEmployees(await empRes.json());
+      if (jobsRes.ok) setJobs(await jobsRes.json());
+      if (empRes.ok) setEmployees(await empRes.json());
+    } catch {
+      // ignore network errors, keep existing state
     } finally {
       setLoading(false);
     }
