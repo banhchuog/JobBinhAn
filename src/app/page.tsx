@@ -1202,8 +1202,11 @@ export default function Home() {
 
           const openJobs = jobs.filter((job) => {
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
-            // Hiện trên chợ nếu còn % chưa được nhận (kể cả khi mình đang làm 1 phần)
-            return claimed < 100;
+            // Ẩn khỏi chợ nếu mình đang chờ duyệt trên job này
+            const myPending = job.assignments.some(
+              (a) => a.employeeId === currentEmployee?.id && a.status === "PENDING_APPROVAL"
+            );
+            return claimed < 100 && !myPending;
           });
 
           const myActiveJobs = jobs.filter((job) =>
