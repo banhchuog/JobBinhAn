@@ -203,13 +203,6 @@ export default function Home() {
     if (view !== "LOGIN") fetchAll();
   }, [view, fetchAll]);
 
-  // Auto-refresh mọi 30s khi đang đăng nhập
-  useEffect(() => {
-    if (view === "LOGIN") return;
-    const id = setInterval(() => fetchAll(), 30_000);
-    return () => clearInterval(id);
-  }, [view, fetchAll]);
-
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 
