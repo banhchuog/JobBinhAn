@@ -153,7 +153,7 @@ export default function Home() {
   const [newJobDesc, setNewJobDesc] = useState("");
   const [newJobSalary, setNewJobSalary] = useState("");
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [directorTab, setDirectorTab] = useState<"jobs" | "employees" | "approvals" | "salary">("jobs");
+  const [directorTab, setDirectorTab] = useState<"jobs" | "employees" | "approvals" | "salary" | "finance">("jobs");
 
   // ── Employee State ───────────────────────────────────
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
@@ -770,7 +770,7 @@ export default function Home() {
           </div>
           {/* Tabs */}
           <div className="max-w-5xl mx-auto px-4 flex gap-1 pb-2 overflow-x-auto hide-scrollbar">
-            {(["jobs", "employees", "approvals", "salary"] as const).map((tab) => (
+            {(["jobs", "employees", "approvals", "salary", "finance"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setDirectorTab(tab)}
@@ -779,6 +779,7 @@ export default function Home() {
                 {tab === "jobs" && "Jobs"}
                 {tab === "employees" && <span><span className="sm:hidden">NV</span><span className="hidden sm:inline">Nhân viên</span></span>}
                 {tab === "salary" && <span><span className="sm:hidden">Lương</span><span className="hidden sm:inline">Bảng lương</span></span>}
+                {tab === "finance" && <span><span className="sm:hidden">TC</span><span className="hidden sm:inline">Thu Chi</span></span>}
                 {tab === "approvals" && (
                   <span className="flex items-center justify-center gap-1">
                     Duyệt
@@ -1392,9 +1393,146 @@ export default function Home() {
               return { emp, approved, pending, totalApproved, totalPending };
             }).filter((r) => r.approved.length > 0 || r.pending.length > 0);
 
-            const grandTotalSalary = rows.reduce((s, r) => s + r.totalApproved, 0);
+            const grandTotal = rows.reduce((s, r) => s + r.totalApproved, 0);
 
-            // ── Thu Chi data cho tháng đang chọn ──
+            return (
+              <div className="space-y-5">
+                {/* Chọn tháng */}
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
+                    {salaryMonths.map((ym) => (
+                      <button key={ym} onClick={() => setDirectorMonth(ym)}
+                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${directorMonth === ym ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                        {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Bảng lương nhân viên ── */}
+                <div className="bg-blue-600 text-white rounded-xl p-4 flex justify-between items-center">
+                  <div>
+                    <p className="text-blue-200 text-sm">Tổng chi — {monthLabel(directorMonth)}</p>
+                    <p className="text-2xl font-black tracking-tight">{formatCurrency(grandTotal)}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => {
+                      const lines = [`Bảng lương ${monthLabel(directorMonth)}`, ""];
+                      rows.forEach(({ emp, approved, totalApproved }) => {
+                        lines.push(`${emp.name}: ${totalApproved.toLocaleString("vi-VN")} đ`);
+                        approved.forEach(({ job, assignment }) => {
+                          lines.push(`  - ${job.title} (${job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`}): ${assignment.salaryEarned.toLocaleString("vi-VN")} đ${assignment.note ? ` [${assignment.note}]` : ""}`);
+                        });
+                        lines.push("");
+                      });
+                      lines.push(`Tổng: ${grandTotal.toLocaleString("vi-VN")} đ`);
+                      navigator.clipboard.writeText(lines.join("\n"));
+                      setCopySuccess(true);
+                      setTimeout(() => setCopySuccess(false), 2000);
+                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Copy văn bản">
+                      {copySuccess ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                    </button>
+                    <button onClick={() => {
+                      const header = "Nhân viên,Job,Phần trăm,Số tiền,Ngày duyệt,Ghi chú";
+                      const csvRows = rows.flatMap(({ emp, approved }) =>
+                        approved.map(({ job, assignment }) =>
+                          `"${emp.name}","${job.title}",${assignment.percentage},${assignment.salaryEarned},"${assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : ""}","${assignment.note || ""}"`
+                        )
+                      );
+                      const csv = [header, ...csvRows].join("\n");
+                      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url;
+                      a.download = `bang-luong-${directorMonth}.csv`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải CSV">
+                      <Download className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Bảng từng nhân viên */}
+                {rows.length === 0 ? (
+                  <EmptyBlock text={`Không có dữ liệu lương tháng ${monthLabel(directorMonth)}.`} />
+                ) : (
+                  <div className="grid gap-4">
+                    {rows.map(({ emp, approved, pending, totalApproved, totalPending }) => (
+                      <div key={emp.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                        <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm shrink-0">
+                              {emp.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-semibold">{emp.name}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-green-700 font-black">{formatCurrency(totalApproved)}</p>
+                            {totalPending > 0 && <p className="text-xs text-amber-600">+{formatCurrency(totalPending)} chờ duyệt</p>}
+                          </div>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                          {approved.map(({ job, assignment }) => (
+                            <div key={assignment.id} className="px-4 py-2.5 text-sm">
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate">{job.title}</p>
+                                  <p className="text-gray-400 text-xs">
+                                    {job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`} · Duyệt {assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : "—"}
+                                  </p>
+                                  {assignment.note && <p className="text-blue-600 text-xs mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{assignment.note}</p>}
+                                </div>
+                                <span className="text-green-600 font-semibold ml-3 shrink-0">{formatCurrency(assignment.salaryEarned)}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {pending.map(({ job, assignment }) => (
+                            <div key={assignment.id} className="flex justify-between items-center px-4 py-2.5 text-sm bg-amber-50/40">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate text-gray-500">{job.title}</p>
+                                <p className="text-amber-500 text-xs">{assignment.percentage}% · <StatusBadge status={assignment.status} /></p>
+                              </div>
+                              <span className="text-amber-500 font-semibold ml-3 shrink-0">{formatCurrency(assignment.salaryEarned)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Tab Thu Chi ── */}
+          {directorTab === "finance" && (() => {
+            // Danh sách tháng (giống tab lương)
+            const salaryMonths = (() => {
+              const s = new Set<string>([currentYM()]);
+              jobs.forEach((job) => {
+                const jm = job.month || job.createdAt.slice(0, 7);
+                s.add(jm);
+                job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt)); });
+              });
+              return Array.from(s).sort().reverse();
+            })();
+
+            // Tổng lương nhân viên tháng đang chọn
+            const salaryRows = employees.map((emp) => {
+              const approved = jobs.flatMap((job) =>
+                job.assignments.filter((a) => {
+                  if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
+                  const jm = job.month || job.createdAt.slice(0, 7);
+                  return getSalaryMonth(jm, a.approvedAt) === directorMonth;
+                }).map((a) => ({ job, assignment: a }))
+              );
+              const totalApproved = approved.reduce((s, x) => s + x.assignment.salaryEarned, 0);
+              return { emp, approved, totalApproved };
+            }).filter((r) => r.approved.length > 0);
+
+            const grandTotalSalary = salaryRows.reduce((s, r) => s + r.totalApproved, 0);
+
+            // Thu Chi data cho tháng đang chọn
             const thuChiMonth = thuChiData
               ? thuChiData.filter((t) => t.date?.startsWith(directorMonth))
               : null;
@@ -1494,7 +1632,7 @@ export default function Home() {
                       <p className="font-semibold text-sm text-gray-800">📋 Giao dịch {monthLabel(directorMonth)}</p>
                       <span className="text-xs text-gray-400">{thuChiMonth?.length} giao dịch</span>
                     </div>
-                    <div className="divide-y divide-gray-50 max-h-60 overflow-y-auto">
+                    <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
                       {thuChiMonth?.map((t) => (
                         <div key={t.id} className="flex items-center justify-between px-4 py-2.5 gap-2">
                           <div className="flex-1 min-w-0">
@@ -1507,13 +1645,15 @@ export default function Home() {
                         </div>
                       ))}
                       {/* Lương nhân viên tổng hợp */}
-                      <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-blue-700">👥 Lương nhân viên ({rows.length} người)</p>
-                          <p className="text-xs text-blue-400">Job Bình An — đã duyệt</p>
+                      {grandTotalSalary > 0 && (
+                        <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-blue-700">👥 Lương nhân viên ({salaryRows.length} người)</p>
+                            <p className="text-xs text-blue-400">Job Bình An — đã duyệt</p>
+                          </div>
+                          <span className="font-bold text-sm text-red-500 shrink-0">–{formatCurrency(grandTotalSalary)}</span>
                         </div>
-                        <span className="font-bold text-sm text-red-500 shrink-0">–{formatCurrency(grandTotalSalary)}</span>
-                      </div>
+                      )}
                     </div>
                     {/* Tổng dòng cuối */}
                     <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
@@ -1523,95 +1663,9 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* ── Bảng lương nhân viên ── */}
-                <div className="bg-blue-600 text-white rounded-xl p-4 flex justify-between items-center">
-                  <div>
-                    <p className="text-blue-200 text-sm">Lương nhân viên — {monthLabel(directorMonth)}</p>
-                    <p className="text-2xl font-black tracking-tight">{formatCurrency(grandTotalSalary)}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => {
-                      const lines = [`Bảng lương ${monthLabel(directorMonth)}`, ""];
-                      rows.forEach(({ emp, approved, totalApproved }) => {
-                        lines.push(`${emp.name}: ${totalApproved.toLocaleString("vi-VN")} đ`);
-                        approved.forEach(({ job, assignment }) => {
-                          lines.push(`  - ${job.title} (${job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`}): ${assignment.salaryEarned.toLocaleString("vi-VN")} đ${assignment.note ? ` [${assignment.note}]` : ""}`);
-                        });
-                        lines.push("");
-                      });
-                      lines.push(`Tổng: ${grandTotalSalary.toLocaleString("vi-VN")} đ`);
-                      navigator.clipboard.writeText(lines.join("\n"));
-                      setCopySuccess(true);
-                      setTimeout(() => setCopySuccess(false), 2000);
-                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Copy văn bản">
-                      {copySuccess ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                    </button>
-                    <button onClick={() => {
-                      const header = "Nhân viên,Job,Phần trăm,Số tiền,Ngày duyệt,Ghi chú";
-                      const csvRows = rows.flatMap(({ emp, approved }) =>
-                        approved.map(({ job, assignment }) =>
-                          `"${emp.name}","${job.title}",${assignment.percentage},${assignment.salaryEarned},"${assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : ""}","${assignment.note || ""}"`
-                        )
-                      );
-                      const csv = [header, ...csvRows].join("\n");
-                      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a"); a.href = url;
-                      a.download = `bang-luong-${directorMonth}.csv`;
-                      a.click(); URL.revokeObjectURL(url);
-                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải CSV">
-                      <Download className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bảng từng nhân viên */}
-                {rows.length === 0 ? (
-                  <EmptyBlock text={`Không có dữ liệu lương tháng ${monthLabel(directorMonth)}.`} />
-                ) : (
-                  <div className="grid gap-4">
-                    {rows.map(({ emp, approved, pending, totalApproved, totalPending }) => (
-                      <div key={emp.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                        <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm shrink-0">
-                              {emp.name.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="font-semibold">{emp.name}</span>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-green-700 font-black">{formatCurrency(totalApproved)}</p>
-                            {totalPending > 0 && <p className="text-xs text-amber-600">+{formatCurrency(totalPending)} chờ duyệt</p>}
-                          </div>
-                        </div>
-                        <div className="divide-y divide-gray-50">
-                          {approved.map(({ job, assignment }) => (
-                            <div key={assignment.id} className="px-4 py-2.5 text-sm">
-                              <div className="flex justify-between items-start gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium truncate">{job.title}</p>
-                                  <p className="text-gray-400 text-xs">
-                                    {job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`} · Duyệt {assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : "—"}
-                                  </p>
-                                  {assignment.note && <p className="text-blue-600 text-xs mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{assignment.note}</p>}
-                                </div>
-                                <span className="text-green-600 font-semibold ml-3 shrink-0">{formatCurrency(assignment.salaryEarned)}</span>
-                              </div>
-                            </div>
-                          ))}
-                          {pending.map(({ job, assignment }) => (
-                            <div key={assignment.id} className="flex justify-between items-center px-4 py-2.5 text-sm bg-amber-50/40">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate text-gray-500">{job.title}</p>
-                                <p className="text-amber-500 text-xs">{assignment.percentage}% · <StatusBadge status={assignment.status} /></p>
-                              </div>
-                              <span className="text-amber-500 font-semibold ml-3 shrink-0">{formatCurrency(assignment.salaryEarned)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {/* Gợi ý khi chưa kết nối */}
+                {!thuChiData && !thuChiUrl && (
+                  <EmptyBlock text="Kết nối app Thu Chi để xem báo cáo tài chính tổng hợp." />
                 )}
               </div>
             );
