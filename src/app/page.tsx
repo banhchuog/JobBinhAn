@@ -138,7 +138,12 @@ function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] }
 
 
 export default function Home() {
-  const [view, setView] = useState<View>("LOGIN");
+  const [view, setView] = useState<View>(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("director_session") === "1") {
+      return "DIRECTOR";
+    }
+    return "LOGIN";
+  });
   const [directorPassInput, setDirectorPassInput] = useState("");
   const [passError, setPassError] = useState(false);
 
@@ -303,6 +308,7 @@ export default function Home() {
       setView("DIRECTOR");
       setPassError(false);
       setDirectorPassInput("");
+      localStorage.setItem("director_session", "1");
     } else {
       setPassError(true);
     }
@@ -318,6 +324,7 @@ export default function Home() {
     setView("LOGIN");
     setCurrentEmployee(null);
     localStorage.removeItem("savedEmployeeId");
+    localStorage.removeItem("director_session");
   };
 
   // ─── Director: Create Job (postprod lẻ) ─────────────
