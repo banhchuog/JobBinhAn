@@ -1608,16 +1608,88 @@ export default function Home() {
 
             return (
               <div className="space-y-5">
-                {/* Sub-tab toggle */}
-                <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
-                  <button onClick={() => setFinanceView("month")}
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "month" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                    📅 Chi tiết tháng
-                  </button>
-                  <button onClick={() => setFinanceView("report")}
-                    className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "report" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                    📊 Báo cáo tổng hợp
-                  </button>
+                {/* Sub-tab toggle + export */}
+                <div className="flex gap-2 items-center">
+                  <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-1">
+                    <button onClick={() => setFinanceView("month")}
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "month" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+                      📅 Chi tiết tháng
+                    </button>
+                    <button onClick={() => setFinanceView("report")}
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "report" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+                      📊 Báo cáo tổng hợp
+                    </button>
+                  </div>
+                  {/* Nút xuất CSV */}
+                  {(thuChiData || revenueData) && (
+                    <button
+                      title={financeView === "month" ? `Xuất CSV tháng ${directorMonth}` : "Xuất CSV tổng hợp"}
+                      onClick={() => {
+                        if (financeView === "month") {
+                          // Xuất chi tiết tháng
+                          const header = "Loại,Nội dung,Ngày,Số tiền (VND),Ghi chú";
+                          const rows: string[] = [];
+                          if (anhEmPhimThu > 0) {
+                            rows.push(`Thu,anhemphim.vn,${directorMonth},${anhEmPhimThu},Doanh thu dịch vụ online`);
+                          }
+                          (thuChiData?.filter((t) => t.date?.startsWith(directorMonth)) ?? []).forEach((t) => {
+                            const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+                            rows.push(`${t.type},"${t.subject}",${t.date},${t.type === "Chi" ? -amt : amt},"${t.note ?? ""}"`);
+                          });
+                          if (grandTotalSalary > 0) {
+                            rows.push(`Chi,Lương nhân viên,${directorMonth},${-grandTotalSalary},${salaryRows.length} người`);
+                          }
+                          const csv = [header, ...rows].join("\n");
+                          const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                          const a = document.createElement("a");
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `tai-chinh-${directorMonth}.csv`;
+                          a.click();
+                        } else {
+                          // Xuất báo cáo tổng hợp
+                          const header = "Tháng,AEP (VND),Thu khác (VND),Chi khác (VND),Lương (VND),Lợi nhuận (VND),VAT 8% (VND),TNCN 3% (VND),TNDN 18% (VND)";
+                          const rows = reportRows.map((r) => {
+                            const totalThu = r.revYm + r.thuChiThu;
+                            const totalChi = r.chi + r.salary;
+                            return [
+                              r.ym,
+                              r.revYm,
+                              r.thuChiThu,
+                              r.chi,
+                              r.salary,
+                              r.loiNhuan,
+                              Math.round(totalThu * 0.08),
+                              Math.round(totalChi * 0.03),
+                              r.loiNhuan > 0 ? Math.round(r.loiNhuan * 0.18) : 0,
+                            ].join(",");
+                          });
+                          const totThu = reportRows.reduce((s, r) => s + r.revYm + r.thuChiThu, 0);
+                          const totChi = reportRows.reduce((s, r) => s + r.chi + r.salary, 0);
+                          const totProfit = reportRows.reduce((s, r) => s + r.loiNhuan, 0);
+                          rows.push([
+                            "TỔNG CỘNG",
+                            reportRows.reduce((s, r) => s + r.revYm, 0),
+                            reportRows.reduce((s, r) => s + r.thuChiThu, 0),
+                            reportRows.reduce((s, r) => s + r.chi, 0),
+                            reportRows.reduce((s, r) => s + r.salary, 0),
+                            totProfit,
+                            Math.round(totThu * 0.08),
+                            Math.round(totChi * 0.03),
+                            totProfit > 0 ? Math.round(totProfit * 0.18) : 0,
+                          ].join(","));
+                          const csv = [header, ...rows].join("\n");
+                          const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                          const a = document.createElement("a");
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `bao-cao-tai-chinh-${reportRows[0]?.ym ?? ""}-${reportRows[reportRows.length - 1]?.ym ?? ""}.csv`;
+                          a.click();
+                        }
+                      }}
+                      className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-colors shrink-0"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* ── Trạng thái kết nối Thu Chi (qua Railway env vars) ── */}
