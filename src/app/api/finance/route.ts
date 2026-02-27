@@ -13,11 +13,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Chưa cấu hình URL app thu chi" }, { status: 400 });
   }
 
+  const apiKey =
+    searchParams.get("apiKey") ||
+    process.env.THUCHI_API_KEY ||
+    "";
+
   try {
-    const url = `${baseUrl.replace(/\/$/, "")}/api/transactions`;
+    const url = `${baseUrl.replace(/\/$/, "")}/api/v1/transactions`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (apiKey) headers["X-Api-Key"] = apiKey;
     const res = await fetch(url, {
-      headers: { "Content-Type": "application/json" },
-      // timeout 8s
+      headers,
       signal: AbortSignal.timeout(8000),
     });
 

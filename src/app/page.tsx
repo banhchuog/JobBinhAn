@@ -219,6 +219,11 @@ export default function Home() {
     return "";
   });
   const [thuChiUrlInput, setThuChiUrlInput] = useState("");
+  const [thuChiApiKey, setThuChiApiKey] = useState<string>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("thuChiApiKey") || "";
+    return "";
+  });
+  const [thuChiApiKeyInput, setThuChiApiKeyInput] = useState("");
   const [thuChiData, setThuChiData] = useState<ThuChiTransaction[] | null>(null);
   const [thuChiLoading, setThuChiLoading] = useState(false);
   const [thuChiError, setThuChiError] = useState<string | null>(null);
@@ -276,6 +281,14 @@ export default function Home() {
   useEffect(() => {
     if (view !== "LOGIN") fetchAll();
   }, [view, fetchAll]);
+
+  // Tự load dữ liệu thu chi khi đã có URL + API key lưu sẵn
+  useEffect(() => {
+    const savedUrl = typeof window !== "undefined" ? localStorage.getItem("thuChiUrl") || "" : "";
+    const savedKey = typeof window !== "undefined" ? localStorage.getItem("thuChiApiKey") || "" : "";
+    if (savedUrl && savedKey) fetchThuChi(savedUrl, savedKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -577,18 +590,23 @@ export default function Home() {
   };
 
   // ─── Director: Fetch Thu Chi data ──────────────────────
-  const fetchThuChi = async (url: string) => {
+  const fetchThuChi = async (url: string, apiKey: string) => {
     const clean = url.trim().replace(/\/$/, "");
-    if (!clean) return;
+    const cleanKey = apiKey.trim();
+    if (!clean || !cleanKey) return;
     setThuChiLoading(true);
     setThuChiError(null);
     try {
-      const res = await fetch(`/api/finance?baseUrl=${encodeURIComponent(clean)}`);
+      const res = await fetch(`/api/finance?baseUrl=${encodeURIComponent(clean)}&apiKey=${encodeURIComponent(cleanKey)}`);
       const data = await res.json();
       if (!res.ok) { setThuChiError(data.error || "Lỗi kết nối"); return; }
       setThuChiData(data);
       setThuChiUrl(clean);
-      if (typeof window !== "undefined") localStorage.setItem("thuChiUrl", clean);
+      setThuChiApiKey(cleanKey);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("thuChiUrl", clean);
+        localStorage.setItem("thuChiApiKey", cleanKey);
+      }
     } catch {
       setThuChiError("Không kết nối được tới app thu chi");
     } finally {
@@ -1565,7 +1583,7 @@ export default function Home() {
                       {thuChiUrl && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Đã kết nối</span>}
                     </div>
                     {thuChiUrl && (
-                      <button onClick={() => fetchThuChi(thuChiUrl)} disabled={thuChiLoading}
+                      <button onClick={() => fetchThuChi(thuChiUrl, thuChiApiKey)} disabled={thuChiLoading}
                         className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-50">
                         <RefreshCw className={`w-3 h-3 ${thuChiLoading ? "animate-spin" : ""}`} /> Tải lại
                       </button>
@@ -1573,25 +1591,38 @@ export default function Home() {
                   </div>
                   <div className="p-4">
                     {!thuChiUrl ? (
-                      <div className="flex gap-2">
+                      <div className="space-y-2">
                         <input
                           type="url"
                           value={thuChiUrlInput}
                           onChange={(e) => setThuChiUrlInput(e.target.value)}
-                          placeholder="https://thu-chi.up.railway.app"
-                          className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                          placeholder="URL app (vd: https://thuchi.up.railway.app)"
+                          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
                         />
-                        <button
-                          onClick={() => fetchThuChi(thuChiUrlInput)}
-                          disabled={!thuChiUrlInput.trim() || thuChiLoading}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5">
-                          {thuChiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Kết nối"}
-                        </button>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            value={thuChiApiKeyInput}
+                            onChange={(e) => setThuChiApiKeyInput(e.target.value)}
+                            placeholder="API Key (từ trang cài đặt app Thu Chi)"
+                            className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+                            onKeyDown={(e) => { if (e.key === "Enter" && thuChiUrlInput.trim() && thuChiApiKeyInput.trim()) fetchThuChi(thuChiUrlInput, thuChiApiKeyInput); }}
+                          />
+                          <button
+                            onClick={() => fetchThuChi(thuChiUrlInput, thuChiApiKeyInput)}
+                            disabled={!thuChiUrlInput.trim() || !thuChiApiKeyInput.trim() || thuChiLoading}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 shrink-0">
+                            {thuChiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Kết nối"}
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-gray-400 truncate">{thuChiUrl}</p>
-                        <button onClick={() => { setThuChiUrl(""); setThuChiData(null); setThuChiUrlInput(""); localStorage.removeItem("thuChiUrl"); }}
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 truncate">{thuChiUrl}</p>
+                          <p className="text-xs text-gray-400 font-mono mt-0.5">{thuChiApiKey.slice(0, 8)}••••••••</p>
+                        </div>
+                        <button onClick={() => { setThuChiUrl(""); setThuChiApiKey(""); setThuChiData(null); setThuChiUrlInput(""); setThuChiApiKeyInput(""); localStorage.removeItem("thuChiUrl"); localStorage.removeItem("thuChiApiKey"); }}
                           className="text-xs text-red-500 hover:underline shrink-0">Huỷ kết nối</button>
                       </div>
                     )}
