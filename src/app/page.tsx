@@ -1038,21 +1038,68 @@ export default function Home() {
               </div>
 
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <h2 className="text-lg font-semibold">Danh sách Job</h2>
-                  <div className="relative flex-1 max-w-xs">
+                {/* ── Toolbar: search + sort ── */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <h2 className="text-lg font-semibold shrink-0">Danh sách Job</h2>
+                  <div className="relative flex-1 min-w-[140px] max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input type="text" value={jobSearch} onChange={(e) => setJobSearch(e.target.value)}
                       className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                       placeholder="Tìm job..." />
                     {jobSearch && <button onClick={() => setJobSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}
                   </div>
+                  <button
+                    onClick={() => setJobSort(s => s === "newest" ? "oldest" : "newest")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-50 shrink-0">
+                    <ArrowUpDown className="w-3.5 h-3.5" />
+                    {jobSort === "newest" ? "Mới nhất" : "Cũ nhất"}
+                  </button>
                 </div>
+
+                {/* ── Bulk-delete bar ── */}
+                {selectedJobIds.size > 0 && (
+                  <div className="flex items-center gap-3 mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-xl">
+                    <span className="text-sm font-medium text-red-700">Đã chọn {selectedJobIds.size} job</span>
+                    <button
+                      onClick={handleBulkDeleteJobs}
+                      disabled={submitting}
+                      className="flex items-center gap-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" /> Xoá tất cả đã chọn
+                    </button>
+                    <button onClick={() => setSelectedJobIds(new Set())} className="ml-auto text-gray-400 hover:text-gray-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 {loading ? <LoadingBlock /> : jobs.length === 0 ? <EmptyBlock text="Chưa có job nào." /> : (() => {
-                  const filtered = jobs.filter((j) => j.title.toLowerCase().includes(jobSearch.toLowerCase()) || j.description?.toLowerCase().includes(jobSearch.toLowerCase()));
-                  if (filtered.length === 0) return <EmptyBlock text={`Không tìm thấy job nào cho “${jobSearch}”.`} />;
+                  const filtered = jobs
+                    .filter((j) => j.title.toLowerCase().includes(jobSearch.toLowerCase()) || j.description?.toLowerCase().includes(jobSearch.toLowerCase()))
+                    .sort((a, b) => {
+                      const ta = new Date(a.createdAt).getTime();
+                      const tb = new Date(b.createdAt).getTime();
+                      return jobSort === "newest" ? tb - ta : ta - tb;
+                    });
+                  const allFilteredIds = filtered.map(j => j.id);
+                  const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedJobIds.has(id));
+                  if (filtered.length === 0) return <EmptyBlock text={`Không tìm thấy job nào cho "${jobSearch}".`} />;
                   return (
                     <div className="grid gap-4">
+                      {/* ── Select-all row ── */}
+                      <div className="flex items-center gap-2 px-1">
+                        <input type="checkbox" id="selectAllJobs" checked={allSelected}
+                          onChange={() => {
+                            if (allSelected) {
+                              setSelectedJobIds(prev => { const n = new Set(prev); allFilteredIds.forEach(id => n.delete(id)); return n; });
+                            } else {
+                              setSelectedJobIds(prev => new Set([...prev, ...allFilteredIds]));
+                            }
+                          }}
+                          className="w-4 h-4 rounded accent-red-500 cursor-pointer" />
+                        <label htmlFor="selectAllJobs" className="text-xs text-gray-500 cursor-pointer select-none">
+                          {allSelected ? "Bỏ chọn tất cả" : `Chọn tất cả (${filtered.length})`}
+                        </label>
+                      </div>
                       {filtered.map((job) => {
                         const isMini = job.jobType === "mini";
                         const pct = isMini
