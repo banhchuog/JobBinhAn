@@ -1828,12 +1828,42 @@ export default function Home() {
               ? myApprovedAssignments.reduce((s, a) => s + (a.units ?? 1), 0)
               : myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
 
-            // Full-color gradient per theme
-            const bgGrad = theme === "amber"
-              ? isMini ? "from-purple-500 to-violet-600" : "from-amber-400 to-orange-500"
+            // Pastel palette per theme
+            const cardBg = theme === "amber"
+              ? isMini ? "bg-violet-50 border border-violet-200" : "bg-orange-50 border border-orange-200"
               : theme === "blue"
-              ? isMini ? "from-purple-500 to-violet-600" : "from-blue-500 to-indigo-600"
-              : isMini ? "from-purple-500 to-violet-600" : "from-emerald-500 to-green-600";
+              ? isMini ? "bg-violet-50 border border-violet-200" : "bg-sky-50 border border-sky-200"
+              : isMini ? "bg-violet-50 border border-violet-200" : "bg-emerald-50 border border-emerald-200";
+
+            const accentText = theme === "amber"
+              ? isMini ? "text-violet-700" : "text-orange-600"
+              : theme === "blue"
+              ? isMini ? "text-violet-700" : "text-sky-700"
+              : isMini ? "text-violet-700" : "text-emerald-700";
+
+            const barBg = theme === "amber"
+              ? isMini ? "bg-violet-200" : "bg-orange-200"
+              : theme === "blue"
+              ? isMini ? "bg-violet-200" : "bg-sky-200"
+              : isMini ? "bg-violet-200" : "bg-emerald-200";
+
+            const barFill = theme === "amber"
+              ? isMini ? "bg-violet-400" : "bg-orange-400"
+              : theme === "blue"
+              ? isMini ? "bg-violet-400" : "bg-sky-500"
+              : isMini ? "bg-violet-400" : "bg-emerald-500";
+
+            const badgeBg = theme === "amber"
+              ? isMini ? "bg-violet-100 text-violet-700" : "bg-orange-100 text-orange-700"
+              : theme === "blue"
+              ? isMini ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"
+              : isMini ? "bg-violet-100 text-violet-700" : "bg-emerald-100 text-emerald-700";
+
+            const btnClass = theme === "amber"
+              ? isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"
+              : theme === "blue"
+              ? isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"
+              : isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white";
 
             const badgeLabel = theme === "green"
               ? "✓ Xong"
@@ -1842,33 +1872,32 @@ export default function Home() {
                 : isMini ? `Còn ${(job.totalUnits ?? 0) - totalClaimed}` : `Còn ${100 - totalClaimed}%`;
 
             return (
-              <div className={`relative flex flex-col rounded-2xl bg-gradient-to-br ${bgGrad} p-4 min-h-[170px] overflow-hidden`}>
-                {/* Decorative circle */}
-                <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
-                <div className="absolute -bottom-6 -right-2 w-16 h-16 rounded-full bg-white/10" />
+              <div className={`relative flex flex-col rounded-2xl p-4 min-h-[160px] overflow-hidden ${cardBg}`}>
+                {/* Subtle decorative circle */}
+                <div className={`absolute -top-5 -right-5 w-20 h-20 rounded-full opacity-20 ${barFill}`} />
 
                 {/* Top row: type icon + badge */}
                 <div className="flex items-start justify-between gap-1 mb-2 relative z-10">
                   <span className="text-base leading-none">{isMini ? "🎞️" : theme === "amber" && job.expiresAt ? "📅" : "🎬"}</span>
-                  <span className="text-[10px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full shrink-0 backdrop-blur-sm">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeBg}`}>
                     {badgeLabel}
                   </span>
                 </div>
 
                 {/* Title */}
-                <h3 className="font-bold text-white text-sm leading-snug line-clamp-2 relative z-10 flex-1">
+                <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 relative z-10 flex-1">
                   {job.title}
                 </h3>
 
                 {/* Date for onsite */}
                 {theme === "amber" && job.expiresAt && (
-                  <p className="text-[11px] text-white/80 mt-1 relative z-10">
+                  <p className={`text-[11px] mt-1 relative z-10 font-medium ${accentText}`}>
                     📅 {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}/{new Date(job.expiresAt).getFullYear()}
                   </p>
                 )}
 
                 {/* Salary */}
-                <p className="text-white font-extrabold text-base mt-2 relative z-10 leading-tight">
+                <p className={`font-extrabold text-base mt-2 relative z-10 leading-tight ${accentText}`}>
                   {isMini
                     ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
                     : formatCurrency(job.totalSalary)}
@@ -1876,41 +1905,41 @@ export default function Home() {
 
                 {/* My earning / clip info */}
                 {myAssignment && !isMini && (
-                  <p className="text-white/75 text-[11px] font-medium relative z-10">
+                  <p className="text-gray-500 text-[11px] font-medium relative z-10">
                     → {formatCurrency(myAssignment.salaryEarned)} của tôi
                   </p>
                 )}
                 {isMini && myTotalUnits > 0 && (
-                  <p className="text-white/75 text-[11px] font-medium relative z-10">
+                  <p className="text-gray-500 text-[11px] font-medium relative z-10">
                     → {myTotalUnits} clip · {formatCurrency(myTotalUnits * (job.unitPrice ?? 0))}
                   </p>
                 )}
                 {isMini && (
-                  <p className="text-white/70 text-[11px] relative z-10">
+                  <p className="text-gray-400 text-[11px] relative z-10">
                     {totalClaimed}/{job.totalUnits} clip đã nhận
                   </p>
                 )}
 
                 {/* Progress bar */}
-                <div className="w-full bg-white/25 rounded-full h-1 mt-2 relative z-10">
-                  <div className="bg-white h-1 rounded-full transition-all" style={{ width: `${Math.min(progressPct, 100)}%` }} />
+                <div className={`w-full rounded-full h-1.5 mt-2 relative z-10 ${barBg}`}>
+                  <div className={`h-1.5 rounded-full transition-all ${barFill}`} style={{ width: `${Math.min(progressPct, 100)}%` }} />
                 </div>
 
                 {/* Action row */}
                 <div className="flex items-center justify-between mt-3 gap-1.5 relative z-10">
                   <div className="flex items-center gap-1">
                     {theme === "amber" && myApprovedPct > 0 && (
-                      <span className="text-[11px] text-white/90 font-semibold bg-white/20 px-1.5 py-0.5 rounded-full">
+                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
                         ✓ {isMini ? `${myApprovedPct} clip` : `${myApprovedPct}%`}
                       </span>
                     )}
                     {theme === "green" && myApprovedAssignments[0]?.note && (
-                      <span className="text-[11px] text-white/80 flex items-center gap-0.5 max-w-[100px] truncate" title={myApprovedAssignments[0].note}>
+                      <span className="text-[11px] text-gray-500 flex items-center gap-0.5 max-w-[100px] truncate" title={myApprovedAssignments[0].note}>
                         <MessageSquare className="w-3 h-3 shrink-0" />{myApprovedAssignments[0].note}
                       </span>
                     )}
                     {theme === "blue" && myAssignment?.status === "PENDING_APPROVAL" && (
-                      <span className="text-[11px] bg-white/25 text-white px-2 py-0.5 rounded-full font-medium">⏳ Chờ duyệt</span>
+                      <span className="text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⏳ Chờ duyệt</span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 ml-auto">
@@ -1918,19 +1947,19 @@ export default function Home() {
                       isMini ? (
                         <button
                           onClick={() => { setMiniClaimJob(job); setMiniClaimUnits("1"); }}
-                          className="flex items-center gap-0.5 bg-white text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                          className={`flex items-center gap-0.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm ${btnClass}`}>
                           Nhận <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       ) : (
                         <button onClick={() => setSelectedJob(job)}
-                          className="flex items-center gap-0.5 bg-white text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                          className={`flex items-center gap-0.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm ${btnClass}`}>
                           {myApprovedPct > 0 ? "Thêm" : "Nhận"} <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       )
                     )}
                     {theme === "blue" && myAssignment?.status === "WORKING" && (
                       <button onClick={() => handleMarkDone(job.id, myAssignment.id)} disabled={submitting}
-                        className="flex items-center gap-0.5 bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-60 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                        className={`flex items-center gap-0.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm disabled:opacity-60 ${btnClass}`}>
                         <CheckCircle2 className="w-3.5 h-3.5" /> Xong
                       </button>
                     )}
@@ -1938,7 +1967,7 @@ export default function Home() {
                       <button
                         onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: myAssignment.percentage }); setSharePercInput(""); }}
                         disabled={submitting}
-                        className="flex items-center gap-0.5 bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors">
+                        className="flex items-center gap-0.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors">
                         <Share2 className="w-3 h-3" /> Nhường
                       </button>
                     )}
@@ -1946,7 +1975,7 @@ export default function Home() {
                       <button
                         onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: 0, isMini: true, currentUnits: myAssignment.units ?? 1 }); setSharePercInput(""); }}
                         disabled={submitting}
-                        className="flex items-center gap-0.5 bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors">
+                        className="flex items-center gap-0.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors">
                         <Share2 className="w-3 h-3" /> Nhường
                       </button>
                     )}
