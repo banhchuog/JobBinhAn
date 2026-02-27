@@ -158,7 +158,7 @@ export default function Home() {
   const [newJobDesc, setNewJobDesc] = useState("");
   const [newJobSalary, setNewJobSalary] = useState("");
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [directorTab, setDirectorTab] = useState<"jobs" | "employees" | "approvals" | "salary" | "finance">("jobs");
+  const [directorTab, setDirectorTab] = useState<"jobs" | "employees" | "approvals" | "salary" | "finance">("finance");
 
   // ── Employee State ───────────────────────────────────
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
@@ -814,7 +814,7 @@ export default function Home() {
                 {tab === "jobs" && "Jobs"}
                 {tab === "employees" && <span><span className="sm:hidden">NV</span><span className="hidden sm:inline">Nhân viên</span></span>}
                 {tab === "salary" && <span><span className="sm:hidden">Lương</span><span className="hidden sm:inline">Bảng lương</span></span>}
-                {tab === "finance" && <span><span className="sm:hidden">TC</span><span className="hidden sm:inline">Thu Chi</span></span>}
+                {tab === "finance" && <span><span className="sm:hidden">TC</span><span className="hidden sm:inline">Tài Chính</span></span>}
                 {tab === "approvals" && (
                   <span className="flex items-center justify-center gap-1">
                     Duyệt
