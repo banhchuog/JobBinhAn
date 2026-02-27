@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Job, Employee } from "@/types";
 import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
-  DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight,
+  DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
   Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown,
 } from "lucide-react";
@@ -151,6 +151,7 @@ export default function Home() {
   const [customPercentage, setCustomPercentage] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>(currentYM());
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [employeeView, setEmployeeView] = useState<"market" | "leaderboard">("market");
 
   // Load avatar từ localStorage khi đăng nhập
   useEffect(() => {
@@ -1661,6 +1662,16 @@ export default function Home() {
 
           {/* Actions */}
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setEmployeeView(employeeView === "leaderboard" ? "market" : "leaderboard")}
+              className={`p-2 rounded-lg transition-colors ${
+                employeeView === "leaderboard"
+                  ? "text-yellow-500 bg-yellow-50"
+                  : "text-gray-400 hover:text-yellow-500 hover:bg-yellow-50"
+              }`}
+              title="Bảng xếp hạng">
+              <Trophy className="w-4 h-4" />
+            </button>
             <button onClick={() => fetchAll()} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -1693,6 +1704,114 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* ══ LEADERBOARD VIEW ══ */}
+        {employeeView === "leaderboard" && (() => {
+          // Tính tổng thu nhập APPROVED của mỗi nhân viên trong tháng chọn
+          const rankMap = new Map<string, { name: string; earned: number; jobCount: number }>();
+          for (const emp of employees) {
+            rankMap.set(emp.id, { name: emp.name, earned: 0, jobCount: 0 });
+          }
+          for (const job of jobs) {
+            for (const a of job.assignments) {
+              if (a.status !== "APPROVED") continue;
+              const jm = job.month || job.createdAt.slice(0, 7);
+              if (getSalaryMonth(jm, a.approvedAt) !== selectedMonth) continue;
+              const entry = rankMap.get(a.employeeId);
+              if (entry) {
+                entry.earned += a.salaryEarned;
+                entry.jobCount += 1;
+              }
+            }
+          }
+          const ranked = Array.from(rankMap.values())
+            .filter((e) => e.earned > 0)
+            .sort((a, b) => b.earned - a.earned);
+
+          const medals = ["🥇", "🥈", "🥉"];
+          const topEarned = ranked[0]?.earned ?? 1;
+
+          return (
+            <div>
+              {/* Header */}
+              <div className="relative overflow-hidden rounded-2xl mb-6 bg-gradient-to-br from-yellow-400 via-amber-400 to-orange-400 p-5 shadow-lg">
+                <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
+                <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/10" />
+                <div className="relative z-10 flex items-center gap-3">
+                  <div className="text-4xl">🏆</div>
+                  <div>
+                    <p className="text-white/80 text-xs font-medium">Bảng xếp hạng</p>
+                    <h2 className="text-white font-black text-xl leading-tight">{monthLabel(selectedMonth)}</h2>
+                    <p className="text-white/70 text-xs mt-0.5">{ranked.length} nhân viên có thu nhập</p>
+                  </div>
+                </div>
+              </div>
+
+              {ranked.length === 0 ? (
+                <div className="text-center py-16 text-gray-400">
+                  <Trophy className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">Chưa có dữ liệu tháng này</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {ranked.map((entry, idx) => {
+                    const isMe = entry.name === currentEmployee?.name;
+                    const barPct = Math.max(8, (entry.earned / topEarned) * 100);
+                    const rankColors = [
+                      "from-yellow-50 to-amber-50 border-yellow-300",
+                      "from-gray-50 to-slate-50 border-gray-300",
+                      "from-orange-50 to-amber-50 border-orange-300",
+                    ];
+                    const barColors = ["bg-yellow-400", "bg-gray-400", "bg-orange-400", "bg-blue-400"];
+                    const cardClass = idx < 3
+                      ? `bg-gradient-to-r ${rankColors[idx]} border`
+                      : isMe
+                      ? "bg-blue-50 border border-blue-200"
+                      : "bg-white border border-gray-100";
+
+                    return (
+                      <div key={entry.name} className={`rounded-2xl p-4 ${cardClass} ${isMe ? "ring-2 ring-blue-400 ring-offset-1" : ""}`}>
+                        <div className="flex items-center gap-3 mb-2">
+                          {/* Rank */}
+                          <div className="w-8 shrink-0 text-center">
+                            {idx < 3
+                              ? <span className="text-2xl leading-none">{medals[idx]}</span>
+                              : <span className="text-sm font-black text-gray-400">#{idx + 1}</span>}
+                          </div>
+                          {/* Name */}
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-bold text-sm truncate ${isMe ? "text-blue-700" : "text-gray-900"}`}>
+                              {entry.name} {isMe && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-semibold ml-1">Tôi</span>}
+                            </p>
+                            <p className="text-xs text-gray-400">{entry.jobCount} job hoàn thành</p>
+                          </div>
+                          {/* Earned */}
+                          <div className="text-right shrink-0">
+                            <p className={`font-black text-base ${idx === 0 ? "text-yellow-600" : idx === 1 ? "text-gray-500" : idx === 2 ? "text-orange-500" : isMe ? "text-blue-600" : "text-gray-800"}`}>
+                              {new Intl.NumberFormat("vi-VN").format(entry.earned)}
+                            </p>
+                            <p className="text-[10px] text-gray-400">đồng</p>
+                          </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${barColors[Math.min(idx, 3)]}`}
+                            style={{ width: `${barPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ══ MARKET VIEW ══ */}
+        {employeeView === "market" && (
+        <>
 
         {/* ── Stats Banner ── */}
         {(() => {
@@ -2096,6 +2215,10 @@ export default function Home() {
             </div>
           );
         })()}
+
+        </> /* end market view */
+        )} {/* end employeeView === "market" */}
+
       </main>
 
       {/* Claim Modal */}
