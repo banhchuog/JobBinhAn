@@ -728,7 +728,7 @@ export default function Home() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl shadow-lg mb-4">
               <Briefcase className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">Chợ Job Bình An</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Quản Lý Doanh Nghiệp</h1>
             <p className="text-gray-500 mt-1">Chọn cách đăng nhập</p>
           </div>
 
@@ -783,7 +783,7 @@ export default function Home() {
           <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
             <div className="flex items-center gap-2 text-blue-600">
               <Briefcase className="w-5 h-5" />
-              <h1 className="text-lg font-bold hidden sm:block">Chợ Job Bình An</h1>
+              <h1 className="text-lg font-bold hidden sm:block">Quản Lý Doanh Nghiệp</h1>
               <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">Giám đốc</span>
             </div>
             <div className="flex items-center gap-1">
@@ -798,7 +798,7 @@ export default function Home() {
           </div>
           {/* Tabs */}
           <div className="max-w-5xl mx-auto px-4 flex gap-1 pb-2 overflow-x-auto hide-scrollbar">
-            {(["jobs", "employees", "approvals", "salary", "finance"] as const).map((tab) => (
+            {(["finance", "jobs", "employees", "approvals", "salary"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setDirectorTab(tab)}
