@@ -6,7 +6,7 @@ import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
-  Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2,
+  Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown,
 } from "lucide-react";
 
 type View = "LOGIN" | "DIRECTOR" | "EMPLOYEE";
@@ -166,6 +166,8 @@ export default function Home() {
   const [editingEmployee, setEditingEmployee] = useState<{ id: string; name: string } | null>(null);
   const [directorMonth, setDirectorMonth] = useState<string>(currentYM());
   const [jobSearch, setJobSearch] = useState("");
+  const [jobSort, setJobSort] = useState<"newest" | "oldest">("newest");
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod" | "mini">("all");
 
   // ── Create mode: "none" | "postprod" | "mini" | "shooting" ──
@@ -464,6 +466,20 @@ export default function Home() {
     setSubmitting(true);
     try {
       await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Director: Bulk Delete Jobs ──────────────────────
+  const handleBulkDeleteJobs = async () => {
+    if (selectedJobIds.size === 0) return;
+    if (!confirm(`Xoá ${selectedJobIds.size} job đã chọn? Hành động không thể hoàn tác.`)) return;
+    setSubmitting(true);
+    try {
+      await Promise.all([...selectedJobIds].map((id) => fetch(`/api/jobs/${id}`, { method: "DELETE" })));
+      setSelectedJobIds(new Set());
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -1042,10 +1058,19 @@ export default function Home() {
                         const pct = isMini
                           ? (job.assignments.length / (job.totalUnits ?? 1)) * 100
                           : job.assignments.reduce((a, b) => a + b.percentage, 0);
+                        const isSelected = selectedJobIds.has(job.id);
                         return (
-                          <div key={job.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
+                          <div key={job.id} className={`bg-white p-4 sm:p-5 rounded-xl shadow-sm border transition-colors ${isSelected ? "border-red-300 bg-red-50/30" : "border-gray-100"}`}>
                             <div className="flex justify-between items-start mb-3 gap-2">
-                              <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                                <input type="checkbox" checked={isSelected}
+                                  onChange={() => setSelectedJobIds(prev => {
+                                    const n = new Set(prev);
+                                    isSelected ? n.delete(job.id) : n.add(job.id);
+                                    return n;
+                                  })}
+                                  className="mt-1 w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0" />
+                                <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h3 className="font-semibold text-base leading-snug">{job.title}</h3>
                                   {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">🎞️ Mini · {job.assignments.length}/{job.totalUnits} clip</span>}
@@ -1054,6 +1079,7 @@ export default function Home() {
                                 </div>
                                 {job.description && <p className="text-gray-500 text-sm mt-0.5 line-clamp-1">{job.description}</p>}
                                 <p className="text-xs text-gray-400 mt-0.5">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
