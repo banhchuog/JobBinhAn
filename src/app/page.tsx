@@ -147,6 +147,7 @@ export default function Home() {
   const [editingEmployee, setEditingEmployee] = useState<{ id: string; name: string } | null>(null);
   const [directorMonth, setDirectorMonth] = useState<string>(currentYM());
   const [jobSearch, setJobSearch] = useState("");
+  const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod">("all");
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
@@ -1322,20 +1323,39 @@ export default function Home() {
 
               {/* Chợ việc — nhóm theo ngày quay */}
               <div>
-                <h2 className="text-base font-bold text-amber-600 mb-3 flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-                  Chợ Việc Làm ({openJobs.length})
-                </h2>
-                {openJobs.length === 0 ? (
-                  <EmptyBlock text="Không còn job nào để nhận." />
-                ) : (() => {
+                <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                  <h2 className="text-base font-bold text-amber-600 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
+                    Chợ Việc Làm ({openJobs.length})
+                  </h2>
+                  <div className="flex gap-1.5">
+                    {(["all", "onsite", "postprod"] as const).map((f) => (
+                      <button key={f} onClick={() => setMarketFilter(f)}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                          marketFilter === f
+                            ? f === "onsite" ? "bg-orange-500 text-white border-orange-500"
+                              : f === "postprod" ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-gray-800 text-white border-gray-800"
+                            : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                        }`}>
+                        {f === "all" ? "Tất cả" : f === "onsite" ? "📅 Đi quay" : "🎬 Hậu kỳ"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(() => {
+                  const filteredJobs = openJobs.filter(job =>
+                    marketFilter === "all" ? true
+                    : marketFilter === "onsite" ? !!job.expiresAt
+                    : !job.expiresAt
+                  );
+                  if (filteredJobs.length === 0) return <EmptyBlock text="Không có job nào phù hợp." />;
                   // Nhóm job theo groupId; job lẻ (không có groupId) vào nhóm "standalone"
                   const groups = new Map<string, { label: string; date?: string; jobs: Job[] }>();
-
-                  for (const job of openJobs) {
+                  for (const job of filteredJobs) {
                     if (job.groupId) {
                       if (!groups.has(job.groupId)) {
-                        // Lấy ngày từ expiresAt của job tại chỗ trong nhóm
+                        // Lấy ngày từ expiresAt của job tại chỗ trong nhóm (tìm trong toàn bộ openJobs)
                         const onSiteJob = openJobs.find(j => j.groupId === job.groupId && j.expiresAt);
                         let dateLabel = "";
                         if (onSiteJob?.expiresAt) {
