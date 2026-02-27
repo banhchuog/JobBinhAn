@@ -227,6 +227,7 @@ export default function Home() {
   const [thuChiData, setThuChiData] = useState<ThuChiTransaction[] | null>(null);
   const [thuChiLoading, setThuChiLoading] = useState(false);
   const [thuChiError, setThuChiError] = useState<string | null>(null);
+  const [financeView, setFinanceView] = useState<"month" | "report">("month");
 
   // ── Share job state ──────────────────────────────────
   const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number; isMini?: boolean; currentUnits?: number } | null>(null);
@@ -289,6 +290,14 @@ export default function Home() {
     if (savedUrl && savedKey) fetchThuChi(savedUrl, savedKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tự load lại khi vào tab Finance nếu chưa có data
+  useEffect(() => {
+    if (directorTab === "finance" && !thuChiData && !thuChiLoading && thuChiUrl && thuChiApiKey) {
+      fetchThuChi(thuChiUrl, thuChiApiKey);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directorTab]);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -1559,19 +1568,37 @@ export default function Home() {
             const tongChiTat = grandTotalSalary + thuChiChi;
             const loiNhuan = thuChiThu - tongChiTat;
 
+            // Báo cáo tất cả tháng từ thuChiData
+            const allThuChiMonths = thuChiData
+              ? [...new Set(thuChiData.map((t) => t.date?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse()
+              : [];
+            const reportRows = allThuChiMonths.map((ym) => {
+              const txs = thuChiData!.filter((t) => t.date?.startsWith(ym));
+              const thu = txs.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0);
+              const chi = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0);
+              const salary = employees.map((emp) =>
+                jobs.flatMap((job) => job.assignments.filter((a) => {
+                  if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
+                  return getSalaryMonth(job.month || job.createdAt.slice(0, 7), a.approvedAt) === ym;
+                }).map((a) => a.salaryEarned))
+              ).flat().reduce((s, x) => s + x, 0);
+              const tongChi = chi + salary;
+              const loiNhuan = thu - tongChi;
+              return { ym, thu, chi, salary, tongChi, loiNhuan };
+            });
+
             return (
               <div className="space-y-5">
-                {/* Chọn tháng */}
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
-                  <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
-                    {salaryMonths.map((ym) => (
-                      <button key={ym} onClick={() => setDirectorMonth(ym)}
-                        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${directorMonth === ym ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-                        {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
-                      </button>
-                    ))}
-                  </div>
+                {/* Sub-tab toggle */}
+                <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+                  <button onClick={() => setFinanceView("month")}
+                    className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "month" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+                    📅 Chi tiết tháng
+                  </button>
+                  <button onClick={() => setFinanceView("report")}
+                    className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "report" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+                    📊 Báo cáo tổng hợp
+                  </button>
                 </div>
 
                 {/* ── Kết nối app Thu Chi ── */}
@@ -1630,73 +1657,178 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* ── Tổng quan tài chính (khi đã có thu chi) ── */}
-                {thuChiData && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
-                      <p className="text-xs text-green-600 font-medium mb-1">💰 Doanh thu</p>
-                      <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(thuChiThu)}</p>
-                    </div>
-                    <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
-                      <p className="text-xs text-red-500 font-medium mb-1">🧾 Chi phí khác</p>
-                      <p className="font-black text-red-600 text-base leading-tight">{formatCurrency(thuChiChi)}</p>
-                    </div>
-                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3">
-                      <p className="text-xs text-blue-600 font-medium mb-1">👥 Lương nhân viên</p>
-                      <p className="font-black text-blue-700 text-base leading-tight">{formatCurrency(grandTotalSalary)}</p>
-                    </div>
-                    <div className={`rounded-2xl p-3 border ${loiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
-                      <p className={`text-xs font-medium mb-1 ${loiNhuan >= 0 ? "text-emerald-600" : "text-orange-600"}`}>
-                        {loiNhuan >= 0 ? "📈 Lợi nhuận" : "📉 Lỗ"}
-                      </p>
-                      <p className={`font-black text-base leading-tight ${loiNhuan >= 0 ? "text-emerald-700" : "text-orange-600"}`}>
-                        {loiNhuan >= 0 ? "" : "–"}{formatCurrency(Math.abs(loiNhuan))}
-                      </p>
-                    </div>
+                {/* Loading state */}
+                {thuChiLoading && (
+                  <div className="flex items-center justify-center gap-2 py-10 text-gray-400 text-sm">
+                    <RefreshCw className="w-4 h-4 animate-spin" /> Đang tải dữ liệu...
                   </div>
                 )}
 
-                {/* ── Bảng chi phí tổng hợp ── */}
-                {thuChiData && (thuChiMonth?.length ?? 0) > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                      <p className="font-semibold text-sm text-gray-800">📋 Giao dịch {monthLabel(directorMonth)}</p>
-                      <span className="text-xs text-gray-400">{thuChiMonth?.length} giao dịch</span>
-                    </div>
-                    <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
-                      {thuChiMonth?.map((t) => (
-                        <div key={t.id} className="flex items-center justify-between px-4 py-2.5 gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-800 truncate">{t.subject}</p>
-                            <p className="text-xs text-gray-400">{t.date}{t.note ? ` · ${t.note}` : ""}</p>
-                          </div>
-                          <span className={`font-bold text-sm shrink-0 ${t.type === "Thu" ? "text-green-600" : "text-red-500"}`}>
-                            {t.type === "Thu" ? "+" : "–"}{new Intl.NumberFormat("vi-VN").format(t.amount)}{t.currency === "USD" ? "$" : "đ"}
-                          </span>
-                        </div>
-                      ))}
-                      {/* Lương nhân viên tổng hợp */}
-                      {grandTotalSalary > 0 && (
-                        <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-blue-700">👥 Lương nhân viên ({salaryRows.length} người)</p>
-                            <p className="text-xs text-blue-400">Job Bình An — đã duyệt</p>
-                          </div>
-                          <span className="font-bold text-sm text-red-500 shrink-0">–{formatCurrency(grandTotalSalary)}</span>
-                        </div>
-                      )}
-                    </div>
-                    {/* Tổng dòng cuối */}
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-                      <span className="text-sm font-semibold text-gray-700">Tổng chi</span>
-                      <span className="font-black text-red-600">{formatCurrency(tongChiTat)}</span>
-                    </div>
+                {/* Connected but no data yet */}
+                {!thuChiLoading && thuChiUrl && thuChiApiKey && !thuChiData && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-400 mb-3">Chưa tải được dữ liệu từ app Thu Chi.</p>
+                    <button onClick={() => fetchThuChi(thuChiUrl, thuChiApiKey)}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2 mx-auto">
+                      <RefreshCw className="w-4 h-4" /> Tải dữ liệu
+                    </button>
                   </div>
                 )}
 
-                {/* Gợi ý khi chưa kết nối */}
-                {!thuChiData && !thuChiUrl && (
-                  <EmptyBlock text="Kết nối app Thu Chi để xem báo cáo tài chính tổng hợp." />
+                {/* Chưa kết nối */}
+                {!thuChiUrl && !thuChiLoading && (
+                  <EmptyBlock text="Nhập URL và API Key để kết nối app Thu Chi." />
+                )}
+
+                {/* ── View: Chi tiết tháng ── */}
+                {thuChiData && !thuChiLoading && financeView === "month" && (
+                  <>
+                    {/* Chọn tháng */}
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
+                      <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
+                        {salaryMonths.map((ym) => (
+                          <button key={ym} onClick={() => setDirectorMonth(ym)}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${directorMonth === ym ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                            {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 4 cards P&L */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
+                        <p className="text-xs text-green-600 font-medium mb-1">💰 Doanh thu</p>
+                        <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(thuChiThu)}</p>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
+                        <p className="text-xs text-red-500 font-medium mb-1">🧾 Chi phí khác</p>
+                        <p className="font-black text-red-600 text-base leading-tight">{formatCurrency(thuChiChi)}</p>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3">
+                        <p className="text-xs text-blue-600 font-medium mb-1">👥 Lương nhân viên</p>
+                        <p className="font-black text-blue-700 text-base leading-tight">{formatCurrency(grandTotalSalary)}</p>
+                      </div>
+                      <div className={`rounded-2xl p-3 border ${loiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
+                        <p className={`text-xs font-medium mb-1 ${loiNhuan >= 0 ? "text-emerald-600" : "text-orange-600"}`}>
+                          {loiNhuan >= 0 ? "📈 Lợi nhuận" : "📉 Lỗ"}
+                        </p>
+                        <p className={`font-black text-base leading-tight ${loiNhuan >= 0 ? "text-emerald-700" : "text-orange-600"}`}>
+                          {loiNhuan >= 0 ? "" : "–"}{formatCurrency(Math.abs(loiNhuan))}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bảng giao dịch tháng */}
+                    {(thuChiMonth?.length ?? 0) > 0 ? (
+                      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                          <p className="font-semibold text-sm text-gray-800">📋 Giao dịch {monthLabel(directorMonth)}</p>
+                          <span className="text-xs text-gray-400">{thuChiMonth?.length} giao dịch</span>
+                        </div>
+                        <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+                          {thuChiMonth?.map((t) => (
+                            <div key={t.id} className="flex items-center justify-between px-4 py-2.5 gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{t.subject}</p>
+                                <p className="text-xs text-gray-400">{t.date}{t.note ? ` · ${t.note}` : ""}</p>
+                              </div>
+                              <span className={`font-bold text-sm shrink-0 ${t.type === "Thu" ? "text-green-600" : "text-red-500"}`}>
+                                {t.type === "Thu" ? "+" : "–"}{new Intl.NumberFormat("vi-VN").format(t.amount)}{t.currency === "USD" ? "$" : "đ"}
+                              </span>
+                            </div>
+                          ))}
+                          {grandTotalSalary > 0 && (
+                            <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-blue-700">👥 Lương nhân viên ({salaryRows.length} người)</p>
+                                <p className="text-xs text-blue-400">Job Bình An — đã duyệt</p>
+                              </div>
+                              <span className="font-bold text-sm text-red-500 shrink-0">–{formatCurrency(grandTotalSalary)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-700">Tổng chi</span>
+                          <span className="font-black text-red-600">{formatCurrency(tongChiTat)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <EmptyBlock text={`Không có giao dịch nào trong ${monthLabel(directorMonth)}.`} />
+                    )}
+                  </>
+                )}
+
+                {/* ── View: Báo cáo tổng hợp ── */}
+                {thuChiData && !thuChiLoading && financeView === "report" && (
+                  <>
+                    {reportRows.length === 0 ? (
+                      <EmptyBlock text="Chưa có dữ liệu tháng nào từ app Thu Chi." />
+                    ) : (
+                      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                          <p className="font-semibold text-sm text-gray-800">📊 Tổng hợp {reportRows.length} tháng</p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-100 text-xs text-gray-400 font-medium">
+                                <th className="px-4 py-2 text-left">Tháng</th>
+                                <th className="px-3 py-2 text-right">💰 Doanh thu</th>
+                                <th className="px-3 py-2 text-right">🧾 Chi khác</th>
+                                <th className="px-3 py-2 text-right">👥 Lương</th>
+                                <th className="px-3 py-2 text-right">Lợi nhuận</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {reportRows.map((r) => (
+                                <tr key={r.ym}
+                                  onClick={() => { setDirectorMonth(r.ym); setFinanceView("month"); }}
+                                  className="hover:bg-gray-50 cursor-pointer transition-colors">
+                                  <td className="px-4 py-2.5 font-semibold text-gray-700 whitespace-nowrap">
+                                    {monthLabel(r.ym)}{r.ym === currentYM() ? " ●" : ""}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-green-600 font-medium whitespace-nowrap">
+                                    {r.thu > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thu)}` : "—"}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-red-500 whitespace-nowrap">
+                                    {r.chi > 0 ? `–${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.chi)}` : "—"}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-blue-600 whitespace-nowrap">
+                                    {r.salary > 0 ? `–${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.salary)}` : "—"}
+                                  </td>
+                                  <td className={`px-3 py-2.5 text-right font-bold whitespace-nowrap ${r.loiNhuan >= 0 ? "text-emerald-600" : "text-orange-500"}`}>
+                                    {r.loiNhuan >= 0 ? "+" : "–"}{new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(Math.abs(r.loiNhuan))}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold text-sm">
+                                <td className="px-4 py-2.5 text-gray-700">Tổng cộng</td>
+                                <td className="px-3 py-2.5 text-right text-green-600">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thu, 0))}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-red-500">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.chi, 0))}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-blue-600">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.salary, 0))}
+                                </td>
+                                <td className={`px-3 py-2.5 text-right ${reportRows.reduce((s,r) => s+r.loiNhuan,0) >= 0 ? "text-emerald-600" : "text-orange-500"}`}>
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.loiNhuan, 0))}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                        <div className="px-4 py-2 border-t border-gray-100">
+                          <p className="text-xs text-gray-400">Nhấn vào tháng để xem chi tiết.</p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             );
