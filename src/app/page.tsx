@@ -37,6 +37,22 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// ── Default shooting positions ──────────────────────────
+interface ShootPosition {
+  role: string;
+  qty: number;
+  salary: number;
+}
+
+const DEFAULT_SHOOT_POSITIONS: ShootPosition[] = [
+  { role: "Đạo diễn", qty: 2, salary: 3_000_000 },
+  { role: "Quay phim", qty: 2, salary: 1_200_000 },
+  { role: "Ánh sáng", qty: 2, salary: 800_000 },
+  { role: "Thu âm hiện trường", qty: 1, salary: 1_000_000 },
+];
+
+const DEFAULT_EDIT_SALARY = 3_000_000; // per episode
+
 // ── AI Job Group Parser ─────────────────────────────────
 interface PreviewJob {
   title: string;
@@ -45,6 +61,9 @@ interface PreviewJob {
   month: string;
   expiresAt?: string;
   isOnSite: boolean;
+  jobType?: "standard" | "mini";
+  unitPrice?: number;
+  totalUnits?: number;
 }
 
 function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] } {
@@ -148,9 +167,34 @@ export default function Home() {
   const [directorMonth, setDirectorMonth] = useState<string>(currentYM());
   const [jobSearch, setJobSearch] = useState("");
   const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod" | "mini">("all");
+
+  // ── Create mode: "none" | "postprod" | "mini" | "shooting" ──
+  const [createMode, setCreateMode] = useState<"none" | "postprod" | "mini" | "shooting">("none");
+
+  // mini (hậu kỳ mini)
   const [newJobType, setNewJobType] = useState<"standard" | "mini">("standard");
   const [newJobUnitPrice, setNewJobUnitPrice] = useState("");
   const [newJobTotalUnits, setNewJobTotalUnits] = useState("");
+  const [miniTitle, setMiniTitle] = useState("");
+  const [miniDesc, setMiniDesc] = useState("");
+
+  // shooting day
+  interface EpisodeDef { name: string; editSalary: number }
+  const [shootFilmName, setShootFilmName] = useState("");
+  const [shootDay, setShootDay] = useState("");
+  const [shootMonth, setShootMonth] = useState("");
+  const [shootPositions, setShootPositions] = useState<ShootPosition[]>(
+    DEFAULT_SHOOT_POSITIONS.map(p => ({ ...p }))
+  );
+  // sub-type within shooting: "large" | "mini_clips"
+  const [shootSubType, setShootSubType] = useState<"large" | "mini_clips">("large");
+  // large: episodes
+  const [shootEpisodes, setShootEpisodes] = useState<EpisodeDef[]>([{ name: "Tập 1", editSalary: DEFAULT_EDIT_SALARY }]);
+  // mini_clips
+  const [shootClipPrice, setShootClipPrice] = useState(String(100_000));
+  const [shootClipCount, setShootClipCount] = useState("20");
+  const [shootClipTitle, setShootClipTitle] = useState("");
+
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
@@ -234,38 +278,144 @@ export default function Home() {
     localStorage.removeItem("savedEmployeeId");
   };
 
-  // ─── Director: Create Job ────────────────────────────
+  // ─── Director: Create Job (postprod lẻ) ─────────────
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newJobTitle) return;
-    if (newJobType === "mini") {
-      if (!newJobUnitPrice || !newJobTotalUnits) return;
-    } else {
-      if (!newJobSalary) return;
-    }
+    if (!newJobTitle || !newJobSalary) return;
     setSubmitting(true);
     try {
-      const isMini = newJobType === "mini";
-      const totalSalary = isMini
-        ? Number(newJobUnitPrice) * Number(newJobTotalUnits)
-        : Number(newJobSalary);
-      const body: Record<string, unknown> = {
-        title: newJobTitle,
-        description: newJobDesc,
-        totalSalary,
-        jobType: newJobType,
-      };
-      if (isMini) {
-        body.unitPrice = Number(newJobUnitPrice);
-        body.totalUnits = Number(newJobTotalUnits);
-      }
       await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ title: newJobTitle, description: newJobDesc, totalSalary: Number(newJobSalary) }),
       });
       setNewJobTitle(""); setNewJobDesc(""); setNewJobSalary("");
-      setNewJobUnitPrice(""); setNewJobTotalUnits(""); setNewJobType("standard");
+      setCreateMode("none");
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Director: Create Mini Clips job ─────────────────
+  const handleCreateMiniJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!miniTitle || !newJobUnitPrice || !newJobTotalUnits) return;
+    setSubmitting(true);
+    try {
+      await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: miniTitle,
+          description: miniDesc,
+          totalSalary: Number(newJobUnitPrice) * Number(newJobTotalUnits),
+          jobType: "mini",
+          unitPrice: Number(newJobUnitPrice),
+          totalUnits: Number(newJobTotalUnits),
+        }),
+      });
+      setMiniTitle(""); setMiniDesc(""); setNewJobUnitPrice(""); setNewJobTotalUnits("");
+      setCreateMode("none");
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Director: Create Shooting Day ───────────────────
+  const handleCreateShootingDay = async () => {
+    if (!shootFilmName || !shootDay || !shootMonth) return;
+    setSubmitting(true);
+    try {
+      const now = new Date();
+      const year = Number(shootMonth) < now.getMonth() + 1 - 3 ? now.getFullYear() + 1 : now.getFullYear();
+      const ym = `${year}-${String(Number(shootMonth)).padStart(2, "0")}`;
+      const expiresAt = new Date(year, Number(shootMonth) - 1, Number(shootDay), 23, 59, 59, 999).toISOString();
+      const groupId = Math.random().toString(36).substring(7);
+      const groupName = `Ngày quay ${shootFilmName} ${shootDay}/${shootMonth}`;
+
+      const jobsToCreate = [];
+
+      if (shootSubType === "large") {
+        // Tại chỗ: positions
+        for (const pos of shootPositions) {
+          for (let i = 1; i <= pos.qty; i++) {
+            const title = pos.qty > 1
+              ? `${pos.role} ${shootFilmName} (${i})`
+              : `${pos.role} ${shootFilmName}`;
+            jobsToCreate.push({
+              title,
+              description: `Ngày quay ${shootDay}/${shootMonth} — ${shootFilmName}`,
+              totalSalary: pos.salary,
+              month: ym,
+              expiresAt,
+              groupId,
+              groupName,
+              isOnSite: true,
+            });
+          }
+        }
+        // Hậu kỳ: tập phim
+        for (const ep of shootEpisodes) {
+          jobsToCreate.push({
+            title: `${ep.name} — ${shootFilmName}`,
+            description: `Hậu kỳ ${ep.name} — ${shootFilmName}`,
+            totalSalary: ep.editSalary,
+            month: ym,
+            groupId,
+            groupName,
+            isOnSite: false,
+          });
+        }
+      } else {
+        // Tại chỗ: positions
+        for (const pos of shootPositions) {
+          for (let i = 1; i <= pos.qty; i++) {
+            const title = pos.qty > 1
+              ? `${pos.role} ${shootFilmName} (${i})`
+              : `${pos.role} ${shootFilmName}`;
+            jobsToCreate.push({
+              title,
+              description: `Ngày quay ${shootDay}/${shootMonth} — ${shootFilmName}`,
+              totalSalary: pos.salary,
+              month: ym,
+              expiresAt,
+              groupId,
+              groupName,
+              isOnSite: true,
+            });
+          }
+        }
+        // Mini clips
+        jobsToCreate.push({
+          title: shootClipTitle || `Clip ${shootFilmName}`,
+          description: `Hậu kỳ clip ngắn — ${shootFilmName}`,
+          totalSalary: Number(shootClipPrice) * Number(shootClipCount),
+          month: ym,
+          groupId,
+          groupName,
+          isOnSite: false,
+          jobType: "mini",
+          unitPrice: Number(shootClipPrice),
+          totalUnits: Number(shootClipCount),
+        });
+      }
+
+      await fetch("/api/jobs/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobs: jobsToCreate.map(j => ({ ...j, jobType: j.jobType ?? "standard" })) }),
+      });
+
+      // Reset shooting form
+      setShootFilmName("");
+      setShootDay(""); setShootMonth("");
+      setShootPositions(DEFAULT_SHOOT_POSITIONS.map(p => ({ ...p })));
+      setShootSubType("large");
+      setShootEpisodes([{ name: "Tập 1", editSalary: DEFAULT_EDIT_SALARY }]);
+      setShootClipPrice(String(100_000)); setShootClipCount("20"); setShootClipTitle("");
+      setCreateMode("none");
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -273,6 +423,7 @@ export default function Home() {
   };
 
   // ─── Director: Create Employee ───────────────────────
+
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmployeeName.trim()) return;
@@ -548,78 +699,326 @@ export default function Home() {
           {directorTab === "jobs" && (
             <div className="space-y-6">
               <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <PlusCircle className="w-5 h-5 text-blue-500" /> Tạo Job Mới
-                  </h2>
-                  <button onClick={() => { setGroupModalOpen(true); setGroupInput(""); setPreviewJobs(null); }}
-                    className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                    <Sparkles className="w-4 h-4" /> Tạo nhóm AI
-                  </button>
-                </div>
-                <form onSubmit={handleCreateJob} className="space-y-4">
-                  {/* Loại job */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Loại job</label>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => setNewJobType("standard")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${newJobType === "standard" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}>
-                        📋 Job thường
-                      </button>
-                      <button type="button" onClick={() => setNewJobType("mini")}
-                        className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${newJobType === "mini" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
-                        🎞️ Mini (theo clip)
-                      </button>
-                    </div>
+                <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                  <PlusCircle className="w-5 h-5 text-blue-500" /> Tạo Job Mới
+                </h2>
+
+                {createMode === "none" && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      onClick={() => setCreateMode("postprod")}
+                      className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all">
+                      <span className="text-3xl">🎬</span>
+                      <span className="font-bold text-blue-700 text-sm text-center leading-snug">Hậu kỳ lẻ</span>
+                      <span className="text-xs text-blue-500 text-center">Tạo 1 job dựng / edit đơn lẻ</span>
+                    </button>
+                    <button
+                      onClick={() => setCreateMode("mini")}
+                      className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 transition-all">
+                      <span className="text-3xl">🎞️</span>
+                      <span className="font-bold text-purple-700 text-sm text-center leading-snug">Hậu kỳ Mini</span>
+                      <span className="text-xs text-purple-500 text-center">Loạt clip ngắn, nhận từng clip</span>
+                    </button>
+                    <button
+                      onClick={() => setCreateMode("shooting")}
+                      className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all">
+                      <span className="text-3xl">📅</span>
+                      <span className="font-bold text-orange-700 text-sm text-center leading-snug">Tạo Ngày Quay</span>
+                      <span className="text-xs text-orange-500 text-center">Tất cả jobs cho 1 ngày quay</span>
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tên công việc</label>
-                      <input type="text" required value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder={newJobType === "mini" ? "VD: Clip sức khoẻ ngắn..." : "VD: Dựng tập 1 phim ngắn..."} />
+                )}
+
+                {/* ── Form: Hậu kỳ lẻ ── */}
+                {createMode === "postprod" && (
+                  <form onSubmit={handleCreateJob} className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">🎬</span>
+                      <span className="font-bold text-blue-700">Hậu kỳ lẻ</span>
+                      <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
-                    {newJobType === "standard" ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tên công việc</label>
+                        <input type="text" required value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="VD: Dựng tập 3 phim ngắn..." />
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Ngân sách (VNĐ)</label>
                         <input type="number" inputMode="numeric" required value={newJobSalary} onChange={(e) => setNewJobSalary(e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                          placeholder="VD: 5000000" />
+                          placeholder="VD: 3000000" />
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Giá / clip (VNĐ)</label>
-                          <input type="number" inputMode="numeric" required value={newJobUnitPrice} onChange={(e) => setNewJobUnitPrice(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm"
-                            placeholder="VD: 100000" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả chi tiết (tuỳ chọn)</label>
+                      <textarea value={newJobDesc} onChange={(e) => setNewJobDesc(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-16 resize-none"
+                        placeholder="Ghi chú thêm..." />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setCreateMode("none")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+                      <button type="submit" disabled={submitting} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        {submitting ? "Đang đăng..." : "Đăng Job"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* ── Form: Hậu kỳ Mini ── */}
+                {createMode === "mini" && (
+                  <form onSubmit={handleCreateMiniJob} className="space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">🎞️</span>
+                      <span className="font-bold text-purple-700">Hậu kỳ Mini (theo clip)</span>
+                      <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tên loạt clip</label>
+                      <input type="text" required value={miniTitle} onChange={(e) => setMiniTitle(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                        placeholder="VD: Clip sức khoẻ ngắn — Tháng 3" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Giá / clip (VNĐ)</label>
+                        <input type="number" inputMode="numeric" required min="1000" value={newJobUnitPrice} onChange={(e) => setNewJobUnitPrice(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm"
+                          placeholder="VD: 100000" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Số clip</label>
+                        <input type="number" inputMode="numeric" required min="1" value={newJobTotalUnits} onChange={(e) => setNewJobTotalUnits(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm"
+                          placeholder="VD: 20" />
+                      </div>
+                    </div>
+                    {newJobUnitPrice && newJobTotalUnits && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-xl px-4 py-3 flex justify-between items-center text-sm">
+                        <span className="text-purple-600">Tổng ngân sách:</span>
+                        <span className="font-black text-purple-700 text-base">{new Intl.NumberFormat("vi-VN").format(Number(newJobUnitPrice) * Number(newJobTotalUnits))}đ</span>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả (tuỳ chọn)</label>
+                      <textarea value={miniDesc} onChange={(e) => setMiniDesc(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none h-14 resize-none"
+                        placeholder="Nội dung, phong cách clip..." />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setCreateMode("none")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+                      <button type="submit" disabled={submitting} className="bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                        {submitting ? "Đang tạo..." : "Tạo Mini Job"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* ── Form: Ngày Quay ── */}
+                {createMode === "shooting" && (
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xl">📅</span>
+                      <span className="font-bold text-orange-700">Tạo Ngày Quay</span>
+                      <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                    </div>
+
+                    {/* Thông tin ngày quay */}
+                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
+                      <p className="text-sm font-semibold text-orange-700">📋 Thông tin ngày quay</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-1">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Tên phim / dự án</label>
+                          <input type="text" value={shootFilmName} onChange={(e) => setShootFilmName(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
+                            placeholder="VD: Sát Giới" />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Số clip</label>
-                          <input type="number" inputMode="numeric" required min="1" value={newJobTotalUnits} onChange={(e) => setNewJobTotalUnits(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm"
-                            placeholder="VD: 20" />
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Ngày quay</label>
+                          <input type="number" inputMode="numeric" min="1" max="31" value={shootDay} onChange={(e) => setShootDay(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
+                            placeholder="VD: 5" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Tháng</label>
+                          <input type="number" inputMode="numeric" min="1" max="12" value={shootMonth} onChange={(e) => setShootMonth(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
+                            placeholder="VD: 3" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Chọn loại hậu kỳ */}
+                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                      <p className="text-sm font-semibold text-gray-700">🎬 Loại hậu kỳ cho ngày quay này</p>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setShootSubType("large")}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${shootSubType === "large" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}>
+                          🎬 Job lớn (theo tập)
+                        </button>
+                        <button type="button" onClick={() => setShootSubType("mini_clips")}
+                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${shootSubType === "mini_clips" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
+                          🎞️ Mini clip
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hạng mục tại chỗ */}
+                    <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
+                      <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Timer className="w-4 h-4 text-orange-500" /> Hạng mục tại chỗ</p>
+                      <div className="grid grid-cols-12 gap-2 mb-1">
+                        <div className="col-span-4 text-xs text-gray-400 font-medium">Vai trò</div>
+                        <div className="col-span-2 text-xs text-gray-400 font-medium text-center">SL</div>
+                        <div className="col-span-5 text-xs text-gray-400 font-medium">Lương/người</div>
+                      </div>
+                      <div className="space-y-2">
+                        {shootPositions.map((pos, idx) => (
+                          <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-4">
+                              <input type="text" value={pos.role}
+                                onChange={(e) => setShootPositions(prev => prev.map((p, i) => i === idx ? { ...p, role: e.target.value } : p))}
+                                className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none" />
+                            </div>
+                            <div className="col-span-2">
+                              <input type="number" min="1" max="10" value={pos.qty}
+                                onChange={(e) => setShootPositions(prev => prev.map((p, i) => i === idx ? { ...p, qty: Number(e.target.value) } : p))}
+                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:ring-1 focus:ring-orange-400 outline-none" />
+                            </div>
+                            <div className="col-span-5">
+                              <input type="number" inputMode="numeric" value={pos.salary}
+                                onChange={(e) => setShootPositions(prev => prev.map((p, i) => i === idx ? { ...p, salary: Number(e.target.value) } : p))}
+                                className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none" />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <button type="button" onClick={() => setShootPositions(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-gray-300 hover:text-red-400"><X className="w-4 h-4" /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button type="button"
+                        onClick={() => setShootPositions(prev => [...prev, { role: "", qty: 1, salary: 0 }])}
+                        className="text-xs text-orange-600 hover:text-orange-700 flex items-center gap-1 font-medium mt-1">
+                        <PlusCircle className="w-3.5 h-3.5" /> Thêm hạng mục
+                      </button>
+                      <div className="text-xs text-gray-400 bg-orange-50 rounded-lg px-3 py-2 flex justify-between mt-2">
+                        <span>Tổng tại chỗ:</span>
+                        <span className="font-semibold text-orange-700">
+                          {new Intl.NumberFormat("vi-VN").format(shootPositions.reduce((s, p) => s + p.salary * p.qty, 0))}đ
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Hậu kỳ: job lớn theo tập */}
+                    {shootSubType === "large" && (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
+                        <p className="text-sm font-semibold text-blue-700">🎬 Tập dựng phim</p>
+                        <div className="grid grid-cols-12 gap-2 mb-1">
+                          <div className="col-span-6 text-xs text-gray-400 font-medium">Tên tập</div>
+                          <div className="col-span-5 text-xs text-gray-400 font-medium">Thù lao dựng</div>
+                        </div>
+                        <div className="space-y-2">
+                          {shootEpisodes.map((ep, idx) => (
+                            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                              <div className="col-span-6">
+                                <input type="text" value={ep.name}
+                                  onChange={(e) => setShootEpisodes(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                                  className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-400 outline-none" />
+                              </div>
+                              <div className="col-span-5">
+                                <input type="number" inputMode="numeric" value={ep.editSalary}
+                                  onChange={(e) => setShootEpisodes(prev => prev.map((x, i) => i === idx ? { ...x, editSalary: Number(e.target.value) } : x))}
+                                  className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-400 outline-none" />
+                              </div>
+                              <div className="col-span-1 flex justify-end">
+                                <button type="button" onClick={() => setShootEpisodes(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-gray-300 hover:text-red-400"><X className="w-4 h-4" /></button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button type="button"
+                          onClick={() => setShootEpisodes(prev => [...prev, { name: `Tập ${prev.length + 1}`, editSalary: DEFAULT_EDIT_SALARY }])}
+                          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium mt-1">
+                          <PlusCircle className="w-3.5 h-3.5" /> Thêm tập
+                        </button>
+                        <div className="text-xs text-gray-400 bg-blue-100/70 rounded-lg px-3 py-2 flex justify-between">
+                          <span>Tổng hậu kỳ:</span>
+                          <span className="font-semibold text-blue-700">
+                            {new Intl.NumberFormat("vi-VN").format(shootEpisodes.reduce((s, e) => s + e.editSalary, 0))}đ
+                          </span>
                         </div>
                       </div>
                     )}
-                  </div>
-                  {newJobType === "mini" && newJobUnitPrice && newJobTotalUnits && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2.5 text-sm text-purple-700 flex items-center justify-between">
-                      <span>Tổng ngân sách:</span>
-                      <span className="font-bold">{new Intl.NumberFormat("vi-VN").format(Number(newJobUnitPrice) * Number(newJobTotalUnits))}đ</span>
+
+                    {/* Hậu kỳ: mini clips */}
+                    {shootSubType === "mini_clips" && (
+                      <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
+                        <p className="text-sm font-semibold text-purple-700">🎞️ Clip ngắn hậu kỳ</p>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Tên loạt clip</label>
+                          <input type="text" value={shootClipTitle} onChange={(e) => setShootClipTitle(e.target.value)}
+                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-400 outline-none"
+                            placeholder={`VD: Clip ${shootFilmName || "phim"} ngắn`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Giá / clip (đ)</label>
+                            <input type="number" inputMode="numeric" min="1000" value={shootClipPrice} onChange={(e) => setShootClipPrice(e.target.value)}
+                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-400 outline-none" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Số clip</label>
+                            <input type="number" inputMode="numeric" min="1" value={shootClipCount} onChange={(e) => setShootClipCount(e.target.value)}
+                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-400 outline-none" />
+                          </div>
+                        </div>
+                        {shootClipPrice && shootClipCount && (
+                          <div className="text-xs text-gray-400 bg-purple-100/70 rounded-lg px-3 py-2 flex justify-between">
+                            <span>Tổng mini:</span>
+                            <span className="font-semibold text-purple-600">
+                              {new Intl.NumberFormat("vi-VN").format(Number(shootClipPrice) * Number(shootClipCount))}đ
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Preview tổng chi phí */}
+                    {shootFilmName && shootDay && shootMonth && (
+                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl p-4">
+                        <p className="text-sm font-bold mb-2">📅 {shootFilmName} — {shootDay}/{shootMonth}</p>
+                        <div className="text-xs space-y-1 opacity-90">
+                          <p>• {shootPositions.reduce((s, p) => s + p.qty, 0)} vị trí tại chỗ ({shootPositions.length} hạng mục) — {new Intl.NumberFormat("vi-VN").format(shootPositions.reduce((s, p) => s + p.salary * p.qty, 0))}đ</p>
+                          {shootSubType === "large"
+                            ? <p>• {shootEpisodes.length} job dựng tập — {new Intl.NumberFormat("vi-VN").format(shootEpisodes.reduce((s, e) => s + e.editSalary, 0))}đ</p>
+                            : <p>• 1 job mini ({shootClipCount} clip × {new Intl.NumberFormat("vi-VN").format(Number(shootClipPrice))}đ) — {new Intl.NumberFormat("vi-VN").format(Number(shootClipPrice) * Number(shootClipCount))}đ</p>
+                          }
+                        </div>
+                        <p className="font-black text-lg mt-2">
+                          Tổng: {new Intl.NumberFormat("vi-VN").format(
+                            shootPositions.reduce((s, p) => s + p.salary * p.qty, 0) +
+                            (shootSubType === "large"
+                              ? shootEpisodes.reduce((s, e) => s + e.editSalary, 0)
+                              : Number(shootClipPrice) * Number(shootClipCount))
+                          )}đ
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setCreateMode("none")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+                      <button
+                        type="button"
+                        disabled={submitting || !shootFilmName || !shootDay || !shootMonth}
+                        onClick={handleCreateShootingDay}
+                        className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                        {submitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Đang tạo...</> : <><CheckCircle2 className="w-4 h-4" /> Tạo tất cả jobs</>}
+                      </button>
                     </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả chi tiết</label>
-                    <textarea value={newJobDesc} onChange={(e) => setNewJobDesc(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-20 resize-none"
-                      placeholder="Mô tả các khâu cần làm..." />
                   </div>
-                  <button type="submit" disabled={submitting}
-                    className={`disabled:opacity-60 text-white px-6 py-2 rounded-lg font-medium transition-colors ${newJobType === "mini" ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}>
-                    {submitting ? "Đang đăng..." : "Đăng Job"}
-                  </button>
-                </form>
+                )}
               </div>
 
               <div>
