@@ -1,31 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-// Proxy tới app Thu Chi để tránh CORS
-// Query params: ?baseUrl=https://... (optional, fallback to env var)
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const baseUrl =
-    searchParams.get("baseUrl") ||
-    process.env.THUCHI_BASE_URL ||
-    "";
+// Proxy tới app Thu Chi — cấu hình qua Railway env vars:
+// THUCHI_BASE_URL = https://thuchi.up.railway.app
+// THUCHI_API_KEY  = <api key từ app thu chi>
+export async function GET() {
+  const baseUrl = process.env.THUCHI_BASE_URL || "";
+  const apiKey  = process.env.THUCHI_API_KEY  || "";
 
-  if (!baseUrl) {
-    return NextResponse.json({ error: "Chưa cấu hình URL app thu chi" }, { status: 400 });
+  if (!baseUrl || !apiKey) {
+    return NextResponse.json(
+      { error: "Chưa cấu hình THUCHI_BASE_URL / THUCHI_API_KEY trong Railway" },
+      { status: 503 }
+    );
   }
-
-  const apiKey =
-    searchParams.get("apiKey") ||
-    process.env.THUCHI_API_KEY ||
-    "";
 
   try {
     const url = `${baseUrl.replace(/\/$/, "")}/api/v1/transactions`;
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (apiKey) headers["X-Api-Key"] = apiKey;
     const res = await fetch(url, {
-      headers,
+      headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
       signal: AbortSignal.timeout(8000),
     });
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: `App thu chi trả về lỗi ${res.status}` },
+        { status: 502 }
+      );
+    }
+    return NextResponse.json(await res.json());
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 
     if (!res.ok) {
       return NextResponse.json(
