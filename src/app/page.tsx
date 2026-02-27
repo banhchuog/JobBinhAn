@@ -202,8 +202,10 @@ export default function Home() {
   const [copySuccess, setCopySuccess] = useState(false);
 
   // ── Share job state ──────────────────────────────────
-  const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number } | null>(null);
+  const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number; isMini?: boolean; currentUnits?: number } | null>(null);
   const [sharePercInput, setSharePercInput] = useState("");
+  const [miniClaimJob, setMiniClaimJob] = useState<Job | null>(null);
+  const [miniClaimUnits, setMiniClaimUnits] = useState("1");
 
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -552,9 +554,49 @@ export default function Home() {
     }
   };
 
+  // ─── Employee: Claim Mini Job (multi-clip) ─────────────
+  const handleMiniClaim = async () => {
+    if (!miniClaimJob || !currentEmployee) return;
+    const units = Number(miniClaimUnits);
+    const remaining = (miniClaimJob.totalUnits ?? 0) - miniClaimJob.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
+    if (!units || units < 1 || units > remaining) {
+      alert(`Nhập số clip hợp lệ (1 – ${remaining})`); return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/jobs/${miniClaimJob.id}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId: currentEmployee.id, employeeName: currentEmployee.name, units }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Lỗi!"); return; }
+      setMiniClaimJob(null); setMiniClaimUnits("1");
+      await fetchAll();
+    } finally { setSubmitting(false); }
+  };
+
   // ─── Employee: Share Job ─────────────────────────────
   const handleShareJob = async () => {
     if (!sharingItem) return;
+    // Mini: share by clip count
+    if (sharingItem.isMini) {
+      const units = Number(sharePercInput);
+      if (!units || units <= 0 || units > (sharingItem.currentUnits ?? 1)) {
+        alert(`Nhập số clip hợp lệ (1 – ${sharingItem.currentUnits})`); return;
+      }
+      setSubmitting(true);
+      try {
+        const res = await fetch(`/api/jobs/${sharingItem.jobId}/assignments/${sharingItem.assignmentId}/share`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ units }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || "Lỗi!"); return; }
+        setSharingItem(null); setSharePercInput(""); await fetchAll();
+      } finally { setSubmitting(false); }
+      return;
+    }
     const pct = Number(sharePercInput);
     if (!pct || pct <= 0 || pct > sharingItem.currentPct) {
       alert(`Nhập % hợp lệ (1 – ${sharingItem.currentPct})`);
@@ -1103,7 +1145,7 @@ export default function Home() {
                       {filtered.map((job) => {
                         const isMini = job.jobType === "mini";
                         const pct = isMini
-                          ? (job.assignments.length / (job.totalUnits ?? 1)) * 100
+                          ? (job.assignments.reduce((s, a) => s + (a.units ?? 1), 0) / (job.totalUnits ?? 1)) * 100
                           : job.assignments.reduce((a, b) => a + b.percentage, 0);
                         const isSelected = selectedJobIds.has(job.id);
                         return (
@@ -1120,7 +1162,7 @@ export default function Home() {
                                 <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h3 className="font-semibold text-base leading-snug">{job.title}</h3>
-                                  {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">🎞️ Mini · {job.assignments.length}/{job.totalUnits} clip</span>}
+                                  {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">🎞️ Mini · {job.assignments.reduce((s, a) => s + (a.units ?? 1), 0)}/{job.totalUnits} clip</span>}
                                   {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
                                   {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">{job.groupName}</span>}
                                 </div>
@@ -1148,7 +1190,7 @@ export default function Home() {
                                     <span className="font-medium">{a.employeeName}</span>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {isMini
-                                        ? <span className="text-purple-600">1 clip</span>
+                                        ? <span className="text-purple-600">{a.units ?? 1} clip</span>
                                         : <span className="text-blue-600">{a.percentage}%</span>}
                                       <span className="text-green-600 font-medium">{formatCurrency(a.salaryEarned)}</span>
                                       <StatusBadge status={a.status} />
@@ -1771,18 +1813,19 @@ export default function Home() {
           const JobCard = ({ job, theme }: { job: Job; theme: "amber" | "blue" | "green" }) => {
             const isMini = job.jobType === "mini";
             const totalClaimed = isMini
-              ? job.assignments.length
+              ? job.assignments.reduce((s, a) => s + (a.units ?? 1), 0)
               : job.assignments.reduce((a, b) => a + b.percentage, 0);
             const progressPct = isMini
-              ? (job.assignments.length / (job.totalUnits ?? 1)) * 100
+              ? (totalClaimed / (job.totalUnits ?? 1)) * 100
               : totalClaimed;
             const myAssignment = job.assignments.find((a) => a.employeeId === currentEmployee?.id);
             const myAssignments_job = job.assignments.filter((a) => a.employeeId === currentEmployee?.id);
+            const myTotalUnits = myAssignments_job.reduce((s, a) => s + (a.units ?? 1), 0);
             const myApprovedAssignments = job.assignments.filter(
               (a) => a.employeeId === currentEmployee?.id && a.status === "APPROVED"
             );
             const myApprovedPct = isMini
-              ? myApprovedAssignments.length
+              ? myApprovedAssignments.reduce((s, a) => s + (a.units ?? 1), 0)
               : myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
 
             const borderClass = theme === "amber"
@@ -1810,7 +1853,7 @@ export default function Home() {
                     <h3 className="font-semibold text-gray-900 leading-snug">{job.title}</h3>
                     {isMini && (
                       <p className="text-xs text-purple-600 font-medium mt-0.5 flex items-center gap-1">
-                        🎞️ {job.assignments.length}/{job.totalUnits} clip · {new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip
+                        🎞️ {totalClaimed}/{job.totalUnits} clip · {new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip
                       </p>
                     )}
                     {theme === "amber" && job.expiresAt && (
@@ -1824,8 +1867,8 @@ export default function Home() {
                     {theme === "green"
                       ? "✓ Xong"
                       : theme === "blue"
-                        ? isMini ? `${myAssignments_job.length} clip` : `${myAssignment?.percentage ?? 0}%`
-                        : isMini ? `Còn ${(job.totalUnits ?? 0) - job.assignments.length} clip` : `Còn ${100 - totalClaimed}%`}
+                        ? isMini ? `${myTotalUnits} clip` : `${myAssignment?.percentage ?? 0}%`
+                        : isMini ? `Còn ${(job.totalUnits ?? 0) - totalClaimed} clip` : `Còn ${100 - totalClaimed}%`}
                   </span>
                 </div>
                 {job.description && <p className="text-gray-500 text-sm mb-3 line-clamp-2">{job.description}</p>}
@@ -1842,9 +1885,9 @@ export default function Home() {
                         → {formatCurrency(myAssignment.salaryEarned)} của tôi
                       </span>
                     )}
-                    {isMini && myAssignments_job.length > 0 && (
+                    {isMini && myTotalUnits > 0 && (
                       <span className={`text-xs font-medium ${theme === "green" ? "text-green-600" : "text-blue-600"}`}>
-                        → {myAssignments_job.length} clip · {formatCurrency(myAssignments_job.length * (job.unitPrice ?? 0))}
+                        → {myTotalUnits} clip · {formatCurrency(myTotalUnits * (job.unitPrice ?? 0))}
                       </span>
                     )}
                   </div>
@@ -1858,22 +1901,9 @@ export default function Home() {
                     {theme === "amber" && (
                       isMini ? (
                         <button
-                          onClick={async () => {
-                            setSubmitting(true);
-                            try {
-                              const res = await fetch(`/api/jobs/${job.id}/claim`, {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ employeeId: currentEmployee!.id, employeeName: currentEmployee!.name, units: 1 }),
-                              });
-                              const data = await res.json();
-                              if (!res.ok) { alert(data.error || "Lỗi!"); return; }
-                              await fetchAll();
-                            } finally { setSubmitting(false); }
-                          }}
-                          disabled={submitting}
-                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                          🎞️ Nhận 1 clip <ChevronRight className="w-4 h-4" />
+                          onClick={() => { setMiniClaimJob(job); setMiniClaimUnits("1"); }}
+                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                          🎞️ Nhận clip <ChevronRight className="w-4 h-4" />
                         </button>
                       ) : (
                         <button onClick={() => setSelectedJob(job)}
@@ -1891,6 +1921,14 @@ export default function Home() {
                     {theme === "blue" && myAssignment?.status === "WORKING" && !isMini && (
                       <button
                         onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: myAssignment.percentage }); setSharePercInput(""); }}
+                        disabled={submitting}
+                        className="flex items-center gap-1.5 bg-gray-100 hover:bg-orange-50 hover:text-orange-600 text-gray-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                        <Share2 className="w-3.5 h-3.5" /> Nhường
+                      </button>
+                    )}
+                    {theme === "blue" && isMini && myAssignment?.status === "WORKING" && (
+                      <button
+                        onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: 0, isMini: true, currentUnits: myAssignment.units ?? 1 }); setSharePercInput(""); }}
                         disabled={submitting}
                         className="flex items-center gap-1.5 bg-gray-100 hover:bg-orange-50 hover:text-orange-600 text-gray-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
                         <Share2 className="w-3.5 h-3.5" /> Nhường
@@ -2081,6 +2119,69 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── Mini Claim modal ── */}
+      {miniClaimJob && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl">
+            <div className="flex justify-center pt-3 pb-1 sm:hidden">
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <div className="px-5 pb-6 pt-3 sm:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center text-xl">🎞️</div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Nhận clip</h3>
+                  <p className="text-xs text-gray-500 truncate max-w-[200px]">{miniClaimJob.title}</p>
+                </div>
+              </div>
+              {(() => {
+                const remaining = (miniClaimJob.totalUnits ?? 0) - miniClaimJob.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
+                return (
+                  <>
+                    <p className="text-sm text-gray-600 mb-1">
+                      Còn <span className="font-bold text-purple-600">{remaining} clip</span> · {new Intl.NumberFormat("vi-VN").format(miniClaimJob.unitPrice ?? 0)}đ/clip
+                    </p>
+                    {Number(miniClaimUnits) > 0 && (
+                      <p className="text-xs text-green-600 mb-3 font-medium">
+                        → Nhận {miniClaimUnits} clip · {formatCurrency(Number(miniClaimUnits) * (miniClaimJob.unitPrice ?? 0))}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {[1, 2, 3, Math.min(5, remaining), Math.min(10, remaining), remaining]
+                        .filter((v, i, a) => v > 0 && v <= remaining && a.indexOf(v) === i)
+                        .map((n) => (
+                          <button key={n}
+                            onClick={() => setMiniClaimUnits(String(n))}
+                            className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                              Number(miniClaimUnits) === n ? "bg-purple-600 text-white border-purple-600"
+                              : "bg-white text-gray-700 border-gray-200 hover:border-purple-400"
+                            }`}>
+                            {n}
+                          </button>
+                        ))}
+                    </div>
+                    <input type="number" min={1} max={remaining}
+                      value={miniClaimUnits} onChange={(e) => setMiniClaimUnits(e.target.value)}
+                      placeholder={`Hoặc nhập 1–${remaining}`}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-purple-400 text-sm mb-4" />
+                  </>
+                );
+              })()}
+              <div className="flex gap-3">
+                <button onClick={() => { setMiniClaimJob(null); setMiniClaimUnits("1"); }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
+                  Huỷ
+                </button>
+                <button onClick={handleMiniClaim} disabled={submitting}
+                  className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-bold transition-colors">
+                  {submitting ? "Đang nhận…" : "✓ Nhận"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Share / Nhường job modal ── */}
       {sharingItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
@@ -2098,38 +2199,66 @@ export default function Home() {
                   <p className="text-sm text-gray-500 line-clamp-1">{sharingItem.jobTitle}</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Bạn đang giữ <span className="font-bold text-blue-600">{sharingItem.currentPct}%</span>. Nhập % muốn nhường lại để người khác nhận:
-              </p>
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                {[25, 50, 75, sharingItem.currentPct].filter((v, i, a) => a.indexOf(v) === i).map((pct) => {
-                  const disabled = pct > sharingItem.currentPct;
-                  return (
-                    <button key={pct} disabled={disabled}
-                      onClick={() => setSharePercInput(String(pct))}
-                      className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                        Number(sharePercInput) === pct ? "bg-orange-500 text-white border-orange-500"
-                        : disabled ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
-                        : "bg-white text-gray-700 border-gray-200 hover:border-orange-400"
-                      }`}>
-                      {pct}%
-                    </button>
-                  );
-                })}
-              </div>
-              <input
-                type="number"
-                min={1}
-                max={sharingItem.currentPct}
-                value={sharePercInput}
-                onChange={(e) => setSharePercInput(e.target.value)}
-                placeholder={`Hoặc nhập 1–${sharingItem.currentPct}`}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-400 text-sm mb-4"
-              />
-              {Number(sharePercInput) === sharingItem.currentPct && (
-                <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
-                  ⚠️ Nhường hết {sharingItem.currentPct}% — bạn sẽ rời khỏi job này.
-                </p>
+              {sharingItem.isMini ? (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Bạn đang giữ <span className="font-bold text-purple-600">{sharingItem.currentUnits} clip</span>. Nhập số clip muốn nhường lại:
+                  </p>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[1, Math.ceil((sharingItem.currentUnits ?? 1) / 2), sharingItem.currentUnits ?? 1]
+                      .filter((v, i, a) => v > 0 && a.indexOf(v) === i)
+                      .map((n) => (
+                        <button key={n}
+                          onClick={() => setSharePercInput(String(n))}
+                          className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                            Number(sharePercInput) === n ? "bg-orange-500 text-white border-orange-500"
+                            : "bg-white text-gray-700 border-gray-200 hover:border-orange-400"
+                          }`}>
+                          {n}
+                        </button>
+                      ))}
+                  </div>
+                  <input type="number" min={1} max={sharingItem.currentUnits ?? 1}
+                    value={sharePercInput} onChange={(e) => setSharePercInput(e.target.value)}
+                    placeholder={`Hoặc nhập 1–${sharingItem.currentUnits}`}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-400 text-sm mb-4" />
+                  {Number(sharePercInput) === (sharingItem.currentUnits ?? 1) && (
+                    <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
+                      ⚠️ Nhường hết {sharingItem.currentUnits} clip — bạn sẽ rời khỏi job này.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Bạn đang giữ <span className="font-bold text-blue-600">{sharingItem.currentPct}%</span>. Nhập % muốn nhường lại để người khác nhận:
+                  </p>
+                  <div className="grid grid-cols-4 gap-2 mb-3">
+                    {[25, 50, 75, sharingItem.currentPct].filter((v, i, a) => a.indexOf(v) === i).map((pct) => {
+                      const disabled = pct > sharingItem.currentPct;
+                      return (
+                        <button key={pct} disabled={disabled}
+                          onClick={() => setSharePercInput(String(pct))}
+                          className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                            Number(sharePercInput) === pct ? "bg-orange-500 text-white border-orange-500"
+                            : disabled ? "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                            : "bg-white text-gray-700 border-gray-200 hover:border-orange-400"
+                          }`}>
+                          {pct}%
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input type="number" min={1} max={sharingItem.currentPct}
+                    value={sharePercInput} onChange={(e) => setSharePercInput(e.target.value)}
+                    placeholder={`Hoặc nhập 1–${sharingItem.currentPct}`}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-400 text-sm mb-4" />
+                  {Number(sharePercInput) === sharingItem.currentPct && (
+                    <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
+                      ⚠️ Nhường hết {sharingItem.currentPct}% — bạn sẽ rời khỏi job này.
+                    </p>
+                  )}
+                </>
               )}
               <div className="flex gap-3">
                 <button onClick={() => { setSharingItem(null); setSharePercInput(""); }}
