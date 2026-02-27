@@ -22,6 +22,12 @@ export interface Job {
   groupId?: string;
   /** Tên nhóm job */
   groupName?: string;
+  /** Loại job: "standard" (mặc định) hoặc "mini" (theo đơn vị clip) */
+  jobType?: 'standard' | 'mini';
+  /** [mini] Thù lao mỗi clip/đơn vị */
+  unitPrice?: number;
+  /** [mini] Tổng số clip/đơn vị */
+  totalUnits?: number;
 }
 
 export interface JobAssignment {
@@ -36,4 +42,6 @@ export interface JobAssignment {
   approvedAt?: string;
   /** Ghi chú của Director khi duyệt */
   note?: string;
+  /** [mini] Số clip/đơn vị trong assignment này */
+  units?: number;
 }

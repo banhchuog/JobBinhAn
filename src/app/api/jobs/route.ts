@@ -28,6 +28,9 @@ export async function POST(req: Request) {
       ...(body.expiresAt ? { expiresAt: body.expiresAt } : {}),
       ...(body.groupId ? { groupId: body.groupId } : {}),
       ...(body.groupName ? { groupName: body.groupName } : {}),
+      ...(body.jobType ? { jobType: body.jobType } : {}),
+      ...(body.unitPrice ? { unitPrice: Number(body.unitPrice) } : {}),
+      ...(body.totalUnits ? { totalUnits: Number(body.totalUnits) } : {}),
     };
     const created = await createJob(job);
     return NextResponse.json(created, { status: 201 });

@@ -8,11 +8,37 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const { employeeId, employeeName, percentage } = await req.json();
+    const { employeeId, employeeName, percentage, units } = await req.json();
 
     const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
+    // ── Mini job: claim 1 unit at a time ──────────────────────
+    if (job.jobType === "mini") {
+      const remaining = (job.totalUnits ?? 0) - job.assignments.length;
+      if (remaining <= 0) {
+        return NextResponse.json({ error: "Hết clip rồi!" }, { status: 400 });
+      }
+      const newAssignment: JobAssignment = {
+        id: Math.random().toString(36).substring(7),
+        employeeId,
+        employeeName,
+        percentage: 0,
+        units: units ?? 1,
+        salaryEarned: job.unitPrice ?? 0,
+        assignedAt: new Date().toISOString(),
+        status: "WORKING",
+      };
+      const updatedJob = {
+        ...job,
+        assignments: [...job.assignments, newAssignment],
+        status: "IN_PROGRESS" as const,
+      };
+      await updateJob(updatedJob);
+      return NextResponse.json(updatedJob);
+    }
+
+    // ── Standard job: percentage-based ───────────────────────
     const currentTotal = job.assignments.reduce((acc, a) => acc + a.percentage, 0);
     if (currentTotal + percentage > 100) {
       return NextResponse.json(

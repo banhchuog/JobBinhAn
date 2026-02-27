@@ -147,7 +147,10 @@ export default function Home() {
   const [editingEmployee, setEditingEmployee] = useState<{ id: string; name: string } | null>(null);
   const [directorMonth, setDirectorMonth] = useState<string>(currentYM());
   const [jobSearch, setJobSearch] = useState("");
-  const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod">("all");
+  const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod" | "mini">("all");
+  const [newJobType, setNewJobType] = useState<"standard" | "mini">("standard");
+  const [newJobUnitPrice, setNewJobUnitPrice] = useState("");
+  const [newJobTotalUnits, setNewJobTotalUnits] = useState("");
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
@@ -234,15 +237,35 @@ export default function Home() {
   // ─── Director: Create Job ────────────────────────────
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newJobTitle || !newJobSalary) return;
+    if (!newJobTitle) return;
+    if (newJobType === "mini") {
+      if (!newJobUnitPrice || !newJobTotalUnits) return;
+    } else {
+      if (!newJobSalary) return;
+    }
     setSubmitting(true);
     try {
+      const isMini = newJobType === "mini";
+      const totalSalary = isMini
+        ? Number(newJobUnitPrice) * Number(newJobTotalUnits)
+        : Number(newJobSalary);
+      const body: Record<string, unknown> = {
+        title: newJobTitle,
+        description: newJobDesc,
+        totalSalary,
+        jobType: newJobType,
+      };
+      if (isMini) {
+        body.unitPrice = Number(newJobUnitPrice);
+        body.totalUnits = Number(newJobTotalUnits);
+      }
       await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newJobTitle, description: newJobDesc, totalSalary: Number(newJobSalary) }),
+        body: JSON.stringify(body),
       });
       setNewJobTitle(""); setNewJobDesc(""); setNewJobSalary("");
+      setNewJobUnitPrice(""); setNewJobTotalUnits(""); setNewJobType("standard");
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -327,14 +350,20 @@ export default function Home() {
   // ─── Employee: Claim Job ─────────────────────────────
   const handleClaimJob = async () => {
     if (!selectedJob || !currentEmployee) return;
-    const percentage = claimPercentage === -1 ? Number(customPercentage) : claimPercentage;
-    if (percentage <= 0 || percentage > 100) { alert("Phần trăm không hợp lệ!"); return; }
+    const isMini = selectedJob.jobType === "mini";
+    if (!isMini) {
+      const percentage = claimPercentage === -1 ? Number(customPercentage) : claimPercentage;
+      if (percentage <= 0 || percentage > 100) { alert("Phần trăm không hợp lệ!"); return; }
+    }
     setSubmitting(true);
     try {
+      const body = isMini
+        ? { employeeId: currentEmployee.id, employeeName: currentEmployee.name, units: 1 }
+        : { employeeId: currentEmployee.id, employeeName: currentEmployee.name, percentage: claimPercentage === -1 ? Number(customPercentage) : claimPercentage };
       const res = await fetch(`/api/jobs/${selectedJob.id}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId: currentEmployee.id, employeeName: currentEmployee.name, percentage }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Lỗi!"); return; }
@@ -529,20 +558,57 @@ export default function Home() {
                   </button>
                 </div>
                 <form onSubmit={handleCreateJob} className="space-y-4">
+                  {/* Loại job */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Loại job</label>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setNewJobType("standard")}
+                        className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${newJobType === "standard" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}>
+                        📋 Job thường
+                      </button>
+                      <button type="button" onClick={() => setNewJobType("mini")}
+                        className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors ${newJobType === "mini" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
+                        🎞️ Mini (theo clip)
+                      </button>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Tên công việc</label>
                       <input type="text" required value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder="VD: Dựng tập 1 phim ngắn..." />
+                        placeholder={newJobType === "mini" ? "VD: Clip sức khoẻ ngắn..." : "VD: Dựng tập 1 phim ngắn..."} />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Ngân sách (VNĐ)</label>
-                      <input type="number" inputMode="numeric" required value={newJobSalary} onChange={(e) => setNewJobSalary(e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder="VD: 5000000" />
-                    </div>
+                    {newJobType === "standard" ? (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ngân sách (VNĐ)</label>
+                        <input type="number" inputMode="numeric" required value={newJobSalary} onChange={(e) => setNewJobSalary(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="VD: 5000000" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Giá / clip (VNĐ)</label>
+                          <input type="number" inputMode="numeric" required value={newJobUnitPrice} onChange={(e) => setNewJobUnitPrice(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm"
+                            placeholder="VD: 100000" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Số clip</label>
+                          <input type="number" inputMode="numeric" required min="1" value={newJobTotalUnits} onChange={(e) => setNewJobTotalUnits(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none text-sm"
+                            placeholder="VD: 20" />
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  {newJobType === "mini" && newJobUnitPrice && newJobTotalUnits && (
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-2.5 text-sm text-purple-700 flex items-center justify-between">
+                      <span>Tổng ngân sách:</span>
+                      <span className="font-bold">{new Intl.NumberFormat("vi-VN").format(Number(newJobUnitPrice) * Number(newJobTotalUnits))}đ</span>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả chi tiết</label>
                     <textarea value={newJobDesc} onChange={(e) => setNewJobDesc(e.target.value)}
@@ -550,7 +616,7 @@ export default function Home() {
                       placeholder="Mô tả các khâu cần làm..." />
                   </div>
                   <button type="submit" disabled={submitting}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    className={`disabled:opacity-60 text-white px-6 py-2 rounded-lg font-medium transition-colors ${newJobType === "mini" ? "bg-purple-600 hover:bg-purple-700" : "bg-blue-600 hover:bg-blue-700"}`}>
                     {submitting ? "Đang đăng..." : "Đăng Job"}
                   </button>
                 </form>
@@ -573,13 +639,17 @@ export default function Home() {
                   return (
                     <div className="grid gap-4">
                       {filtered.map((job) => {
-                        const pct = job.assignments.reduce((a, b) => a + b.percentage, 0);
+                        const isMini = job.jobType === "mini";
+                        const pct = isMini
+                          ? (job.assignments.length / (job.totalUnits ?? 1)) * 100
+                          : job.assignments.reduce((a, b) => a + b.percentage, 0);
                         return (
                           <div key={job.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
                             <div className="flex justify-between items-start mb-3 gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h3 className="font-semibold text-base leading-snug">{job.title}</h3>
+                                  {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">🎞️ Mini · {job.assignments.length}/{job.totalUnits} clip</span>}
                                   {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
                                   {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">{job.groupName}</span>}
                                 </div>
@@ -588,7 +658,7 @@ export default function Home() {
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
-                                  <DollarSign className="w-3.5 h-3.5" />{formatCurrency(job.totalSalary)}
+                                  <DollarSign className="w-3.5 h-3.5" />{isMini ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}/clip` : formatCurrency(job.totalSalary)}
                                 </span>
                                 <button onClick={() => handleDeleteJob(job.id)} disabled={submitting}
                                   className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá job">
@@ -605,7 +675,9 @@ export default function Home() {
                                   <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-gray-50 px-3 py-2 rounded-lg">
                                     <span className="font-medium">{a.employeeName}</span>
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-blue-600">{a.percentage}%</span>
+                                      {isMini
+                                        ? <span className="text-purple-600">1 clip</span>
+                                        : <span className="text-blue-600">{a.percentage}%</span>}
                                       <span className="text-green-600 font-medium">{formatCurrency(a.salaryEarned)}</span>
                                       <StatusBadge status={a.status} />
                                       {a.note && <span className="text-gray-400 text-xs italic" title={a.note}><MessageSquare className="w-3 h-3 inline" /></span>}
@@ -849,7 +921,7 @@ export default function Home() {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{job.title}</p>
                                   <p className="text-gray-400 text-xs">
-                                    {assignment.percentage}% · Duyệt {assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : "—"}
+                                    {job.jobType === "mini" ? "1 clip" : `${assignment.percentage}%`} · Duyệt {assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : "—"}
                                   </p>
                                   {assignment.note && <p className="text-blue-600 text-xs mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{assignment.note}</p>}
                                 </div>
@@ -1127,11 +1199,21 @@ export default function Home() {
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
 
           const availableJobs = jobs.filter((job) => {
+            if (job.jobType === "mini") {
+              return (
+                job.assignments.length < (job.totalUnits ?? 0) &&
+                !job.assignments.some((a) => a.employeeId === currentEmployee?.id)
+              );
+            }
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
             return claimed < 100 && !job.assignments.some((a) => a.employeeId === currentEmployee?.id);
           });
 
           const availableValue = availableJobs.reduce((sum, job) => {
+            if (job.jobType === "mini") {
+              const remaining = (job.totalUnits ?? 0) - job.assignments.length;
+              return sum + (job.unitPrice ?? 0) * remaining;
+            }
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
             return sum + (job.totalSalary * (100 - claimed)) / 100;
           }, 0);
@@ -1193,6 +1275,10 @@ export default function Home() {
           if (loading) return <LoadingBlock />;
 
           const openJobs = jobs.filter((job) => {
+            if (job.jobType === "mini") {
+              // Mini: still open if claimed clips < totalUnits
+              return job.assignments.length < (job.totalUnits ?? 0);
+            }
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
             // Hiện trên chợ nếu còn % chưa được nhận (kể cả khi mình đang làm 1 phần)
             return claimed < 100;
@@ -1211,13 +1297,21 @@ export default function Home() {
           );
 
           const JobCard = ({ job, theme }: { job: Job; theme: "amber" | "blue" | "green" }) => {
-            const totalClaimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
+            const isMini = job.jobType === "mini";
+            const totalClaimed = isMini
+              ? job.assignments.length
+              : job.assignments.reduce((a, b) => a + b.percentage, 0);
+            const progressPct = isMini
+              ? (job.assignments.length / (job.totalUnits ?? 1)) * 100
+              : totalClaimed;
             const myAssignment = job.assignments.find((a) => a.employeeId === currentEmployee?.id);
+            const myAssignments_job = job.assignments.filter((a) => a.employeeId === currentEmployee?.id);
             const myApprovedAssignments = job.assignments.filter(
               (a) => a.employeeId === currentEmployee?.id && a.status === "APPROVED"
             );
-            const myApprovedPct = myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
-            // Không còn block nhận thêm — luôn cho phép nếu còn %
+            const myApprovedPct = isMini
+              ? myApprovedAssignments.length
+              : myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
 
             const borderClass = theme === "amber"
               ? "border-amber-300 bg-amber-50/40"
@@ -1242,6 +1336,11 @@ export default function Home() {
                 <div className="flex justify-between items-start mb-2 gap-2">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-900 leading-snug">{job.title}</h3>
+                    {isMini && (
+                      <p className="text-xs text-purple-600 font-medium mt-0.5 flex items-center gap-1">
+                        🎞️ {job.assignments.length}/{job.totalUnits} clip · {new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip
+                      </p>
+                    )}
                     {theme === "amber" && job.expiresAt && (
                       <p className="text-xs text-orange-500 font-medium mt-0.5 flex items-center gap-1">
                         <Timer className="w-3 h-3" />
@@ -1250,33 +1349,66 @@ export default function Home() {
                     )}
                   </div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>
-                    {theme === "green" ? "✓ Xong"
-                      : theme === "blue" ? `${myAssignment?.percentage ?? 0}%`
-                      : `Còn ${100 - totalClaimed}%`}
+                    {theme === "green"
+                      ? "✓ Xong"
+                      : theme === "blue"
+                        ? isMini ? `${myAssignments_job.length} clip` : `${myAssignment?.percentage ?? 0}%`
+                        : isMini ? `Còn ${(job.totalUnits ?? 0) - job.assignments.length} clip` : `Còn ${100 - totalClaimed}%`}
                   </span>
                 </div>
                 {job.description && <p className="text-gray-500 text-sm mb-3 line-clamp-2">{job.description}</p>}
                 <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
-                  <div className={`${barClass} h-1.5 rounded-full`} style={{ width: `${totalClaimed}%` }} />
+                  <div className={`${barClass} h-1.5 rounded-full`} style={{ width: `${progressPct}%` }} />
                 </div>
                 <div className="flex flex-wrap justify-between items-center gap-2">
                   <div className="flex flex-col">
-                    <span className="font-bold text-gray-900 text-sm">{formatCurrency(job.totalSalary)}</span>
-                    {myAssignment && (
+                    <span className="font-bold text-gray-900 text-sm">
+                      {isMini ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip` : formatCurrency(job.totalSalary)}
+                    </span>
+                    {myAssignment && !isMini && (
                       <span className={`text-xs font-medium ${theme === "green" ? "text-green-600" : "text-blue-600"}`}>
                         → {formatCurrency(myAssignment.salaryEarned)} của tôi
                       </span>
                     )}
+                    {isMini && myAssignments_job.length > 0 && (
+                      <span className={`text-xs font-medium ${theme === "green" ? "text-green-600" : "text-blue-600"}`}>
+                        → {myAssignments_job.length} clip · {formatCurrency(myAssignments_job.length * (job.unitPrice ?? 0))}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {theme === "amber" && myApprovedPct > 0 && (
+                    {theme === "amber" && !isMini && myApprovedPct > 0 && (
                       <span className="text-xs text-green-600 font-medium">✓ {myApprovedPct}%</span>
                     )}
+                    {theme === "amber" && isMini && myApprovedPct > 0 && (
+                      <span className="text-xs text-green-600 font-medium">✓ {myApprovedPct} clip</span>
+                    )}
                     {theme === "amber" && (
-                      <button onClick={() => setSelectedJob(job)}
-                        className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                        {myApprovedPct > 0 ? `Nhận thêm` : `Nhận việc`} <ChevronRight className="w-4 h-4" />
-                      </button>
+                      isMini ? (
+                        <button
+                          onClick={async () => {
+                            setSubmitting(true);
+                            try {
+                              const res = await fetch(`/api/jobs/${job.id}/claim`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ employeeId: currentEmployee!.id, employeeName: currentEmployee!.name, units: 1 }),
+                              });
+                              const data = await res.json();
+                              if (!res.ok) { alert(data.error || "Lỗi!"); return; }
+                              await fetchAll();
+                            } finally { setSubmitting(false); }
+                          }}
+                          disabled={submitting}
+                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                          🎞️ Nhận 1 clip <ChevronRight className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button onClick={() => setSelectedJob(job)}
+                          className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
+                          {myApprovedPct > 0 ? `Nhận thêm` : `Nhận việc`} <ChevronRight className="w-4 h-4" />
+                        </button>
+                      )
                     )}
                     {theme === "blue" && myAssignment?.status === "WORKING" && (
                       <button onClick={() => handleMarkDone(job.id, myAssignment.id)} disabled={submitting}
@@ -1284,7 +1416,7 @@ export default function Home() {
                         <CheckCircle2 className="w-4 h-4" /> Xong
                       </button>
                     )}
-                    {theme === "blue" && myAssignment?.status === "WORKING" && (
+                    {theme === "blue" && myAssignment?.status === "WORKING" && !isMini && (
                       <button
                         onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: myAssignment.percentage }); setSharePercInput(""); }}
                         disabled={submitting}
@@ -1328,17 +1460,18 @@ export default function Home() {
                     <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
                     Chợ Việc Làm ({openJobs.length})
                   </h2>
-                  <div className="flex gap-1.5">
-                    {(["all", "onsite", "postprod"] as const).map((f) => (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(["all", "onsite", "postprod", "mini"] as const).map((f) => (
                       <button key={f} onClick={() => setMarketFilter(f)}
                         className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                           marketFilter === f
                             ? f === "onsite" ? "bg-orange-500 text-white border-orange-500"
                               : f === "postprod" ? "bg-blue-600 text-white border-blue-600"
+                              : f === "mini" ? "bg-purple-600 text-white border-purple-600"
                               : "bg-gray-800 text-white border-gray-800"
                             : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
                         }`}>
-                        {f === "all" ? "Tất cả" : f === "onsite" ? "📅 Đi quay" : "🎬 Hậu kỳ"}
+                        {f === "all" ? "Tất cả" : f === "onsite" ? "📅 Đi quay" : f === "postprod" ? "🎬 Hậu kỳ" : "🎞️ Mini"}
                       </button>
                     ))}
                   </div>
@@ -1346,8 +1479,9 @@ export default function Home() {
                 {(() => {
                   const filteredJobs = openJobs.filter(job =>
                     marketFilter === "all" ? true
-                    : marketFilter === "onsite" ? !!job.expiresAt
-                    : !job.expiresAt
+                    : marketFilter === "onsite" ? !!job.expiresAt && job.jobType !== "mini"
+                    : marketFilter === "postprod" ? !job.expiresAt && job.jobType !== "mini"
+                    : job.jobType === "mini"
                   );
                   if (filteredJobs.length === 0) return <EmptyBlock text="Không có job nào phù hợp." />;
                   // Nhóm job theo groupId; job lẻ (không có groupId) vào nhóm "standalone"
