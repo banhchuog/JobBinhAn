@@ -1118,13 +1118,11 @@ export default function Home() {
             })
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
 
-          // Đang làm / chờ duyệt: job thuộc tháng đang xem (không lọc theo approvedAt)
+          // Đang làm / chờ duyệt: tất cả assignment chưa được duyệt (không lọc theo tháng)
           const inProgress = myAssignments
-            .filter(({ job, assignment }) => {
-              if (assignment.status !== "WORKING" && assignment.status !== "PENDING_APPROVAL") return false;
-              const jm = job.month || job.createdAt.slice(0, 7);
-              return jm === selectedMonth;
-            })
+            .filter(({ assignment }) =>
+              assignment.status === "WORKING" || assignment.status === "PENDING_APPROVAL"
+            )
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
 
           const availableJobs = jobs.filter((job) => {
