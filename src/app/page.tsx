@@ -229,6 +229,11 @@ export default function Home() {
   const [thuChiError, setThuChiError] = useState<string | null>(null);
   const [financeView, setFinanceView] = useState<"month" | "report">("month");
 
+  // ── Revenue (anhemphim.vn) ─────────────────────────────
+  const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [revenueError, setRevenueError] = useState<string | null>(null);
+
   // ── Share job state ──────────────────────────────────
   const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number; isMini?: boolean; currentUnits?: number } | null>(null);
   const [sharePercInput, setSharePercInput] = useState("");
@@ -288,6 +293,7 @@ export default function Home() {
     const savedUrl = typeof window !== "undefined" ? localStorage.getItem("thuChiUrl") || "" : "";
     const savedKey = typeof window !== "undefined" ? localStorage.getItem("thuChiApiKey") || "" : "";
     if (savedUrl && savedKey) fetchThuChi(savedUrl, savedKey);
+    fetchRevenue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -595,6 +601,22 @@ export default function Home() {
       await fetchAll();
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ─── Director: Fetch Revenue (anhemphim.vn) ──────────────
+  const fetchRevenue = async () => {
+    setRevenueLoading(true);
+    setRevenueError(null);
+    try {
+      const res = await fetch("/api/revenue");
+      const data = await res.json();
+      if (!res.ok) { setRevenueError(data.error || "Lỗi API doanh thu"); return; }
+      setRevenueData(data);
+    } catch {
+      setRevenueError("Không lấy được dữ liệu doanh thu");
+    } finally {
+      setRevenueLoading(false);
     }
   };
 
@@ -1565,26 +1587,37 @@ export default function Home() {
               : null;
             const thuChiThu = thuChiMonth?.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
             const thuChiChi = thuChiMonth?.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
-            const tongChiTat = grandTotalSalary + thuChiChi;
-            const loiNhuan = thuChiThu - tongChiTat;
 
-            // Báo cáo tất cả tháng từ thuChiData
-            const allThuChiMonths = thuChiData
-              ? [...new Set(thuChiData.map((t) => t.date?.slice(0, 7)).filter(Boolean) as string[])].sort().reverse()
-              : [];
-            const reportRows = allThuChiMonths.map((ym) => {
-              const txs = thuChiData!.filter((t) => t.date?.startsWith(ym));
-              const thu = txs.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
-              const chi = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+            // Revenue (anhemphim.vn) cho tháng đang chọn
+            const anhEmPhimThu = revenueData?.[directorMonth] ?? 0;
+
+            // Tổng doanh thu = thu chi app + anhemphim
+            const tongThu = thuChiThu + anhEmPhimThu;
+            const tongChiTat = grandTotalSalary + thuChiChi;
+            const loiNhuan = tongThu - tongChiTat;
+
+            // Danh sách tháng cho báo cáo: hợp tháng từ cả 2 nguồn + salary
+            const allReportMonths = [...new Set([
+              ...( thuChiData ? thuChiData.map((t) => t.date?.slice(0, 7)).filter(Boolean) as string[] : []),
+              ...( revenueData ? Object.keys(revenueData) : []),
+              ...salaryMonths,
+            ])].sort().reverse();
+
+            const reportRows = allReportMonths.map((ym) => {
+              const txs = thuChiData?.filter((t) => t.date?.startsWith(ym)) ?? [];
+              const thuChiThuYm = txs.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+              const chiYm = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+              const revYm = revenueData?.[ym] ?? 0;
+              const thuYm = thuChiThuYm + revYm;
               const salary = employees.map((emp) =>
                 jobs.flatMap((job) => job.assignments.filter((a) => {
                   if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                   return getSalaryMonth(job.month || job.createdAt.slice(0, 7), a.approvedAt) === ym;
                 }).map((a) => a.salaryEarned))
               ).flat().reduce((s, x) => s + x, 0);
-              const tongChi = chi + salary;
-              const loiNhuan = thu - tongChi;
-              return { ym, thu, chi, salary, tongChi, loiNhuan };
+              const tongChi = chiYm + salary;
+              const loiNhuanYm = thuYm - tongChi;
+              return { ym, thu: thuYm, thuChiThu: thuChiThuYm, revYm, chi: chiYm, salary, tongChi, loiNhuan: loiNhuanYm };
             });
 
             return (
@@ -1673,14 +1706,14 @@ export default function Home() {
                 </div>
 
                 {/* Loading state */}
-                {thuChiLoading && (
+                {(thuChiLoading || revenueLoading) && (
                   <div className="flex items-center justify-center gap-2 py-10 text-gray-400 text-sm">
                     <RefreshCw className="w-4 h-4 animate-spin" /> Đang tải dữ liệu...
                   </div>
                 )}
 
                 {/* Connected but no data yet */}
-                {!thuChiLoading && thuChiUrl && thuChiApiKey && !thuChiData && (
+                {!thuChiLoading && !revenueLoading && thuChiUrl && thuChiApiKey && !thuChiData && (
                   <div className="text-center py-8">
                     <p className="text-sm text-gray-400 mb-3">Chưa tải được dữ liệu từ app Thu Chi.</p>
                     <button onClick={() => fetchThuChi(thuChiUrl, thuChiApiKey)}
@@ -1690,13 +1723,21 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Chưa kết nối */}
-                {!thuChiUrl && !thuChiLoading && (
+                {/* Revenue error */}
+                {revenueError && (
+                  <p className="text-xs text-amber-600 flex items-center gap-1.5 px-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> anhemphim.vn: {revenueError}
+                    <button onClick={fetchRevenue} className="underline ml-1">Thử lại</button>
+                  </p>
+                )}
+
+                {/* Chưa kết nối và không có revenue */}
+                {!thuChiUrl && !thuChiLoading && !revenueData && !revenueLoading && (
                   <EmptyBlock text="Nhập URL và API Key để kết nối app Thu Chi." />
                 )}
 
                 {/* ── View: Chi tiết tháng ── */}
-                {thuChiData && !thuChiLoading && financeView === "month" && (
+                {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "month" && (
                   <>
                     {/* Chọn tháng */}
                     <div className="flex items-center gap-2">
@@ -1711,11 +1752,21 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* 4 cards P&L */}
+                    {/* Cards P&L — 4 card */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {/* Doanh thu tổng */}
                       <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
                         <p className="text-xs text-green-600 font-medium mb-1">💰 Doanh thu</p>
-                        <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(thuChiThu)}</p>
+                        <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(tongThu)}</p>
+                        {anhEmPhimThu > 0 && thuChiThu > 0 && (
+                          <div className="mt-1.5 space-y-0.5">
+                            <p className="text-[10px] text-green-500">🎬 AEP: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(anhEmPhimThu)}</p>
+                            <p className="text-[10px] text-green-500">📊 TC: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuChiThu)}</p>
+                          </div>
+                        )}
+                        {anhEmPhimThu > 0 && thuChiThu === 0 && (
+                          <p className="text-[10px] text-green-500 mt-1">🎬 anhemphim.vn</p>
+                        )}
                       </div>
                       <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
                         <p className="text-xs text-red-500 font-medium mb-1">🧾 Chi phí khác</p>
@@ -1736,13 +1787,24 @@ export default function Home() {
                     </div>
 
                     {/* Bảng giao dịch tháng */}
-                    {(thuChiMonth?.length ?? 0) > 0 ? (
+                    {(thuChiMonth?.length ?? 0) > 0 || anhEmPhimThu > 0 || grandTotalSalary > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                           <p className="font-semibold text-sm text-gray-800">📋 Giao dịch {monthLabel(directorMonth)}</p>
-                          <span className="text-xs text-gray-400">{thuChiMonth?.length} giao dịch</span>
+                          <span className="text-xs text-gray-400">{(thuChiMonth?.length ?? 0) + (anhEmPhimThu > 0 ? 1 : 0) + (grandTotalSalary > 0 ? 1 : 0)} mục</span>
                         </div>
                         <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+                          {/* Doanh thu anhemphim.vn */}
+                          {anhEmPhimThu > 0 && (
+                            <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-green-50/30">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-green-700">🎬 anhemphim.vn</p>
+                                <p className="text-xs text-green-400">Doanh thu dịch vụ online — {monthLabel(directorMonth)}</p>
+                              </div>
+                              <span className="font-bold text-sm text-green-600 shrink-0">+{formatCurrency(anhEmPhimThu)}</span>
+                            </div>
+                          )}
+                          {/* Giao dịch từ Thu Chi app */}
                           {thuChiMonth?.map((t) => (
                             <div key={t.id} className="flex items-center justify-between px-4 py-2.5 gap-2">
                               <div className="flex-1 min-w-0">
@@ -1754,6 +1816,7 @@ export default function Home() {
                               </span>
                             </div>
                           ))}
+                          {/* Lương */}
                           {grandTotalSalary > 0 && (
                             <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
                               <div className="flex-1 min-w-0">
@@ -1770,27 +1833,29 @@ export default function Home() {
                         </div>
                       </div>
                     ) : (
-                      <EmptyBlock text={`Không có giao dịch nào trong ${monthLabel(directorMonth)}.`} />
+                      <EmptyBlock text={`Không có dữ liệu nào trong ${monthLabel(directorMonth)}.`} />
                     )}
                   </>
                 )}
 
                 {/* ── View: Báo cáo tổng hợp ── */}
-                {thuChiData && !thuChiLoading && financeView === "report" && (
+                {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "report" && (
                   <>
                     {reportRows.length === 0 ? (
-                      <EmptyBlock text="Chưa có dữ liệu tháng nào từ app Thu Chi." />
+                      <EmptyBlock text="Chưa có dữ liệu tháng nào." />
                     ) : (
                       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                           <p className="font-semibold text-sm text-gray-800">📊 Tổng hợp {reportRows.length} tháng</p>
+                          {revenueLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-gray-400" />}
                         </div>
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead>
                               <tr className="border-b border-gray-100 text-xs text-gray-400 font-medium">
                                 <th className="px-4 py-2 text-left">Tháng</th>
-                                <th className="px-3 py-2 text-right">💰 Doanh thu</th>
+                                <th className="px-3 py-2 text-right">🎬 AEP</th>
+                                <th className="px-3 py-2 text-right">📊 Thu khác</th>
                                 <th className="px-3 py-2 text-right">🧾 Chi khác</th>
                                 <th className="px-3 py-2 text-right">👥 Lương</th>
                                 <th className="px-3 py-2 text-right">Lợi nhuận</th>
@@ -1805,7 +1870,10 @@ export default function Home() {
                                     {monthLabel(r.ym)}{r.ym === currentYM() ? " ●" : ""}
                                   </td>
                                   <td className="px-3 py-2.5 text-right text-green-600 font-medium whitespace-nowrap">
-                                    {r.thu > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thu)}` : "—"}
+                                    {r.revYm > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.revYm)}` : "—"}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-green-500 whitespace-nowrap">
+                                    {r.thuChiThu > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thuChiThu)}` : "—"}
                                   </td>
                                   <td className="px-3 py-2.5 text-right text-red-500 whitespace-nowrap">
                                     {r.chi > 0 ? `–${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.chi)}` : "—"}
@@ -1823,7 +1891,10 @@ export default function Home() {
                               <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold text-sm">
                                 <td className="px-4 py-2.5 text-gray-700">Tổng cộng</td>
                                 <td className="px-3 py-2.5 text-right text-green-600">
-                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thu, 0))}
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.revYm, 0))}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-green-500">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thuChiThu, 0))}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-red-500">
                                   {formatCurrency(reportRows.reduce((s, r) => s + r.chi, 0))}
@@ -1839,7 +1910,7 @@ export default function Home() {
                           </table>
                         </div>
                         <div className="px-4 py-2 border-t border-gray-100">
-                          <p className="text-xs text-gray-400">Nhấn vào tháng để xem chi tiết.</p>
+                          <p className="text-xs text-gray-400">Nhấn vào tháng để xem chi tiết. AEP = anhemphim.vn.</p>
                         </div>
                       </div>
                     )}
