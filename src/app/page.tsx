@@ -1607,9 +1607,13 @@ export default function Home() {
                     <div className="flex items-center gap-2">
                       <span className="text-base">📊</span>
                       <span className="font-semibold text-sm text-gray-800">App Thu Chi</span>
-                      {thuChiUrl && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Đã kết nối</span>}
+                      {thuChiUrl && thuChiApiKey
+                        ? <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Đã kết nối</span>
+                        : thuChiUrl
+                          ? <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⚠ Cần nhập API Key</span>
+                          : null}
                     </div>
-                    {thuChiUrl && (
+                    {thuChiUrl && thuChiApiKey && (
                       <button onClick={() => fetchThuChi(thuChiUrl, thuChiApiKey)} disabled={thuChiLoading}
                         className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-50">
                         <RefreshCw className={`w-3 h-3 ${thuChiLoading ? "animate-spin" : ""}`} /> Tải lại
@@ -1617,14 +1621,25 @@ export default function Home() {
                     )}
                   </div>
                   <div className="p-4">
-                    {!thuChiUrl ? (
+                    {thuChiUrl && thuChiApiKey ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-gray-500 truncate">{thuChiUrl}</p>
+                          <p className="text-xs text-gray-400 font-mono mt-0.5">{thuChiApiKey.slice(0, 8)}••••••••</p>
+                        </div>
+                        <button onClick={() => { setThuChiUrl(""); setThuChiApiKey(""); setThuChiData(null); setThuChiUrlInput(""); setThuChiApiKeyInput(""); localStorage.removeItem("thuChiUrl"); localStorage.removeItem("thuChiApiKey"); }}
+                          className="text-xs text-red-500 hover:underline shrink-0">Huỷ kết nối</button>
+                      </div>
+                    ) : (
                       <div className="space-y-2">
+                        {thuChiUrl && <p className="text-xs text-amber-600 mb-1">URL đã lưu sẵn — chỉ cần nhập API Key để kết nối.</p>}
                         <input
                           type="url"
-                          value={thuChiUrlInput}
+                          value={thuChiUrl || thuChiUrlInput}
                           onChange={(e) => setThuChiUrlInput(e.target.value)}
+                          readOnly={!!thuChiUrl}
                           placeholder="URL app (vd: https://thuchi.up.railway.app)"
-                          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                          className={`w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 ${thuChiUrl ? "bg-gray-50 text-gray-400 border-gray-200" : "border-gray-300"}`}
                         />
                         <div className="flex gap-2">
                           <input
@@ -1633,24 +1648,24 @@ export default function Home() {
                             onChange={(e) => setThuChiApiKeyInput(e.target.value)}
                             placeholder="API Key (từ trang cài đặt app Thu Chi)"
                             className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 font-mono"
-                            onKeyDown={(e) => { if (e.key === "Enter" && thuChiUrlInput.trim() && thuChiApiKeyInput.trim()) fetchThuChi(thuChiUrlInput, thuChiApiKeyInput); }}
+                            autoFocus={!!thuChiUrl}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && thuChiApiKeyInput.trim()) {
+                                fetchThuChi(thuChiUrl || thuChiUrlInput, thuChiApiKeyInput);
+                              }
+                            }}
                           />
                           <button
-                            onClick={() => fetchThuChi(thuChiUrlInput, thuChiApiKeyInput)}
-                            disabled={!thuChiUrlInput.trim() || !thuChiApiKeyInput.trim() || thuChiLoading}
+                            onClick={() => fetchThuChi(thuChiUrl || thuChiUrlInput, thuChiApiKeyInput)}
+                            disabled={!(thuChiUrl || thuChiUrlInput).trim() || !thuChiApiKeyInput.trim() || thuChiLoading}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5 shrink-0">
                             {thuChiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Kết nối"}
                           </button>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-500 truncate">{thuChiUrl}</p>
-                          <p className="text-xs text-gray-400 font-mono mt-0.5">{thuChiApiKey.slice(0, 8)}••••••••</p>
-                        </div>
-                        <button onClick={() => { setThuChiUrl(""); setThuChiApiKey(""); setThuChiData(null); setThuChiUrlInput(""); setThuChiApiKeyInput(""); localStorage.removeItem("thuChiUrl"); localStorage.removeItem("thuChiApiKey"); }}
-                          className="text-xs text-red-500 hover:underline shrink-0">Huỷ kết nối</button>
+                        {thuChiUrl && (
+                          <button onClick={() => { setThuChiUrl(""); localStorage.removeItem("thuChiUrl"); }}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors">Đổi URL khác</button>
+                        )}
                       </div>
                     )}
                     {thuChiError && <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{thuChiError}</p>}
