@@ -1710,6 +1710,34 @@ export default function Home() {
                       </div>
                     </div>
 
+                    {/* Dự báo thuế — chỉ mang tính chỉ báo */}
+                    {(tongThu > 0 || tongChiTat > 0) && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm">📋</span>
+                          <p className="text-xs font-semibold text-amber-700">Dự báo thuế</p>
+                          <span className="text-[10px] bg-amber-100 text-amber-500 px-2 py-0.5 rounded-full font-medium ml-auto">Chỉ báo — không tính vào chi phí</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="bg-white/70 rounded-xl p-2">
+                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5">🏷 VAT (8%)</p>
+                            <p className="text-sm font-black text-amber-700">{formatCurrency(tongThu * 0.08)}</p>
+                            <p className="text-[10px] text-amber-400">8% × Tổng thu</p>
+                          </div>
+                          <div className="bg-white/70 rounded-xl p-2">
+                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5">👤 TNCN (~3%)</p>
+                            <p className="text-sm font-black text-amber-700">{formatCurrency(tongChiTat * 0.03)}</p>
+                            <p className="text-[10px] text-amber-400">3% × Tổng chi</p>
+                          </div>
+                          <div className="bg-white/70 rounded-xl p-2">
+                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5">🏢 TNDN (18%)</p>
+                            <p className="text-sm font-black text-amber-700">{loiNhuan > 0 ? formatCurrency(loiNhuan * 0.18) : "—"}</p>
+                            <p className="text-[10px] text-amber-400">18% × Lợi nhuận</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Bảng giao dịch tháng */}
                     {(thuChiMonth?.length ?? 0) > 0 || anhEmPhimThu > 0 || grandTotalSalary > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
@@ -1836,6 +1864,38 @@ export default function Home() {
                         <div className="px-4 py-2 border-t border-gray-100">
                           <p className="text-xs text-gray-400">Nhấn vào tháng để xem chi tiết. AEP = anhemphim.vn.</p>
                         </div>
+                        {/* Dự báo thuế tổng hợp */}
+                        {(() => {
+                          const totalThu = reportRows.reduce((s, r) => s + r.revYm + r.thuChiThu, 0);
+                          const totalChi = reportRows.reduce((s, r) => s + r.chi + r.salary, 0);
+                          const totalProfit = reportRows.reduce((s, r) => s + r.loiNhuan, 0);
+                          return (
+                            <div className="px-4 py-3 border-t border-amber-100 bg-amber-50">
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <span className="text-xs">📋</span>
+                                <p className="text-xs font-semibold text-amber-700">Dự báo thuế tổng hợp</p>
+                                <span className="text-[10px] bg-amber-100 text-amber-500 px-2 py-0.5 rounded-full font-medium ml-auto">Chỉ báo</span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                  <p className="text-[10px] text-amber-500 font-medium">🏷 VAT (8%)</p>
+                                  <p className="text-sm font-black text-amber-700">{formatCurrency(totalThu * 0.08)}</p>
+                                  <p className="text-[10px] text-amber-400">8% × Tổng thu</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-amber-500 font-medium">👤 TNCN (~3%)</p>
+                                  <p className="text-sm font-black text-amber-700">{formatCurrency(totalChi * 0.03)}</p>
+                                  <p className="text-[10px] text-amber-400">3% × Tổng chi</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-amber-500 font-medium">🏢 TNDN (18%)</p>
+                                  <p className="text-sm font-black text-amber-700">{totalProfit > 0 ? formatCurrency(totalProfit * 0.18) : "—"}</p>
+                                  <p className="text-[10px] text-amber-400">18% × Lợi nhuận</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </>
