@@ -32,22 +32,3 @@ export async function GET() {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `App thu chi trả về lỗi ${res.status}` },
-        { status: 502 }
-      );
-    }
-
-    const data = await res.json();
-    return NextResponse.json(data);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json(
-      { error: `Không kết nối được: ${message}` },
-      { status: 502 }
-    );
-  }
-}
