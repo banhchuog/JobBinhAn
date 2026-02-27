@@ -218,6 +218,19 @@ export default function Home() {
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
 
+  // ── Manual salary entries ────────────────────────────
+  type ManualEntry = { id: string; empId: string; title: string; amount: number; note: string };
+  const [manualEntries, setManualEntries] = useState<Record<string, ManualEntry[]>>(() => {
+    if (typeof window !== "undefined") {
+      try { return JSON.parse(localStorage.getItem("manual_salary") || "{}"); } catch { return {}; }
+    }
+    return {};
+  });
+  const [manualModal, setManualModal] = useState<{ emp: Employee } | null>(null);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualAmount, setManualAmount] = useState("");
+  const [manualNote, setManualNote] = useState("");
+
   // ── Thu Chi integration ──────────────────────────────
   const [thuChiData, setThuChiData] = useState<ThuChiTransaction[] | null>(null);
   const [thuChiLoading, setThuChiLoading] = useState(false);
@@ -1407,6 +1420,7 @@ export default function Home() {
             })();
 
             // Tính bảng lương theo tháng đang chọn
+            const monthManual = manualEntries[directorMonth] ?? [];
             const rows = employees.map((emp) => {
               const approved = jobs.flatMap((job) =>
                 job.assignments.filter((a) => {
@@ -1423,10 +1437,11 @@ export default function Home() {
                   return jm === directorMonth;
                 }).map((a) => ({ job, assignment: a }))
               );
-              const totalApproved = approved.reduce((s, x) => s + x.assignment.salaryEarned, 0);
+              const manual = monthManual.filter((e) => e.empId === emp.id);
+              const totalApproved = approved.reduce((s, x) => s + x.assignment.salaryEarned, 0) + manual.reduce((s, e) => s + e.amount, 0);
               const totalPending = pending.reduce((s, x) => s + x.assignment.salaryEarned, 0);
-              return { emp, approved, pending, totalApproved, totalPending };
-            }).filter((r) => r.approved.length > 0 || r.pending.length > 0);
+              return { emp, approved, pending, manual, totalApproved, totalPending };
+            }).filter((r) => r.approved.length > 0 || r.pending.length > 0 || r.manual.length > 0);
 
             const grandTotal = rows.reduce((s, r) => s + r.totalApproved, 0);
 
@@ -1492,7 +1507,7 @@ export default function Home() {
                   <EmptyBlock text={`Không có dữ liệu lương tháng ${monthLabel(directorMonth)}.`} />
                 ) : (
                   <div className="grid gap-4">
-                    {rows.map(({ emp, approved, pending, totalApproved, totalPending }) => (
+                    {rows.map(({ emp, approved, pending, manual, totalApproved, totalPending }) => (
                       <div key={emp.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
                         <div className="flex justify-between items-center px-4 py-3 bg-gray-50 border-b border-gray-100">
                           <div className="flex items-center gap-2">
@@ -1500,6 +1515,11 @@ export default function Home() {
                               {emp.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="font-semibold">{emp.name}</span>
+                            <button
+                              onClick={() => { setManualModal({ emp }); setManualTitle(""); setManualAmount(""); setManualNote(""); }}
+                              className="w-5 h-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold transition-colors shrink-0"
+                              title="Thêm lương thủ công"
+                            >+</button>
                           </div>
                           <div className="text-right">
                             <p className="text-green-700 font-black">{formatCurrency(totalApproved)}</p>
@@ -1518,6 +1538,33 @@ export default function Home() {
                                   {assignment.note && <p className="text-blue-600 text-xs mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{assignment.note}</p>}
                                 </div>
                                 <span className="text-green-600 font-semibold ml-3 shrink-0">{formatCurrency(assignment.salaryEarned)}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {/* Manual entries */}
+                          {manual.map((entry) => (
+                            <div key={entry.id} className="px-4 py-2.5 text-sm bg-emerald-50/50">
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium truncate text-emerald-800">{entry.title}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded-full font-medium">Thủ công</span>
+                                    {entry.note && <p className="text-emerald-600 text-xs">{entry.note}</p>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-emerald-600 font-semibold">{formatCurrency(entry.amount)}</span>
+                                  <button
+                                    onClick={() => {
+                                      const updated = { ...manualEntries };
+                                      updated[directorMonth] = (updated[directorMonth] ?? []).filter((e) => e.id !== entry.id);
+                                      setManualEntries(updated);
+                                      localStorage.setItem("manual_salary", JSON.stringify(updated));
+                                    }}
+                                    className="text-gray-300 hover:text-red-400 transition-colors text-xs"
+                                    title="Xoá"
+                                  ><X className="w-3.5 h-3.5" /></button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -1983,6 +2030,81 @@ export default function Home() {
             );
           })()}
         </main>
+
+      {/* Modal thêm lương thủ công */}
+      {manualModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setManualModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-base">➕ Thêm lương thủ công</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{manualModal.emp.name} · {monthLabel(directorMonth)}</p>
+              </div>
+              <button onClick={() => setManualModal(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"><X className="w-5 h-5" /></button>
+            </div>
+            <form
+              className="p-4 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const amt = Number(manualAmount.replace(/[^0-9]/g, ""));
+                if (!manualTitle.trim() || !amt) return;
+                const entry: { id: string; empId: string; title: string; amount: number; note: string } = {
+                  id: Date.now().toString(),
+                  empId: manualModal.emp.id,
+                  title: manualTitle.trim(),
+                  amount: amt,
+                  note: manualNote.trim(),
+                };
+                const updated = { ...manualEntries };
+                updated[directorMonth] = [...(updated[directorMonth] ?? []), entry];
+                setManualEntries(updated);
+                localStorage.setItem("manual_salary", JSON.stringify(updated));
+                setManualModal(null);
+              }}
+            >
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tên công việc / mô tả</label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="VD: Phụ cấp xăng xe, Quay thêm buổi..."
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Số tiền (VND)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={manualAmount}
+                  onChange={(e) => setManualAmount(e.target.value)}
+                  placeholder="VD: 500000"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chú <span className="text-gray-400">(tuỳ chọn)</span></label>
+                <input
+                  type="text"
+                  value={manualNote}
+                  onChange={(e) => setManualNote(e.target.value)}
+                  placeholder="Ghi chú thêm..."
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={!manualTitle.trim() || !manualAmount}
+                className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-semibold rounded-xl transition-colors text-sm"
+              >
+                Lưu
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Group AI Modal */}
       {groupModalOpen && (
