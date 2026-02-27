@@ -1563,8 +1563,8 @@ export default function Home() {
             const thuChiMonth = thuChiData
               ? thuChiData.filter((t) => t.date?.startsWith(directorMonth))
               : null;
-            const thuChiThu = thuChiMonth?.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0) ?? 0;
-            const thuChiChi = thuChiMonth?.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0) ?? 0;
+            const thuChiThu = thuChiMonth?.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
+            const thuChiChi = thuChiMonth?.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
             const tongChiTat = grandTotalSalary + thuChiChi;
             const loiNhuan = thuChiThu - tongChiTat;
 
@@ -1574,8 +1574,8 @@ export default function Home() {
               : [];
             const reportRows = allThuChiMonths.map((ym) => {
               const txs = thuChiData!.filter((t) => t.date?.startsWith(ym));
-              const thu = txs.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0);
-              const chi = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0);
+              const thu = txs.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+              const chi = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
               const salary = employees.map((emp) =>
                 jobs.flatMap((job) => job.assignments.filter((a) => {
                   if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
@@ -1750,7 +1750,7 @@ export default function Home() {
                                 <p className="text-xs text-gray-400">{t.date}{t.note ? ` · ${t.note}` : ""}</p>
                               </div>
                               <span className={`font-bold text-sm shrink-0 ${t.type === "Thu" ? "text-green-600" : "text-red-500"}`}>
-                                {t.type === "Thu" ? "+" : "–"}{new Intl.NumberFormat("vi-VN").format(t.amount)}{t.currency === "USD" ? "$" : "đ"}
+                                {t.type === "Thu" ? "+" : "–"}{new Intl.NumberFormat("vi-VN").format(Number(t.amount))}{t.currency === "USD" ? "$" : "đ"}
                               </span>
                             </div>
                           ))}
