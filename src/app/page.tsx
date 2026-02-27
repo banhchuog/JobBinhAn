@@ -1828,119 +1828,127 @@ export default function Home() {
               ? myApprovedAssignments.reduce((s, a) => s + (a.units ?? 1), 0)
               : myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
 
-            const borderClass = theme === "amber"
-              ? "border-amber-300 bg-amber-50/40"
+            // Full-color gradient per theme
+            const bgGrad = theme === "amber"
+              ? isMini ? "from-purple-500 to-violet-600" : "from-amber-400 to-orange-500"
               : theme === "blue"
-              ? "border-blue-300 bg-blue-50/40"
-              : "border-green-300 bg-green-50/40";
+              ? isMini ? "from-purple-500 to-violet-600" : "from-blue-500 to-indigo-600"
+              : isMini ? "from-purple-500 to-violet-600" : "from-emerald-500 to-green-600";
 
-            const barClass = theme === "amber"
-              ? "bg-amber-400"
+            const badgeLabel = theme === "green"
+              ? "✓ Xong"
               : theme === "blue"
-              ? "bg-blue-500"
-              : "bg-green-500";
-
-            const badgeClass = theme === "amber"
-              ? "text-amber-600 bg-amber-100"
-              : theme === "blue"
-              ? "text-blue-600 bg-blue-100"
-              : "text-green-700 bg-green-100";
+                ? isMini ? `${myTotalUnits} clip` : `${myAssignment?.percentage ?? 0}%`
+                : isMini ? `Còn ${(job.totalUnits ?? 0) - totalClaimed}` : `Còn ${100 - totalClaimed}%`;
 
             return (
-              <div className={`p-4 sm:p-5 rounded-xl border-2 transition-colors ${borderClass}`}>
-                <div className="flex justify-between items-start mb-2 gap-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 leading-snug">{job.title}</h3>
-                    {isMini && (
-                      <p className="text-xs text-purple-600 font-medium mt-0.5 flex items-center gap-1">
-                        🎞️ {totalClaimed}/{job.totalUnits} clip · {new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip
-                      </p>
-                    )}
-                    {theme === "amber" && job.expiresAt && (
-                      <p className="text-xs text-orange-500 font-medium mt-0.5 flex items-center gap-1">
-                        <Timer className="w-3 h-3" />
-                        Ngày quay {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}
-                      </p>
-                    )}
-                  </div>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${badgeClass}`}>
-                    {theme === "green"
-                      ? "✓ Xong"
-                      : theme === "blue"
-                        ? isMini ? `${myTotalUnits} clip` : `${myAssignment?.percentage ?? 0}%`
-                        : isMini ? `Còn ${(job.totalUnits ?? 0) - totalClaimed} clip` : `Còn ${100 - totalClaimed}%`}
+              <div className={`relative flex flex-col rounded-2xl bg-gradient-to-br ${bgGrad} p-4 min-h-[170px] overflow-hidden`}>
+                {/* Decorative circle */}
+                <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10" />
+                <div className="absolute -bottom-6 -right-2 w-16 h-16 rounded-full bg-white/10" />
+
+                {/* Top row: type icon + badge */}
+                <div className="flex items-start justify-between gap-1 mb-2 relative z-10">
+                  <span className="text-base leading-none">{isMini ? "🎞️" : theme === "amber" && job.expiresAt ? "📅" : "🎬"}</span>
+                  <span className="text-[10px] font-bold bg-white/25 text-white px-2 py-0.5 rounded-full shrink-0 backdrop-blur-sm">
+                    {badgeLabel}
                   </span>
                 </div>
-                {job.description && <p className="text-gray-500 text-sm mb-3 line-clamp-2">{job.description}</p>}
-                <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
-                  <div className={`${barClass} h-1.5 rounded-full`} style={{ width: `${progressPct}%` }} />
+
+                {/* Title */}
+                <h3 className="font-bold text-white text-sm leading-snug line-clamp-2 relative z-10 flex-1">
+                  {job.title}
+                </h3>
+
+                {/* Date for onsite */}
+                {theme === "amber" && job.expiresAt && (
+                  <p className="text-[11px] text-white/80 mt-1 relative z-10">
+                    📅 {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}/{new Date(job.expiresAt).getFullYear()}
+                  </p>
+                )}
+
+                {/* Salary */}
+                <p className="text-white font-extrabold text-base mt-2 relative z-10 leading-tight">
+                  {isMini
+                    ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
+                    : formatCurrency(job.totalSalary)}
+                </p>
+
+                {/* My earning / clip info */}
+                {myAssignment && !isMini && (
+                  <p className="text-white/75 text-[11px] font-medium relative z-10">
+                    → {formatCurrency(myAssignment.salaryEarned)} của tôi
+                  </p>
+                )}
+                {isMini && myTotalUnits > 0 && (
+                  <p className="text-white/75 text-[11px] font-medium relative z-10">
+                    → {myTotalUnits} clip · {formatCurrency(myTotalUnits * (job.unitPrice ?? 0))}
+                  </p>
+                )}
+                {isMini && (
+                  <p className="text-white/70 text-[11px] relative z-10">
+                    {totalClaimed}/{job.totalUnits} clip đã nhận
+                  </p>
+                )}
+
+                {/* Progress bar */}
+                <div className="w-full bg-white/25 rounded-full h-1 mt-2 relative z-10">
+                  <div className="bg-white h-1 rounded-full transition-all" style={{ width: `${Math.min(progressPct, 100)}%` }} />
                 </div>
-                <div className="flex flex-wrap justify-between items-center gap-2">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-gray-900 text-sm">
-                      {isMini ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip` : formatCurrency(job.totalSalary)}
-                    </span>
-                    {myAssignment && !isMini && (
-                      <span className={`text-xs font-medium ${theme === "green" ? "text-green-600" : "text-blue-600"}`}>
-                        → {formatCurrency(myAssignment.salaryEarned)} của tôi
+
+                {/* Action row */}
+                <div className="flex items-center justify-between mt-3 gap-1.5 relative z-10">
+                  <div className="flex items-center gap-1">
+                    {theme === "amber" && myApprovedPct > 0 && (
+                      <span className="text-[11px] text-white/90 font-semibold bg-white/20 px-1.5 py-0.5 rounded-full">
+                        ✓ {isMini ? `${myApprovedPct} clip` : `${myApprovedPct}%`}
                       </span>
                     )}
-                    {isMini && myTotalUnits > 0 && (
-                      <span className={`text-xs font-medium ${theme === "green" ? "text-green-600" : "text-blue-600"}`}>
-                        → {myTotalUnits} clip · {formatCurrency(myTotalUnits * (job.unitPrice ?? 0))}
+                    {theme === "green" && myApprovedAssignments[0]?.note && (
+                      <span className="text-[11px] text-white/80 flex items-center gap-0.5 max-w-[100px] truncate" title={myApprovedAssignments[0].note}>
+                        <MessageSquare className="w-3 h-3 shrink-0" />{myApprovedAssignments[0].note}
                       </span>
+                    )}
+                    {theme === "blue" && myAssignment?.status === "PENDING_APPROVAL" && (
+                      <span className="text-[11px] bg-white/25 text-white px-2 py-0.5 rounded-full font-medium">⏳ Chờ duyệt</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {theme === "amber" && !isMini && myApprovedPct > 0 && (
-                      <span className="text-xs text-green-600 font-medium">✓ {myApprovedPct}%</span>
-                    )}
-                    {theme === "amber" && isMini && myApprovedPct > 0 && (
-                      <span className="text-xs text-green-600 font-medium">✓ {myApprovedPct} clip</span>
-                    )}
+                  <div className="flex items-center gap-1.5 ml-auto">
                     {theme === "amber" && (
                       isMini ? (
                         <button
                           onClick={() => { setMiniClaimJob(job); setMiniClaimUnits("1"); }}
-                          className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                          🎞️ Nhận clip <ChevronRight className="w-4 h-4" />
+                          className="flex items-center gap-0.5 bg-white text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                          Nhận <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       ) : (
                         <button onClick={() => setSelectedJob(job)}
-                          className="flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                          {myApprovedPct > 0 ? `Nhận thêm` : `Nhận việc`} <ChevronRight className="w-4 h-4" />
+                          className="flex items-center gap-0.5 bg-white text-orange-500 hover:bg-orange-50 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                          {myApprovedPct > 0 ? "Thêm" : "Nhận"} <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       )
                     )}
                     {theme === "blue" && myAssignment?.status === "WORKING" && (
                       <button onClick={() => handleMarkDone(job.id, myAssignment.id)} disabled={submitting}
-                        className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                        <CheckCircle2 className="w-4 h-4" /> Xong
+                        className="flex items-center gap-0.5 bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-60 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Xong
                       </button>
                     )}
                     {theme === "blue" && myAssignment?.status === "WORKING" && !isMini && (
                       <button
                         onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: myAssignment.percentage }); setSharePercInput(""); }}
                         disabled={submitting}
-                        className="flex items-center gap-1.5 bg-gray-100 hover:bg-orange-50 hover:text-orange-600 text-gray-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                        <Share2 className="w-3.5 h-3.5" /> Nhường
+                        className="flex items-center gap-0.5 bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors">
+                        <Share2 className="w-3 h-3" /> Nhường
                       </button>
                     )}
                     {theme === "blue" && isMini && myAssignment?.status === "WORKING" && (
                       <button
                         onClick={() => { setSharingItem({ jobId: job.id, assignmentId: myAssignment.id, jobTitle: job.title, currentPct: 0, isMini: true, currentUnits: myAssignment.units ?? 1 }); setSharePercInput(""); }}
                         disabled={submitting}
-                        className="flex items-center gap-1.5 bg-gray-100 hover:bg-orange-50 hover:text-orange-600 text-gray-500 border border-gray-200 hover:border-orange-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors">
-                        <Share2 className="w-3.5 h-3.5" /> Nhường
+                        className="flex items-center gap-0.5 bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-xl text-xs font-medium transition-colors">
+                        <Share2 className="w-3 h-3" /> Nhường
                       </button>
-                    )}
-                    {theme === "blue" && myAssignment?.status === "PENDING_APPROVAL" && (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-medium">Chờ duyệt</span>
-                    )}
-                    {theme === "green" && myApprovedAssignments[0]?.note && (
-                      <span className="text-xs text-gray-500 flex items-center gap-1 max-w-[160px] truncate" title={myApprovedAssignments[0].note}>
-                        <MessageSquare className="w-3 h-3 shrink-0" />{myApprovedAssignments[0].note}
-                      </span>
                     )}
                   </div>
                 </div>
@@ -1957,7 +1965,7 @@ export default function Home() {
                     <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
                     Đang làm ({myActiveJobs.length})
                   </h2>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {myActiveJobs.map((job) => <JobCard key={job.id} job={job} theme="blue" />)}
                   </div>
                 </div>
@@ -2034,7 +2042,7 @@ export default function Home() {
                               </div>
                             </div>
                           )}
-                          <div className="grid gap-3 md:grid-cols-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                             {group.jobs.map((job) => <JobCard key={job.id} job={job} theme="amber" />)}
                           </div>
                         </div>
@@ -2051,7 +2059,7 @@ export default function Home() {
                     <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
                     Đã hoàn thành ({myDoneJobs.length})
                   </h2>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {myDoneJobs.map((job) => <JobCard key={job.id} job={job} theme="green" />)}
                   </div>
                 </div>
