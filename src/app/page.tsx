@@ -11,6 +11,17 @@ import {
 
 type View = "LOGIN" | "DIRECTOR" | "EMPLOYEE";
 
+interface ThuChiTransaction {
+  id: number;
+  date: string;        // "YYYY-MM-DD"
+  type: "Thu" | "Chi";
+  subject: string;
+  amount: number;
+  currency: "VND" | "USD";
+  note: string;
+  created_by: string;
+}
+
 const DIRECTOR_PASS = "123";
 
 /** Trả về tháng lương (YYYY-MM) của 1 assignment.
@@ -201,6 +212,16 @@ export default function Home() {
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // ── Thu Chi integration ──────────────────────────────
+  const [thuChiUrl, setThuChiUrl] = useState<string>(() => {
+    if (typeof window !== "undefined") return localStorage.getItem("thuChiUrl") || "";
+    return "";
+  });
+  const [thuChiUrlInput, setThuChiUrlInput] = useState("");
+  const [thuChiData, setThuChiData] = useState<ThuChiTransaction[] | null>(null);
+  const [thuChiLoading, setThuChiLoading] = useState(false);
+  const [thuChiError, setThuChiError] = useState<string | null>(null);
 
   // ── Share job state ──────────────────────────────────
   const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number; isMini?: boolean; currentUnits?: number } | null>(null);
@@ -552,6 +573,26 @@ export default function Home() {
       await fetchAll();
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // ─── Director: Fetch Thu Chi data ──────────────────────
+  const fetchThuChi = async (url: string) => {
+    const clean = url.trim().replace(/\/$/, "");
+    if (!clean) return;
+    setThuChiLoading(true);
+    setThuChiError(null);
+    try {
+      const res = await fetch(`/api/finance?baseUrl=${encodeURIComponent(clean)}`);
+      const data = await res.json();
+      if (!res.ok) { setThuChiError(data.error || "Lỗi kết nối"); return; }
+      setThuChiData(data);
+      setThuChiUrl(clean);
+      if (typeof window !== "undefined") localStorage.setItem("thuChiUrl", clean);
+    } catch {
+      setThuChiError("Không kết nối được tới app thu chi");
+    } finally {
+      setThuChiLoading(false);
     }
   };
 
@@ -1351,7 +1392,16 @@ export default function Home() {
               return { emp, approved, pending, totalApproved, totalPending };
             }).filter((r) => r.approved.length > 0 || r.pending.length > 0);
 
-            const grandTotal = rows.reduce((s, r) => s + r.totalApproved, 0);
+            const grandTotalSalary = rows.reduce((s, r) => s + r.totalApproved, 0);
+
+            // ── Thu Chi data cho tháng đang chọn ──
+            const thuChiMonth = thuChiData
+              ? thuChiData.filter((t) => t.date?.startsWith(directorMonth))
+              : null;
+            const thuChiThu = thuChiMonth?.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0) ?? 0;
+            const thuChiChi = thuChiMonth?.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? t.amount : t.amount * 25000), 0) ?? 0;
+            const tongChiTat = grandTotalSalary + thuChiChi;
+            const loiNhuan = thuChiThu - tongChiTat;
 
             return (
               <div className="space-y-5">
@@ -1368,11 +1418,116 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Tổng chi */}
+                {/* ── Kết nối app Thu Chi ── */}
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📊</span>
+                      <span className="font-semibold text-sm text-gray-800">App Thu Chi</span>
+                      {thuChiUrl && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Đã kết nối</span>}
+                    </div>
+                    {thuChiUrl && (
+                      <button onClick={() => fetchThuChi(thuChiUrl)} disabled={thuChiLoading}
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-50">
+                        <RefreshCw className={`w-3 h-3 ${thuChiLoading ? "animate-spin" : ""}`} /> Tải lại
+                      </button>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    {!thuChiUrl ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={thuChiUrlInput}
+                          onChange={(e) => setThuChiUrlInput(e.target.value)}
+                          placeholder="https://thu-chi.up.railway.app"
+                          className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400"
+                        />
+                        <button
+                          onClick={() => fetchThuChi(thuChiUrlInput)}
+                          disabled={!thuChiUrlInput.trim() || thuChiLoading}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-1.5">
+                          {thuChiLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Kết nối"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-gray-400 truncate">{thuChiUrl}</p>
+                        <button onClick={() => { setThuChiUrl(""); setThuChiData(null); setThuChiUrlInput(""); localStorage.removeItem("thuChiUrl"); }}
+                          className="text-xs text-red-500 hover:underline shrink-0">Huỷ kết nối</button>
+                      </div>
+                    )}
+                    {thuChiError && <p className="text-xs text-red-500 mt-2 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{thuChiError}</p>}
+                  </div>
+                </div>
+
+                {/* ── Tổng quan tài chính (khi đã có thu chi) ── */}
+                {thuChiData && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
+                      <p className="text-xs text-green-600 font-medium mb-1">💰 Doanh thu</p>
+                      <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(thuChiThu)}</p>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
+                      <p className="text-xs text-red-500 font-medium mb-1">🧾 Chi phí khác</p>
+                      <p className="font-black text-red-600 text-base leading-tight">{formatCurrency(thuChiChi)}</p>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3">
+                      <p className="text-xs text-blue-600 font-medium mb-1">👥 Lương nhân viên</p>
+                      <p className="font-black text-blue-700 text-base leading-tight">{formatCurrency(grandTotalSalary)}</p>
+                    </div>
+                    <div className={`rounded-2xl p-3 border ${loiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
+                      <p className={`text-xs font-medium mb-1 ${loiNhuan >= 0 ? "text-emerald-600" : "text-orange-600"}`}>
+                        {loiNhuan >= 0 ? "📈 Lợi nhuận" : "📉 Lỗ"}
+                      </p>
+                      <p className={`font-black text-base leading-tight ${loiNhuan >= 0 ? "text-emerald-700" : "text-orange-600"}`}>
+                        {loiNhuan >= 0 ? "" : "–"}{formatCurrency(Math.abs(loiNhuan))}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Bảng chi phí tổng hợp ── */}
+                {thuChiData && (thuChiMonth?.length ?? 0) > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                      <p className="font-semibold text-sm text-gray-800">📋 Giao dịch {monthLabel(directorMonth)}</p>
+                      <span className="text-xs text-gray-400">{thuChiMonth?.length} giao dịch</span>
+                    </div>
+                    <div className="divide-y divide-gray-50 max-h-60 overflow-y-auto">
+                      {thuChiMonth?.map((t) => (
+                        <div key={t.id} className="flex items-center justify-between px-4 py-2.5 gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{t.subject}</p>
+                            <p className="text-xs text-gray-400">{t.date}{t.note ? ` · ${t.note}` : ""}</p>
+                          </div>
+                          <span className={`font-bold text-sm shrink-0 ${t.type === "Thu" ? "text-green-600" : "text-red-500"}`}>
+                            {t.type === "Thu" ? "+" : "–"}{new Intl.NumberFormat("vi-VN").format(t.amount)}{t.currency === "USD" ? "$" : "đ"}
+                          </span>
+                        </div>
+                      ))}
+                      {/* Lương nhân viên tổng hợp */}
+                      <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-blue-700">👥 Lương nhân viên ({rows.length} người)</p>
+                          <p className="text-xs text-blue-400">Job Bình An — đã duyệt</p>
+                        </div>
+                        <span className="font-bold text-sm text-red-500 shrink-0">–{formatCurrency(grandTotalSalary)}</span>
+                      </div>
+                    </div>
+                    {/* Tổng dòng cuối */}
+                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-700">Tổng chi</span>
+                      <span className="font-black text-red-600">{formatCurrency(tongChiTat)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Bảng lương nhân viên ── */}
                 <div className="bg-blue-600 text-white rounded-xl p-4 flex justify-between items-center">
                   <div>
-                    <p className="text-blue-200 text-sm">Tổng chi — {monthLabel(directorMonth)}</p>
-                    <p className="text-2xl font-black tracking-tight">{formatCurrency(grandTotal)}</p>
+                    <p className="text-blue-200 text-sm">Lương nhân viên — {monthLabel(directorMonth)}</p>
+                    <p className="text-2xl font-black tracking-tight">{formatCurrency(grandTotalSalary)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => {
@@ -1380,11 +1535,11 @@ export default function Home() {
                       rows.forEach(({ emp, approved, totalApproved }) => {
                         lines.push(`${emp.name}: ${totalApproved.toLocaleString("vi-VN")} đ`);
                         approved.forEach(({ job, assignment }) => {
-                          lines.push(`  - ${job.title} (${assignment.percentage}%): ${assignment.salaryEarned.toLocaleString("vi-VN")} đ${assignment.note ? ` [${assignment.note}]` : ""}`);
+                          lines.push(`  - ${job.title} (${job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`}): ${assignment.salaryEarned.toLocaleString("vi-VN")} đ${assignment.note ? ` [${assignment.note}]` : ""}`);
                         });
                         lines.push("");
                       });
-                      lines.push(`Tổng: ${grandTotal.toLocaleString("vi-VN")} đ`);
+                      lines.push(`Tổng: ${grandTotalSalary.toLocaleString("vi-VN")} đ`);
                       navigator.clipboard.writeText(lines.join("\n"));
                       setCopySuccess(true);
                       setTimeout(() => setCopySuccess(false), 2000);
@@ -1436,7 +1591,7 @@ export default function Home() {
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{job.title}</p>
                                   <p className="text-gray-400 text-xs">
-                                    {job.jobType === "mini" ? "1 clip" : `${assignment.percentage}%`} · Duyệt {assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : "—"}
+                                    {job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`} · Duyệt {assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : "—"}
                                   </p>
                                   {assignment.note && <p className="text-blue-600 text-xs mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{assignment.note}</p>}
                                 </div>
