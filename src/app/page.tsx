@@ -2024,7 +2024,8 @@ export default function Home() {
                                     cursor={{ fill: "#f9fafb" }}
                                   />
                                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                                  <Bar dataKey="TongThu" name="💰 Tổng thu" fill="#34d399" radius={[4,4,0,0]} />
+                                  <Bar dataKey="AEP" name="🎬 Anh Em Phim" stackId="thu" fill="#34d399" radius={[0,0,0,0]} />
+                                  <Bar dataKey="ThuKhac" name="💼 Thu khác" stackId="thu" fill="#6ee7b7" radius={[4,4,0,0]} />
                                   <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
                                 </BarChart>
                               </ResponsiveContainer>
