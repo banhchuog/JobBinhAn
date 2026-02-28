@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, ReferenceLine,
 } from "recharts";
 
 type View = "LOGIN" | "DIRECTOR" | "EMPLOYEE";
@@ -1938,6 +1938,7 @@ export default function Home() {
                             name: r.ym.slice(5) + "/" + r.ym.slice(2, 4),
                             AEP: Math.round(r.revYm / 1e6 * 10) / 10,
                             ThuKhac: Math.round(r.thuChiThu / 1e6 * 10) / 10,
+                            TongThu: Math.round((r.revYm + r.thuChiThu) / 1e6 * 10) / 10,
                             TongChi: Math.round((r.chi + r.salary) / 1e6 * 10) / 10,
                             LoiNhuan: Math.round(r.loiNhuan / 1e6 * 10) / 10,
                             Delta: profitDelta !== null ? Math.round(profitDelta / 1e6 * 10) / 10 : null,
@@ -2009,38 +2010,62 @@ export default function Home() {
                               </div>
                             )}
 
-                            {/* Chart tổng hợp duy nhất */}
+                            {/* Chart 1: Thu vs Chi */}
                             <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-sm font-semibold text-gray-700 mb-3">📊 Doanh thu • Chi phí • Lợi nhuận (triệu đồng)</p>
-                              <ResponsiveContainer width="100%" height={260}>
-                                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-                                  <defs>
-                                    <linearGradient id="gLN" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                  </defs>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}tr`} />
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tổng thu vs Tổng chi (triệu đồng)</p>
+                              <ResponsiveContainer width="100%" height={180}>
+                                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }} barGap={3} barCategoryGap="30%">
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
                                   <Tooltip
                                     formatter={(v, name) => [`${v ?? 0}tr`, String(name)]}
-                                    contentStyle={{ fontSize: 12, borderRadius: 10 }}
+                                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                                    cursor={{ fill: "#f9fafb" }}
                                   />
-                                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                                  <Bar dataKey="AEP" name="🎬 AEP" fill="#34d399" radius={[3,3,0,0]} stackId="thu" />
-                                  <Bar dataKey="ThuKhac" name="📊 Thu khác" fill="#60a5fa" radius={[3,3,0,0]} stackId="thu" />
-                                  <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[3,3,0,0]} />
+                                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
+                                  <Bar dataKey="TongThu" name="💰 Tổng thu" fill="#34d399" radius={[4,4,0,0]} />
+                                  <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+
+                            {/* Chart 2: Đường lợi nhuận */}
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Xu hướng lợi nhuận (triệu đồng)</p>
+                              <ResponsiveContainer width="100%" height={150}>
+                                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                                  <defs>
+                                    <linearGradient id="gPos" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                                    </linearGradient>
+                                    <linearGradient id="gNeg" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.25} />
+                                      <stop offset="95%" stopColor="#f87171" stopOpacity={0.02} />
+                                    </linearGradient>
+                                  </defs>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    formatter={(v) => [`${v ?? 0}tr`, "Lợi nhuận"]}
+                                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                                    cursor={{ stroke: "#e5e7eb" }}
+                                  />
+                                  <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
                                   <Area
                                     type="monotone"
                                     dataKey="LoiNhuan"
-                                    name="💰 Lợi nhuận"
                                     stroke="#10b981"
-                                    fill="url(#gLN)"
-                                    strokeWidth={2.5}
-                                    dot={{ r: 4, fill: "#10b981" }}
+                                    fill="url(#gPos)"
+                                    strokeWidth={2}
+                                    dot={(props) => {
+                                      const { cx, cy, payload } = props;
+                                      return <circle key={payload.name} cx={cx} cy={cy} r={4} fill={payload.LoiNhuan >= 0 ? "#10b981" : "#f87171"} stroke="white" strokeWidth={1.5} />;
+                                    }}
                                   />
-                                </ComposedChart>
+                                </AreaChart>
                               </ResponsiveContainer>
                             </div>
                           </div>
