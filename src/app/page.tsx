@@ -1813,7 +1813,13 @@ export default function Home() {
                   });
 
                   const refIdx = overviewFilter === "all"
-                    ? chartData.length - 1
+                    ? (() => {
+                        // Tìm tháng gần nhất có dữ liệu thực (TongThu hoặc TongChi > 0)
+                        for (let i = chartData.length - 1; i >= 0; i--) {
+                          if (chartData[i].TongThu > 0 || chartData[i].TongChi > 0) return i;
+                        }
+                        return chartData.length - 1;
+                      })()
                     : Math.max(0, chartData.findIndex(c => c.ym === overviewFilter));
                   const refRow = chartData[refIdx];
                   const prevRow = refIdx > 0 ? chartData[refIdx - 1] : null;
