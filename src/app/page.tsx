@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart,
 } from "recharts";
 
 type View = "LOGIN" | "DIRECTOR" | "EMPLOYEE";
@@ -240,6 +240,7 @@ export default function Home() {
   const [thuChiLoading, setThuChiLoading] = useState(false);
   const [thuChiError, setThuChiError] = useState<string | null>(null);
   const [financeView, setFinanceView] = useState<"month" | "report">("month");
+  const [chartRefMonth, setChartRefMonth] = useState<"prev" | "curr">("prev");
 
   // ── Revenue (anhemphim.vn) ─────────────────────────────
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
@@ -1931,116 +1932,115 @@ export default function Home() {
                       {(() => {
                         const chartData = [...reportRows].reverse().map((r, i, arr) => {
                           const prev = arr[i - 1];
-                          const profitDelta = prev ? r.loiNhuan - prev.loiNhuan : 0;
+                          const profitDelta = prev ? r.loiNhuan - prev.loiNhuan : null;
                           return {
+                            ym: r.ym,
                             name: r.ym.slice(5) + "/" + r.ym.slice(2, 4),
                             AEP: Math.round(r.revYm / 1e6 * 10) / 10,
                             ThuKhac: Math.round(r.thuChiThu / 1e6 * 10) / 10,
-                            ChiKhac: Math.round(r.chi / 1e6 * 10) / 10,
-                            Luong: Math.round(r.salary / 1e6 * 10) / 10,
+                            TongChi: Math.round((r.chi + r.salary) / 1e6 * 10) / 10,
                             LoiNhuan: Math.round(r.loiNhuan / 1e6 * 10) / 10,
-                            Delta: Math.round(profitDelta / 1e6 * 10) / 10,
+                            Delta: profitDelta !== null ? Math.round(profitDelta / 1e6 * 10) / 10 : null,
                           };
                         });
-                        const fmt = (v: number) => `${v}tr`;
+
+                        // Chỉ báo lời/lỗ: mặc định tháng trước, tuỳ chọn tháng hiện tại
+                        const refIdx = chartRefMonth === "prev"
+                          ? Math.max(0, chartData.length - 2)
+                          : chartData.length - 1;
+                        const refRow = chartData[refIdx];
+                        const prevRow = refIdx > 0 ? chartData[refIdx - 1] : null;
+
                         return (
                           <div className="space-y-4">
-                            {/* Card tăng/giảm lợi nhuận so với tháng trước */}
-                            {chartData.length >= 2 && (() => {
-                              const last = chartData[chartData.length - 1];
-                              const prev = chartData[chartData.length - 2];
-                              const delta = last.LoiNhuan - prev.LoiNhuan;
-                              const pct = prev.LoiNhuan !== 0 ? Math.round(delta / Math.abs(prev.LoiNhuan) * 100) : 0;
-                              const up = delta >= 0;
-                              return (
-                                <div className={`rounded-2xl p-4 border flex items-center justify-between gap-4 ${
-                                  up ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
-                                }`}>
-                                  <div>
-                                    <p className={`text-xs font-semibold mb-0.5 ${up ? "text-emerald-600" : "text-red-500"}`}>
-                                      {up ? "📈 Lợi nhuận đang tăng" : "📉 Lợi nhuận đang giảm"}
-                                    </p>
-                                    <p className={`text-2xl font-black ${up ? "text-emerald-700" : "text-red-600"}`}>
-                                      {up ? "+" : ""}{delta.toFixed(1)}tr
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-0.5">so với {prev.name}</p>
-                                  </div>
-                                  <div className={`text-right`}>
-                                    <p className={`text-3xl font-black ${up ? "text-emerald-500" : "text-red-400"}`}>
-                                      {up ? "+" : ""}{pct}%
-                                    </p>
-                                    <p className="text-xs text-gray-400">tăng trưởng</p>
-                                  </div>
+                            {/* Card chỉ báo lời/lỗ + toggle */}
+                            {refRow && (
+                              <div className={`rounded-2xl border overflow-hidden ${
+                                refRow.LoiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
+                              }`}>
+                                <div className="flex gap-1 p-2 border-b border-black/5">
+                                  <button
+                                    onClick={() => setChartRefMonth("prev")}
+                                    className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                                      chartRefMonth === "prev" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
+                                    }`}>
+                                    Tháng trước
+                                  </button>
+                                  <button
+                                    onClick={() => setChartRefMonth("curr")}
+                                    className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                                      chartRefMonth === "curr" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
+                                    }`}>
+                                    Tháng hiện tại
+                                  </button>
                                 </div>
-                              );
-                            })()}
+                                <div className="p-4 flex items-center justify-between gap-4">
+                                  <div>
+                                    <p className={`text-xs font-semibold mb-0.5 ${
+                                      refRow.LoiNhuan >= 0 ? "text-emerald-600" : "text-red-500"
+                                    }`}>
+                                      {refRow.LoiNhuan >= 0 ? "📈" : "📉"} {refRow.name} — {refRow.LoiNhuan >= 0 ? "Có lời" : "Lỗ"}
+                                    </p>
+                                    <p className={`text-2xl font-black ${
+                                      refRow.LoiNhuan >= 0 ? "text-emerald-700" : "text-red-600"
+                                    }`}>
+                                      {refRow.LoiNhuan >= 0 ? "+" : ""}{refRow.LoiNhuan.toFixed(1)}tr
+                                    </p>
+                                    {prevRow && refRow.Delta !== null && (
+                                      <p className="text-xs text-gray-400 mt-0.5">
+                                        {refRow.Delta >= 0 ? "↑" : "↓"} {Math.abs(refRow.Delta).toFixed(1)}tr so với {prevRow.name}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {prevRow && refRow.Delta !== null && (() => {
+                                    const up = refRow.Delta >= 0;
+                                    const pct = prevRow.LoiNhuan !== 0
+                                      ? Math.round(refRow.Delta / Math.abs(prevRow.LoiNhuan) * 100) : 0;
+                                    return (
+                                      <div className="text-right">
+                                        <p className={`text-3xl font-black ${up ? "text-emerald-500" : "text-red-400"}`}>
+                                          {up ? "+" : ""}{pct}%
+                                        </p>
+                                        <p className="text-xs text-gray-400">so tháng trước</p>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            )}
 
-                            {/* Biểu đồ doanh thu */}
+                            {/* Chart tổng hợp duy nhất */}
                             <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-sm font-semibold text-gray-700 mb-3">💰 Doanh thu theo tháng (triệu đồng)</p>
-                              <ResponsiveContainer width="100%" height={200}>
-                                <AreaChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                              <p className="text-sm font-semibold text-gray-700 mb-3">📊 Doanh thu • Chi phí • Lợi nhuận (triệu đồng)</p>
+                              <ResponsiveContainer width="100%" height={260}>
+                                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
                                   <defs>
-                                    <linearGradient id="gAEP" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                    <linearGradient id="gLN" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
                                       <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="gThu" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                                     </linearGradient>
                                   </defs>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                                  <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} />
-                                  <Tooltip formatter={(v) => [`${v ?? 0}tr`, ""]} />
-                                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                                  <Area type="monotone" dataKey="AEP" name="🎬 AEP" stroke="#10b981" fill="url(#gAEP)" strokeWidth={2} dot={{ r: 3 }} />
-                                  <Area type="monotone" dataKey="ThuKhac" name="📊 Thu khác" stroke="#3b82f6" fill="url(#gThu)" strokeWidth={2} dot={{ r: 3 }} />
-                                </AreaChart>
-                              </ResponsiveContainer>
-                            </div>
-
-                            {/* Biểu đồ chi phí */}
-                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-sm font-semibold text-gray-700 mb-3">🧧 Chi phí theo tháng (triệu đồng)</p>
-                              <ResponsiveContainer width="100%" height={200}>
-                                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                                  <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} />
-                                  <Tooltip formatter={(v) => [`${v ?? 0}tr`, ""]} />
-                                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                                  <Bar dataKey="ChiKhac" name="🧳 Chi khác" fill="#f97316" radius={[3,3,0,0]} />
-                                  <Bar dataKey="Luong" name="👥 Lương" fill="#6366f1" radius={[3,3,0,0]} />
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-
-                            {/* Biểu đồ lợi nhuận */}
-                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-sm font-semibold text-gray-700 mb-3">📈 Lợi nhuận & tăng trưởng (triệu đồng)</p>
-                              <ResponsiveContainer width="100%" height={220}>
-                                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                                  <YAxis tick={{ fontSize: 11 }} tickFormatter={fmt} />
-                                  <Tooltip formatter={(v) => [`${v ?? 0}tr`, ""]} />
-                                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                                  <Bar dataKey="LoiNhuan" name="💰 Lợi nhuận"
-                                    radius={[3,3,0,0]}
-                                    fill="#10b981"
-                                    label={false}
-                                  >
-                                    {chartData.map((entry, index) => (
-                                      <rect key={index} fill={entry.LoiNhuan >= 0 ? "#10b981" : "#f87171"} />
-                                    ))}
-                                  </Bar>
-                                  <Bar dataKey="Delta" name="Δ so tháng trước"
-                                    radius={[3,3,0,0]}
-                                    fill="#a78bfa"
+                                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}tr`} />
+                                  <Tooltip
+                                    formatter={(v, name) => [`${v ?? 0}tr`, String(name)]}
+                                    contentStyle={{ fontSize: 12, borderRadius: 10 }}
                                   />
-                                </BarChart>
+                                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                                  <Bar dataKey="AEP" name="🎬 AEP" fill="#34d399" radius={[3,3,0,0]} stackId="thu" />
+                                  <Bar dataKey="ThuKhac" name="📊 Thu khác" fill="#60a5fa" radius={[3,3,0,0]} stackId="thu" />
+                                  <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[3,3,0,0]} />
+                                  <Area
+                                    type="monotone"
+                                    dataKey="LoiNhuan"
+                                    name="💰 Lợi nhuận"
+                                    stroke="#10b981"
+                                    fill="url(#gLN)"
+                                    strokeWidth={2.5}
+                                    dot={{ r: 4, fill: "#10b981" }}
+                                  />
+                                </ComposedChart>
                               </ResponsiveContainer>
                             </div>
                           </div>
