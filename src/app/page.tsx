@@ -241,6 +241,7 @@ export default function Home() {
   const [thuChiError, setThuChiError] = useState<string | null>(null);
   const [financeView, setFinanceView] = useState<"overview" | "month" | "report">("overview");
   const [chartRefMonth, setChartRefMonth] = useState<"prev" | "curr">("prev");
+  const [overviewFilter, setOverviewFilter] = useState<string>("all"); // "all" hoặc ym string
 
   // ── Revenue (anhemphim.vn) ─────────────────────────────
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
@@ -1748,25 +1749,14 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* ── Trạng thái kết nối Thu Chi (qua Railway env vars) ── */}
-                <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-2xl border border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">📊</span>
-                    <span className="font-semibold text-sm text-gray-800">App Thu Chi</span>
-                    {thuChiData
-                      ? <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">✓ Đã kết nối</span>
-                      : thuChiError
-                        ? <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Lỗi kết nối</span>
-                        : <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">Đang kết nối...</span>
-                    }
-                  </div>
-                  <button onClick={fetchThuChi} disabled={thuChiLoading}
-                    className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-50">
-                    <RefreshCw className={`w-3 h-3 ${thuChiLoading ? "animate-spin" : ""}`} /> Tải lại
-                  </button>
-                </div>
                 {thuChiError && (
-                  <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{thuChiError}</p>
+                  <div className="flex items-center justify-between px-3 py-2 bg-red-50 rounded-xl border border-red-200">
+                    <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{thuChiError}</p>
+                    <button onClick={fetchThuChi} disabled={thuChiLoading}
+                      className="text-xs text-blue-600 hover:underline flex items-center gap-1 disabled:opacity-50">
+                      <RefreshCw className={`w-3 h-3 ${thuChiLoading ? "animate-spin" : ""}`} /> Tải lại
+                    </button>
+                  </div>
                 )}
 
                 {/* Loading state */}
@@ -1797,11 +1787,13 @@ export default function Home() {
 
                 {/* ── View: Tổng quan ── */}
                 {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "overview" && (() => {
-                  const totalAEP     = reportRows.reduce((s, r) => s + r.revYm, 0);
-                  const totalThuKhac = reportRows.reduce((s, r) => s + r.thuChiThu, 0);
+                  const filteredRows = overviewFilter === "all" ? reportRows : reportRows.filter(r => r.ym === overviewFilter);
+
+                  const totalAEP     = filteredRows.reduce((s, r) => s + r.revYm, 0);
+                  const totalThuKhac = filteredRows.reduce((s, r) => s + r.thuChiThu, 0);
                   const totalThu     = totalAEP + totalThuKhac;
-                  const totalChi     = reportRows.reduce((s, r) => s + r.chi, 0);
-                  const totalSalary  = reportRows.reduce((s, r) => s + r.salary, 0);
+                  const totalChi     = filteredRows.reduce((s, r) => s + r.chi, 0);
+                  const totalSalary  = filteredRows.reduce((s, r) => s + r.salary, 0);
                   const totalChiAll  = totalChi + totalSalary;
                   const totalProfit  = totalThu - totalChiAll;
 
@@ -1828,6 +1820,27 @@ export default function Home() {
 
                   return (
                     <div className="space-y-4">
+                      {/* Filter tháng */}
+                      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-0.5">
+                        <button
+                          onClick={() => setOverviewFilter("all")}
+                          className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                            overviewFilter === "all" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          }`}>
+                          Tất cả ({reportRows.length} tháng)
+                        </button>
+                        {[...reportRows].reverse().map((r) => (
+                          <button
+                            key={r.ym}
+                            onClick={() => setOverviewFilter(r.ym)}
+                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                              overviewFilter === r.ym ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            }`}>
+                            {r.ym.slice(5)}/{r.ym.slice(2,4)}{r.ym === currentYM() ? " ●" : ""}
+                          </button>
+                        ))}
+                      </div>
+
                       {/* 3 KPI cards */}
                       <div className="grid grid-cols-3 gap-3">
                         <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
