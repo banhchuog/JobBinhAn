@@ -239,7 +239,7 @@ export default function Home() {
   const [thuChiData, setThuChiData] = useState<ThuChiTransaction[] | null>(null);
   const [thuChiLoading, setThuChiLoading] = useState(false);
   const [thuChiError, setThuChiError] = useState<string | null>(null);
-  const [financeView, setFinanceView] = useState<"month" | "report">("month");
+  const [financeView, setFinanceView] = useState<"overview" | "month" | "report">("overview");
   const [chartRefMonth, setChartRefMonth] = useState<"prev" | "curr">("prev");
 
   // ── Revenue (anhemphim.vn) ─────────────────────────────
@@ -1663,17 +1663,21 @@ export default function Home() {
                 {/* Sub-tab toggle + export */}
                 <div className="flex gap-2 items-center">
                   <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-1">
+                    <button onClick={() => setFinanceView("overview")}
+                      className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "overview" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+                      🏠 Tổng quan
+                    </button>
                     <button onClick={() => setFinanceView("month")}
                       className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "month" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                      📅 Chi tiết tháng
+                      📅 Chi tiết
                     </button>
                     <button onClick={() => setFinanceView("report")}
                       className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-colors ${financeView === "report" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                      📊 Báo cáo tổng hợp
+                      📊 Báo cáo
                     </button>
                   </div>
                   {/* Nút xuất CSV */}
-                  {(thuChiData || revenueData) && (
+                  {(thuChiData || revenueData) && financeView !== "overview" && (
                     <button
                       title={financeView === "month" ? `Xuất CSV tháng ${directorMonth}` : "Xuất CSV tổng hợp"}
                       onClick={() => {
@@ -1790,6 +1794,181 @@ export default function Home() {
                     <button onClick={fetchRevenue} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
+
+                {/* ── View: Tổng quan ── */}
+                {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "overview" && (() => {
+                  const totalAEP     = reportRows.reduce((s, r) => s + r.revYm, 0);
+                  const totalThuKhac = reportRows.reduce((s, r) => s + r.thuChiThu, 0);
+                  const totalThu     = totalAEP + totalThuKhac;
+                  const totalChi     = reportRows.reduce((s, r) => s + r.chi, 0);
+                  const totalSalary  = reportRows.reduce((s, r) => s + r.salary, 0);
+                  const totalChiAll  = totalChi + totalSalary;
+                  const totalProfit  = totalThu - totalChiAll;
+
+                  const chartData = [...reportRows].reverse().map((r, i, arr) => {
+                    const prev = arr[i - 1];
+                    const profitDelta = prev ? r.loiNhuan - prev.loiNhuan : null;
+                    return {
+                      ym: r.ym,
+                      name: r.ym.slice(5) + "/" + r.ym.slice(2, 4),
+                      AEP: Math.round(r.revYm / 1e6 * 10) / 10,
+                      ThuKhac: Math.round(r.thuChiThu / 1e6 * 10) / 10,
+                      TongThu: Math.round((r.revYm + r.thuChiThu) / 1e6 * 10) / 10,
+                      TongChi: Math.round((r.chi + r.salary) / 1e6 * 10) / 10,
+                      LoiNhuan: Math.round(r.loiNhuan / 1e6 * 10) / 10,
+                      Delta: profitDelta !== null ? Math.round(profitDelta / 1e6 * 10) / 10 : null,
+                    };
+                  });
+
+                  const refIdx = chartRefMonth === "prev"
+                    ? Math.max(0, chartData.length - 2)
+                    : chartData.length - 1;
+                  const refRow = chartData[refIdx];
+                  const prevRow = refIdx > 0 ? chartData[refIdx - 1] : null;
+
+                  return (
+                    <div className="space-y-4">
+                      {/* 3 KPI cards */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
+                          <p className="text-[10px] text-green-600 font-semibold mb-1">💰 Tổng doanh thu</p>
+                          <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(totalThu)}</p>
+                          {totalAEP > 0 && <p className="text-[10px] text-green-500 mt-1">🎬 {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalAEP)}</p>}
+                          {totalThuKhac > 0 && <p className="text-[10px] text-green-400">+ {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalThuKhac)} khác</p>}
+                        </div>
+                        <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
+                          <p className="text-[10px] text-red-500 font-semibold mb-1">🧾 Tổng chi phí</p>
+                          <p className="font-black text-red-600 text-base leading-tight">{formatCurrency(totalChiAll)}</p>
+                          {totalChi > 0 && <p className="text-[10px] text-red-400 mt-1">Chi: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalChi)}</p>}
+                          {totalSalary > 0 && <p className="text-[10px] text-red-300">Lương: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalSalary)}</p>}
+                        </div>
+                        <div className={`${totalProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"} border rounded-2xl p-3`}>
+                          <p className={`text-[10px] font-semibold mb-1 ${totalProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}>📈 Lợi nhuận</p>
+                          <p className={`font-black text-base leading-tight ${totalProfit >= 0 ? "text-emerald-700" : "text-orange-600"}`}>{formatCurrency(totalProfit)}</p>
+                          {totalThu > 0 && <p className={`text-[10px] mt-1 ${totalProfit >= 0 ? "text-emerald-400" : "text-orange-400"}`}>
+                            {Math.round(totalProfit / totalThu * 100)}% biên lợi nhuận
+                          </p>}
+                        </div>
+                      </div>
+
+                      {/* Card chỉ báo lời/lỗ + toggle */}
+                      {refRow && (
+                        <div className={`rounded-2xl border overflow-hidden ${
+                          refRow.LoiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
+                        }`}>
+                          <div className="flex gap-1 p-2 border-b border-black/5">
+                            <button
+                              onClick={() => setChartRefMonth("prev")}
+                              className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                                chartRefMonth === "prev" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
+                              }`}>
+                              Tháng trước
+                            </button>
+                            <button
+                              onClick={() => setChartRefMonth("curr")}
+                              className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                                chartRefMonth === "curr" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
+                              }`}>
+                              Tháng hiện tại
+                            </button>
+                          </div>
+                          <div className="p-4 flex items-center justify-between gap-4">
+                            <div>
+                              <p className={`text-xs font-semibold mb-0.5 ${
+                                refRow.LoiNhuan >= 0 ? "text-emerald-600" : "text-red-500"
+                              }`}>
+                                {refRow.LoiNhuan >= 0 ? "📈" : "📉"} {refRow.name} — {refRow.LoiNhuan >= 0 ? "Có lời" : "Lỗ"}
+                              </p>
+                              <p className={`text-2xl font-black ${
+                                refRow.LoiNhuan >= 0 ? "text-emerald-700" : "text-red-600"
+                              }`}>
+                                {refRow.LoiNhuan >= 0 ? "+" : ""}{refRow.LoiNhuan.toFixed(1)}tr
+                              </p>
+                              {prevRow && refRow.Delta !== null && (
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                  {refRow.Delta >= 0 ? "↑" : "↓"} {Math.abs(refRow.Delta).toFixed(1)}tr so với {prevRow.name}
+                                </p>
+                              )}
+                            </div>
+                            {prevRow && refRow.Delta !== null && (() => {
+                              const up = refRow.Delta >= 0;
+                              const pct = prevRow.LoiNhuan !== 0
+                                ? Math.round(refRow.Delta / Math.abs(prevRow.LoiNhuan) * 100) : 0;
+                              return (
+                                <div className="text-right">
+                                  <p className={`text-3xl font-black ${up ? "text-emerald-500" : "text-red-400"}`}>
+                                    {up ? "+" : ""}{pct}%
+                                  </p>
+                                  <p className="text-xs text-gray-400">so tháng trước</p>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Chart: Thu vs Chi */}
+                      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tổng thu vs Tổng chi (triệu đồng)</p>
+                        <ResponsiveContainer width="100%" height={180}>
+                          <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }} barGap={3} barCategoryGap="30%">
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                            <Tooltip
+                              formatter={(v, name) => [`${v ?? 0}tr`, String(name)]}
+                              contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                              cursor={{ fill: "#f9fafb" }}
+                            />
+                            <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
+                            <Bar dataKey="AEP" name="🎬 Anh Em Phim" stackId="thu" fill="#34d399" radius={[0,0,0,0]} />
+                            <Bar dataKey="ThuKhac" name="💼 Thu khác" stackId="thu" fill="#6ee7b7" radius={[4,4,0,0]} />
+                            <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Chart: Đường lợi nhuận */}
+                      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Xu hướng lợi nhuận (triệu đồng)</p>
+                        <ResponsiveContainer width="100%" height={150}>
+                          <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="gPos2" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                              </linearGradient>
+                              <linearGradient id="gNeg2" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f87171" stopOpacity={0.25} />
+                                <stop offset="95%" stopColor="#f87171" stopOpacity={0.02} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                            <Tooltip
+                              formatter={(v) => [`${v ?? 0}tr`, "Lợi nhuận"]}
+                              contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                              cursor={{ stroke: "#e5e7eb" }}
+                            />
+                            <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
+                            <Area
+                              type="monotone"
+                              dataKey="LoiNhuan"
+                              stroke="#10b981"
+                              fill="url(#gPos2)"
+                              strokeWidth={2}
+                              dot={(props) => {
+                                const { cx, cy, payload } = props;
+                                return <circle key={payload.name} cx={cx} cy={cy} r={4} fill={payload.LoiNhuan >= 0 ? "#10b981" : "#f87171"} stroke="white" strokeWidth={1.5} />;
+                              }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* ── View: Chi tiết tháng ── */}
                 {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "month" && (
@@ -1928,151 +2107,6 @@ export default function Home() {
                       <EmptyBlock text="Chưa có dữ liệu tháng nào." />
                     ) : (
                       <>
-                      {/* ── Charts ── */}
-                      {(() => {
-                        const chartData = [...reportRows].reverse().map((r, i, arr) => {
-                          const prev = arr[i - 1];
-                          const profitDelta = prev ? r.loiNhuan - prev.loiNhuan : null;
-                          return {
-                            ym: r.ym,
-                            name: r.ym.slice(5) + "/" + r.ym.slice(2, 4),
-                            AEP: Math.round(r.revYm / 1e6 * 10) / 10,
-                            ThuKhac: Math.round(r.thuChiThu / 1e6 * 10) / 10,
-                            TongThu: Math.round((r.revYm + r.thuChiThu) / 1e6 * 10) / 10,
-                            TongChi: Math.round((r.chi + r.salary) / 1e6 * 10) / 10,
-                            LoiNhuan: Math.round(r.loiNhuan / 1e6 * 10) / 10,
-                            Delta: profitDelta !== null ? Math.round(profitDelta / 1e6 * 10) / 10 : null,
-                          };
-                        });
-
-                        // Chỉ báo lời/lỗ: mặc định tháng trước, tuỳ chọn tháng hiện tại
-                        const refIdx = chartRefMonth === "prev"
-                          ? Math.max(0, chartData.length - 2)
-                          : chartData.length - 1;
-                        const refRow = chartData[refIdx];
-                        const prevRow = refIdx > 0 ? chartData[refIdx - 1] : null;
-
-                        return (
-                          <div className="space-y-4">
-                            {/* Card chỉ báo lời/lỗ + toggle */}
-                            {refRow && (
-                              <div className={`rounded-2xl border overflow-hidden ${
-                                refRow.LoiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
-                              }`}>
-                                <div className="flex gap-1 p-2 border-b border-black/5">
-                                  <button
-                                    onClick={() => setChartRefMonth("prev")}
-                                    className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                                      chartRefMonth === "prev" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
-                                    }`}>
-                                    Tháng trước
-                                  </button>
-                                  <button
-                                    onClick={() => setChartRefMonth("curr")}
-                                    className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                                      chartRefMonth === "curr" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
-                                    }`}>
-                                    Tháng hiện tại
-                                  </button>
-                                </div>
-                                <div className="p-4 flex items-center justify-between gap-4">
-                                  <div>
-                                    <p className={`text-xs font-semibold mb-0.5 ${
-                                      refRow.LoiNhuan >= 0 ? "text-emerald-600" : "text-red-500"
-                                    }`}>
-                                      {refRow.LoiNhuan >= 0 ? "📈" : "📉"} {refRow.name} — {refRow.LoiNhuan >= 0 ? "Có lời" : "Lỗ"}
-                                    </p>
-                                    <p className={`text-2xl font-black ${
-                                      refRow.LoiNhuan >= 0 ? "text-emerald-700" : "text-red-600"
-                                    }`}>
-                                      {refRow.LoiNhuan >= 0 ? "+" : ""}{refRow.LoiNhuan.toFixed(1)}tr
-                                    </p>
-                                    {prevRow && refRow.Delta !== null && (
-                                      <p className="text-xs text-gray-400 mt-0.5">
-                                        {refRow.Delta >= 0 ? "↑" : "↓"} {Math.abs(refRow.Delta).toFixed(1)}tr so với {prevRow.name}
-                                      </p>
-                                    )}
-                                  </div>
-                                  {prevRow && refRow.Delta !== null && (() => {
-                                    const up = refRow.Delta >= 0;
-                                    const pct = prevRow.LoiNhuan !== 0
-                                      ? Math.round(refRow.Delta / Math.abs(prevRow.LoiNhuan) * 100) : 0;
-                                    return (
-                                      <div className="text-right">
-                                        <p className={`text-3xl font-black ${up ? "text-emerald-500" : "text-red-400"}`}>
-                                          {up ? "+" : ""}{pct}%
-                                        </p>
-                                        <p className="text-xs text-gray-400">so tháng trước</p>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Chart 1: Thu vs Chi */}
-                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Tổng thu vs Tổng chi (triệu đồng)</p>
-                              <ResponsiveContainer width="100%" height={180}>
-                                <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }} barGap={3} barCategoryGap="30%">
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
-                                  <Tooltip
-                                    formatter={(v, name) => [`${v ?? 0}tr`, String(name)]}
-                                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                                    cursor={{ fill: "#f9fafb" }}
-                                  />
-                                  <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                                  <Bar dataKey="AEP" name="🎬 Anh Em Phim" stackId="thu" fill="#34d399" radius={[0,0,0,0]} />
-                                  <Bar dataKey="ThuKhac" name="💼 Thu khác" stackId="thu" fill="#6ee7b7" radius={[4,4,0,0]} />
-                                  <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </div>
-
-                            {/* Chart 2: Đường lợi nhuận */}
-                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Xu hướng lợi nhuận (triệu đồng)</p>
-                              <ResponsiveContainer width="100%" height={150}>
-                                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                  <defs>
-                                    <linearGradient id="gPos" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
-                                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
-                                    </linearGradient>
-                                    <linearGradient id="gNeg" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#f87171" stopOpacity={0.25} />
-                                      <stop offset="95%" stopColor="#f87171" stopOpacity={0.02} />
-                                    </linearGradient>
-                                  </defs>
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                  <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
-                                  <Tooltip
-                                    formatter={(v) => [`${v ?? 0}tr`, "Lợi nhuận"]}
-                                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                                    cursor={{ stroke: "#e5e7eb" }}
-                                  />
-                                  <ReferenceLine y={0} stroke="#e5e7eb" strokeWidth={1.5} />
-                                  <Area
-                                    type="monotone"
-                                    dataKey="LoiNhuan"
-                                    stroke="#10b981"
-                                    fill="url(#gPos)"
-                                    strokeWidth={2}
-                                    dot={(props) => {
-                                      const { cx, cy, payload } = props;
-                                      return <circle key={payload.name} cx={cx} cy={cy} r={4} fill={payload.LoiNhuan >= 0 ? "#10b981" : "#f87171"} stroke="white" strokeWidth={1.5} />;
-                                    }}
-                                  />
-                                </AreaChart>
-                              </ResponsiveContainer>
-                            </div>
-                          </div>
-                        );
-                      })()}
-
                       {/* Bảng số liệu */}
                       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
