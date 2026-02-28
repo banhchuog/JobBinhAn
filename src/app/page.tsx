@@ -241,11 +241,7 @@ export default function Home() {
   const [thuChiError, setThuChiError] = useState<string | null>(null);
   const [financeView, setFinanceView] = useState<"overview" | "month" | "report">("overview");
   const [chartRefMonth, setChartRefMonth] = useState<"prev" | "curr">("prev");
-  const [overviewFilter, setOverviewFilter] = useState<string>(() => {
-    const now = new Date();
-    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
-  }); // "all" hoặc ym string, mặc định tháng trước
+  const [overviewFilter, setOverviewFilter] = useState<string>(currentYM); // "all" hoặc ym string, mặc định tháng hiện tại
 
   // ── Revenue (anhemphim.vn) ─────────────────────────────
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
@@ -1816,9 +1812,9 @@ export default function Home() {
                     };
                   });
 
-                  const refIdx = chartRefMonth === "prev"
-                    ? Math.max(0, chartData.length - 2)
-                    : chartData.length - 1;
+                  const refIdx = overviewFilter === "all"
+                    ? chartData.length - 1
+                    : Math.max(0, chartData.findIndex(c => c.ym === overviewFilter));
                   const refRow = chartData[refIdx];
                   const prevRow = refIdx > 0 ? chartData[refIdx - 1] : null;
 
@@ -1868,27 +1864,11 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* Card chỉ báo lời/lỗ + toggle */}
+                      {/* Card chỉ báo lời/lỗ */}
                       {refRow && (
-                        <div className={`rounded-2xl border overflow-hidden ${
+                        <div className={`rounded-2xl border ${
                           refRow.LoiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-200"
                         }`}>
-                          <div className="flex gap-1 p-2 border-b border-black/5">
-                            <button
-                              onClick={() => setChartRefMonth("prev")}
-                              className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                                chartRefMonth === "prev" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
-                              }`}>
-                              Tháng trước
-                            </button>
-                            <button
-                              onClick={() => setChartRefMonth("curr")}
-                              className={`flex-1 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                                chartRefMonth === "curr" ? "bg-white shadow-sm text-gray-800" : "text-gray-400"
-                              }`}>
-                              Tháng hiện tại
-                            </button>
-                          </div>
                           <div className="p-4 flex items-center justify-between gap-4">
                             <div>
                               <p className={`text-xs font-semibold mb-0.5 ${
