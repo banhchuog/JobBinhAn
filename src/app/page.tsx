@@ -241,7 +241,11 @@ export default function Home() {
   const [thuChiError, setThuChiError] = useState<string | null>(null);
   const [financeView, setFinanceView] = useState<"overview" | "month" | "report">("overview");
   const [chartRefMonth, setChartRefMonth] = useState<"prev" | "curr">("prev");
-  const [overviewFilter, setOverviewFilter] = useState<string>("all"); // "all" hoặc ym string
+  const [overviewFilter, setOverviewFilter] = useState<string>(() => {
+    const now = new Date();
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+  }); // "all" hoặc ym string, mặc định tháng trước
 
   // ── Revenue (anhemphim.vn) ─────────────────────────────
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
