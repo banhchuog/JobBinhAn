@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Job, Employee, ManualEntry } from "@/types";
+import { Job, Employee, ManualEntry, JobAssignment } from "@/types";
 import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
