@@ -1618,7 +1618,8 @@ export default function Home() {
               return { emp, approved, totalApproved };
             }).filter((r) => r.approved.length > 0);
 
-            const grandTotalSalary = salaryRows.reduce((s, r) => s + r.totalApproved, 0);
+            const manualSalaryMonth = (manualEntries[directorMonth] ?? []).reduce((s, e) => s + e.amount, 0);
+            const grandTotalSalary = salaryRows.reduce((s, r) => s + r.totalApproved, 0) + manualSalaryMonth;
 
             // Thu Chi data cho tháng đang chọn
             const thuChiMonth = thuChiData
@@ -1640,6 +1641,7 @@ export default function Home() {
               ...( thuChiData ? thuChiData.map((t) => t.date?.slice(0, 7)).filter(Boolean) as string[] : []),
               ...( revenueData ? Object.keys(revenueData) : []),
               ...salaryMonths,
+              ...Object.keys(manualEntries),
             ])].sort().reverse();
 
             const reportRows = allReportMonths.map((ym) => {
@@ -1648,12 +1650,14 @@ export default function Home() {
               const chiYm = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
               const revYm = revenueData?.[ym] ?? 0;
               const thuYm = thuChiThuYm + revYm;
-              const salary = employees.map((emp) =>
+              const salaryFromJobs = employees.map((emp) =>
                 jobs.flatMap((job) => job.assignments.filter((a) => {
                   if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                   return getSalaryMonth(job.month || job.createdAt.slice(0, 7), a.approvedAt) === ym;
                 }).map((a) => a.salaryEarned))
               ).flat().reduce((s, x) => s + x, 0);
+              const manualSalaryYm = (manualEntries[ym] ?? []).reduce((s, e) => s + e.amount, 0);
+              const salary = salaryFromJobs + manualSalaryYm;
               const tongChi = chiYm + salary;
               const loiNhuanYm = thuYm - tongChi;
               return { ym, thu: thuYm, thuChiThu: thuChiThuYm, revYm, chi: chiYm, salary, tongChi, loiNhuan: loiNhuanYm };
