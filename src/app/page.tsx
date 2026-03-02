@@ -2254,17 +2254,21 @@ export default function Home() {
                   amount: amt,
                   note: manualNote.trim(),
                 };
+                // Cập nhật UI ngay lập tức (optimistic)
+                const updated = { ...manualEntries };
+                updated[directorMonth] = [...(updated[directorMonth] ?? []), entry];
+                setManualEntries(updated);
+                setManualModal(null);
+                // Lưu lên server
                 const res = await fetch("/api/manual-salary", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify(entry),
                 });
-                if (res.ok) {
-                  const updated = { ...manualEntries };
-                  updated[directorMonth] = [...(updated[directorMonth] ?? []), entry];
-                  setManualEntries(updated);
+                if (!res.ok) {
+                  // Nếu lỗi, tải lại dữ liệu thật từ server
+                  fetchAll();
                 }
-                setManualModal(null);
               }}
             >
               <div>

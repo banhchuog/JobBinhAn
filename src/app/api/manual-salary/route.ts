@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllManualEntries, createManualEntry } from "@/lib/db";
+import { getAllManualEntries, createManualEntry, initSchema } from "@/lib/db";
 import { ManualEntry } from "@/types";
 
 export async function GET() {
   try {
+    await initSchema();
     const entries = await getAllManualEntries();
     return NextResponse.json(entries);
   } catch (err) {
@@ -14,6 +15,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await initSchema();
     const body = await req.json() as ManualEntry;
     if (!body.id || !body.empId || !body.month || !body.title || !body.amount) {
       return NextResponse.json({ error: "Thiếu dữ liệu bắt buộc" }, { status: 400 });

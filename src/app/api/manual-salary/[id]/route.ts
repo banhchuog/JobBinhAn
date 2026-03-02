@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteManualEntry } from "@/lib/db";
+import { deleteManualEntry, initSchema } from "@/lib/db";
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await initSchema();
     const { id } = await params;
     const ok = await deleteManualEntry(id);
     if (!ok) return NextResponse.json({ error: "Không tìm thấy" }, { status: 404 });
