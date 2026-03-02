@@ -1592,6 +1592,30 @@ export default function Home() {
                     ))}
                   </div>
                 )}
+
+                {/* ── Nhân viên chưa có trong bảng lương tháng này ── */}
+                {(() => {
+                  const inRows = new Set(rows.map((r) => r.emp.id));
+                  const missing = employees.filter((e) => !inRows.has(e.id));
+                  if (missing.length === 0) return null;
+                  return (
+                    <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 font-medium mb-2">Chưa có lương tháng này — thêm thủ công:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {missing.map((emp) => (
+                          <button
+                            key={emp.id}
+                            onClick={() => { setManualModal({ emp }); setManualTitle(""); setManualAmount(""); setManualNote(""); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl text-sm font-medium text-gray-700 transition-colors"
+                          >
+                            <span className="w-5 h-5 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">+</span>
+                            {emp.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}
