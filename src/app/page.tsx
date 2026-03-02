@@ -616,10 +616,14 @@ export default function Home() {
   };
 
   // ─── Employee: Mark Done ─────────────────────────────
-  const handleMarkDone = async (jobId: string, assignmentId: string) => {
+  const handleMarkDone = async (jobId: string, assignmentId: string, units?: number) => {
     setSubmitting(true);
     try {
-      await fetch(`/api/jobs/${jobId}/assignments/${assignmentId}/done`, { method: "POST" });
+      await fetch(`/api/jobs/${jobId}/assignments/${assignmentId}/done`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(units !== undefined ? { units } : {}),
+      });
       await fetchAll();
     } finally {
       setSubmitting(false);
