@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { Job, Employee } from "@/types";
+import { Job, Employee, ManualEntry } from "@/types";
 
 let _pool: Pool | null = null;
 
@@ -18,6 +18,17 @@ export async function initSchema(): Promise<void> {
   const pool = getPool();
   await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS manual_salary (
+      id TEXT PRIMARY KEY,
+      emp_id TEXT NOT NULL,
+      month TEXT NOT NULL,
+      title TEXT NOT NULL,
+      amount DECIMAL NOT NULL DEFAULT 0,
+      note TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 }
 
 // ─── Jobs ──────────────────────────────────────────────
@@ -76,5 +87,26 @@ export async function updateEmployee(updated: Employee): Promise<Employee | null
 
 export async function deleteEmployee(id: string): Promise<boolean> {
   const { rowCount } = await getPool().query(`DELETE FROM employees WHERE id = $1`, [id]);
+  return (rowCount ?? 0) > 0;
+}
+
+// ─── Manual Salary ─────────────────────────────────────
+export async function getAllManualEntries(): Promise<ManualEntry[]> {
+  const { rows } = await getPool().query(
+    `SELECT id, emp_id AS "empId", month, title, CAST(amount AS FLOAT) AS amount, note FROM manual_salary ORDER BY created_at DESC`
+  );
+  return rows as ManualEntry[];
+}
+
+export async function createManualEntry(entry: ManualEntry): Promise<ManualEntry> {
+  await getPool().query(
+    `INSERT INTO manual_salary (id, emp_id, month, title, amount, note) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [entry.id, entry.empId, entry.month, entry.title, entry.amount, entry.note]
+  );
+  return entry;
+}
+
+export async function deleteManualEntry(id: string): Promise<boolean> {
+  const { rowCount } = await getPool().query(`DELETE FROM manual_salary WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
 }

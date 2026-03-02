@@ -45,3 +45,12 @@ export interface JobAssignment {
   /** [mini] Số clip/đơn vị trong assignment này */
   units?: number;
 }
+
+export interface ManualEntry {
+  id: string;
+  empId: string;
+  month: string;   // YYYY-MM
+  title: string;
+  amount: number;
+  note: string;
+}

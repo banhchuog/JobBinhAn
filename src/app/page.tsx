@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Job, Employee } from "@/types";
+import { Job, Employee, ManualEntry } from "@/types";
 import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
@@ -223,13 +223,7 @@ export default function Home() {
   const [copySuccess, setCopySuccess] = useState(false);
 
   // ── Manual salary entries ────────────────────────────
-  type ManualEntry = { id: string; empId: string; title: string; amount: number; note: string };
-  const [manualEntries, setManualEntries] = useState<Record<string, ManualEntry[]>>(() => {
-    if (typeof window !== "undefined") {
-      try { return JSON.parse(localStorage.getItem("manual_salary") || "{}"); } catch { return {}; }
-    }
-    return {};
-  });
+  const [manualEntries, setManualEntries] = useState<Record<string, ManualEntry[]>>({});
   const [manualModal, setManualModal] = useState<{ emp: Employee } | null>(null);
   const [manualTitle, setManualTitle] = useState("");
   const [manualAmount, setManualAmount] = useState("");
@@ -266,9 +260,10 @@ export default function Home() {
   const fetchAll = useCallback(async (autoLoginCheck = false) => {
     setLoading(true);
     try {
-      const [jobsRes, empRes] = await Promise.all([
+      const [jobsRes, empRes, manualRes] = await Promise.all([
         fetch("/api/jobs"),
         fetch("/api/employees"),
+        fetch("/api/manual-salary"),
       ]);
       if (jobsRes.ok) setJobs(await jobsRes.json());
       if (empRes.ok) {
@@ -284,6 +279,15 @@ export default function Home() {
             }
           }
         }
+      }
+      if (manualRes.ok) {
+        const flat: ManualEntry[] = await manualRes.json();
+        const grouped: Record<string, ManualEntry[]> = {};
+        flat.forEach((e) => {
+          if (!grouped[e.month]) grouped[e.month] = [];
+          grouped[e.month].push(e);
+        });
+        setManualEntries(grouped);
       }
     } catch {
       // ignore network errors, keep existing state
@@ -1561,11 +1565,11 @@ export default function Home() {
                                 <div className="flex items-center gap-2 shrink-0">
                                   <span className="text-emerald-600 font-semibold">{formatCurrency(entry.amount)}</span>
                                   <button
-                                    onClick={() => {
+                                    onClick={async () => {
+                                      await fetch(`/api/manual-salary/${entry.id}`, { method: "DELETE" });
                                       const updated = { ...manualEntries };
                                       updated[directorMonth] = (updated[directorMonth] ?? []).filter((e) => e.id !== entry.id);
                                       setManualEntries(updated);
-                                      localStorage.setItem("manual_salary", JSON.stringify(updated));
                                     }}
                                     className="text-gray-300 hover:text-red-400 transition-colors text-xs"
                                     title="Xoá"
@@ -2238,21 +2242,28 @@ export default function Home() {
             </div>
             <form
               className="p-4 space-y-3"
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 const amt = Number(manualAmount.replace(/[^0-9]/g, ""));
                 if (!manualTitle.trim() || !amt) return;
-                const entry: { id: string; empId: string; title: string; amount: number; note: string } = {
+                const entry: ManualEntry = {
                   id: Date.now().toString(),
                   empId: manualModal.emp.id,
+                  month: directorMonth,
                   title: manualTitle.trim(),
                   amount: amt,
                   note: manualNote.trim(),
                 };
-                const updated = { ...manualEntries };
-                updated[directorMonth] = [...(updated[directorMonth] ?? []), entry];
-                setManualEntries(updated);
-                localStorage.setItem("manual_salary", JSON.stringify(updated));
+                const res = await fetch("/api/manual-salary", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(entry),
+                });
+                if (res.ok) {
+                  const updated = { ...manualEntries };
+                  updated[directorMonth] = [...(updated[directorMonth] ?? []), entry];
+                  setManualEntries(updated);
+                }
                 setManualModal(null);
               }}
             >
