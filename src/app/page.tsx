@@ -1645,7 +1645,18 @@ export default function Home() {
                                   </p>
                                   {assignment.note && <p className="text-blue-600 text-xs mt-0.5 flex items-center gap-1"><MessageSquare className="w-3 h-3" />{assignment.note}</p>}
                                 </div>
-                                <span className="text-green-600 font-semibold ml-3 shrink-0">{formatCurrency(assignment.salaryEarned)}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-green-600 font-semibold">{formatCurrency(assignment.salaryEarned)}</span>
+                                  <button
+                                    onClick={async () => {
+                                      if (!confirm(`Xoá "${job.title}" của ${emp.name}?\n${job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`} (${formatCurrency(assignment.salaryEarned)}) sẽ trở về chợ.`)) return;
+                                      await fetch(`/api/jobs/${job.id}/assignments/${assignment.id}`, { method: "DELETE" });
+                                      await fetchAll();
+                                    }}
+                                    className="text-gray-300 hover:text-red-400 transition-colors"
+                                    title="Xoá & trả về chợ"
+                                  ><X className="w-3.5 h-3.5" /></button>
+                                </div>
                               </div>
                             </div>
                           ))}
