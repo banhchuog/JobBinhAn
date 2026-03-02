@@ -1394,7 +1394,7 @@ export default function Home() {
                           <h3 className="font-semibold">{job.title}</h3>
                           <p className="text-sm text-gray-600 mt-1 flex flex-wrap gap-1">
                             <span>NV: <span className="font-medium">{assignment.employeeName}</span></span>
-                            <span>· {assignment.percentage}%</span>
+                            <span>· {job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`}</span>
                             <span className="text-green-600 font-medium">· {formatCurrency(assignment.salaryEarned)}</span>
                           </p>
                         </div>
@@ -1494,10 +1494,10 @@ export default function Home() {
                       {copySuccess ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                     </button>
                     <button onClick={() => {
-                      const header = "Nhân viên,Job,Phần trăm,Số tiền,Ngày duyệt,Ghi chú";
+                      const header = "Nhân viên,Job,Phần trăm / Clip,Số tiền,Ngày duyệt,Ghi chú";
                       const csvRows = rows.flatMap(({ emp, approved }) =>
                         approved.map(({ job, assignment }) =>
-                          `"${emp.name}","${job.title}",${assignment.percentage},${assignment.salaryEarned},"${assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : ""}","${assignment.note || ""}"`
+                          `"${emp.name}","${job.title}","${job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`}",${assignment.salaryEarned},"${assignment.approvedAt ? new Date(assignment.approvedAt).toLocaleDateString("vi-VN") : ""}","${assignment.note || ""}"`
                         )
                       );
                       const csv = [header, ...csvRows].join("\n");
@@ -2789,7 +2789,9 @@ export default function Home() {
             const progressPct = isMini
               ? (totalClaimed / (job.totalUnits ?? 1)) * 100
               : totalClaimed;
-            const myAssignment = job.assignments.find((a) => a.employeeId === currentEmployee?.id);
+            const myAssignment = job.assignments.find(
+              (a) => a.employeeId === currentEmployee?.id && (a.status === "WORKING" || a.status === "PENDING_APPROVAL")
+            ) ?? job.assignments.find((a) => a.employeeId === currentEmployee?.id);
             const myAssignments_job = job.assignments.filter((a) => a.employeeId === currentEmployee?.id);
             const myTotalUnits = myAssignments_job.reduce((s, a) => s + (a.units ?? 1), 0);
             const myApprovedAssignments = job.assignments.filter(
