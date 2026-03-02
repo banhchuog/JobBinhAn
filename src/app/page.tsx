@@ -249,6 +249,8 @@ export default function Home() {
   const [sharePercInput, setSharePercInput] = useState("");
   const [miniClaimJob, setMiniClaimJob] = useState<Job | null>(null);
   const [miniClaimUnits, setMiniClaimUnits] = useState("1");
+  const [miniDoneModal, setMiniDoneModal] = useState<{ job: Job; assignment: JobAssignment } | null>(null);
+  const [miniDoneUnits, setMiniDoneUnits] = useState("");
 
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -1410,31 +1412,99 @@ export default function Home() {
                 <EmptyBlock text="Không có phần việc nào chờ duyệt." />
               ) : (
                 <div className="grid gap-4">
-                  {pendingApprovals.map(({ job, assignment }) => (
-                    <div key={assignment.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-amber-200 bg-amber-50/30">
-                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-500 mb-1">Job · {monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
-                          <h3 className="font-semibold">{job.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1 flex flex-wrap gap-1">
-                            <span>NV: <span className="font-medium">{assignment.employeeName}</span></span>
-                            <span>· {job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`}</span>
-                            <span className="text-green-600 font-medium">· {formatCurrency(assignment.salaryEarned)}</span>
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setApprovingItem({ jobId: job.id, assignmentId: assignment.id, jobTitle: job.title, empName: assignment.employeeName, salary: assignment.salaryEarned });
-                            setApproveNote("");
-                          }}
-                          disabled={submitting}
-                          className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto shrink-0"
-                        >
-                          <CheckCircle2 className="w-4 h-4" /> Duyệt
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                  {/* Group mini job assignments by job */}
+                  {(() => {
+                    const miniGroups: Record<string, { job: Job; assignments: JobAssignment[] }> = {};
+                    const standardItems: { job: Job; assignment: JobAssignment }[] = [];
+                    pendingApprovals.forEach(({ job, assignment }) => {
+                      if (job.jobType === "mini") {
+                        if (!miniGroups[job.id]) miniGroups[job.id] = { job, assignments: [] };
+                        miniGroups[job.id].assignments.push(assignment);
+                      } else {
+                        standardItems.push({ job, assignment });
+                      }
+                    });
+                    return (
+                      <>
+                        {/* Mini job groups */}
+                        {Object.values(miniGroups).map(({ job, assignments }) => (
+                          <div key={job.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-violet-200 bg-violet-50/30">
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-500 mb-1">Job mini · {monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                <h3 className="font-semibold">{job.title}</h3>
+                                <p className="text-xs text-violet-600 font-medium mt-0.5">{new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip</p>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  setSubmitting(true);
+                                  try {
+                                    for (const a of assignments) {
+                                      await fetch(`/api/jobs/${job.id}/assignments/${a.id}/approve`, {
+                                        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}),
+                                      });
+                                    }
+                                    await fetchAll();
+                                  } finally { setSubmitting(false); }
+                                }}
+                                disabled={submitting}
+                                className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt tất cả ({assignments.reduce((s, a) => s + (a.units ?? 1), 0)} clip)
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {assignments.map((a) => (
+                                <div key={a.id} className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2">
+                                  <div>
+                                    <span className="text-sm font-medium text-gray-800">{a.employeeName}</span>
+                                    <span className="text-xs text-gray-400 ml-2">{a.units ?? 1} clip</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-green-600">{formatCurrency(a.salaryEarned)}</span>
+                                    <button
+                                      onClick={() => {
+                                        setApprovingItem({ jobId: job.id, assignmentId: a.id, jobTitle: job.title, empName: a.employeeName, salary: a.salaryEarned });
+                                        setApproveNote("");
+                                      }}
+                                      disabled={submitting}
+                                      className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-2 py-1 rounded-lg font-medium transition-colors">
+                                      Duyệt
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                        {/* Standard jobs */}
+                        {standardItems.map(({ job, assignment }) => (
+                          <div key={assignment.id} className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-amber-200 bg-amber-50/30">
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-500 mb-1">Job · {monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                <h3 className="font-semibold">{job.title}</h3>
+                                <p className="text-sm text-gray-600 mt-1 flex flex-wrap gap-1">
+                                  <span>NV: <span className="font-medium">{assignment.employeeName}</span></span>
+                                  <span>· {assignment.percentage}%</span>
+                                  <span className="text-green-600 font-medium">· {formatCurrency(assignment.salaryEarned)}</span>
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setApprovingItem({ jobId: job.id, assignmentId: assignment.id, jobTitle: job.title, empName: assignment.employeeName, salary: assignment.salaryEarned });
+                                  setApproveNote("");
+                                }}
+                                disabled={submitting}
+                                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto shrink-0"
+                              >
+                                <CheckCircle2 className="w-4 h-4" /> Duyệt
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -2277,6 +2347,64 @@ export default function Home() {
           })()}
         </main>
 
+      {/* Modal báo xong clip mini */}
+      {miniDoneModal && (() => {
+        const maxUnits = miniDoneModal.assignment.units ?? 1;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setMiniDoneModal(null)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div>
+                  <h2 className="font-bold text-gray-900">🎞️ Báo xong clip</h2>
+                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{miniDoneModal.job.title}</p>
+                </div>
+                <button onClick={() => setMiniDoneModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-5 space-y-4">
+                <p className="text-sm text-gray-600">Bạn đang nhận <span className="font-bold text-violet-700">{maxUnits} clip</span>. Nhập số clip đã hoàn thành:</p>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="number" min={1} max={maxUnits}
+                    value={miniDoneUnits}
+                    onChange={(e) => setMiniDoneUnits(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 outline-none text-center font-bold text-lg"
+                  />
+                  <button
+                    onClick={() => setMiniDoneUnits(String(maxUnits))}
+                    className="px-3 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl text-sm font-semibold transition-colors">
+                    Tất cả ({maxUnits})
+                  </button>
+                </div>
+                {Number(miniDoneUnits) > 0 && (
+                  <p className="text-xs text-gray-400 text-center">
+                    → {formatCurrency(Number(miniDoneUnits) * (miniDoneModal.job.unitPrice ?? 0))} · {maxUnits - Number(miniDoneUnits) > 0 ? `còn ${maxUnits - Number(miniDoneUnits)} clip tiếp tục làm` : "xong toàn bộ"}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      const units = Number(miniDoneUnits);
+                      if (!units || units < 1 || units > maxUnits) {
+                        alert(`Nhập số clip hợp lệ (1–${maxUnits})`); return;
+                      }
+                      await handleMarkDone(miniDoneModal.job.id, miniDoneModal.assignment.id, units);
+                      setMiniDoneModal(null);
+                    }}
+                    disabled={submitting}
+                    className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                    {submitting ? "Đang gửi..." : "✓ Gửi duyệt"}
+                  </button>
+                  <button onClick={() => setMiniDoneModal(null)}
+                    className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">
+                    Huỷ
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Modal thông tin cá nhân nhân viên */}
       {profileModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setProfileModal(null)}>
@@ -3039,7 +3167,14 @@ export default function Home() {
                       )
                     )}
                     {theme === "blue" && myAssignment?.status === "WORKING" && (
-                      <button onClick={() => handleMarkDone(job.id, myAssignment.id)} disabled={submitting}
+                      <button onClick={() => {
+                        if (isMini) {
+                          setMiniDoneModal({ job, assignment: myAssignment });
+                          setMiniDoneUnits(String(myAssignment.units ?? 1));
+                        } else {
+                          handleMarkDone(job.id, myAssignment.id);
+                        }
+                      }} disabled={submitting}
                         className={`flex items-center gap-0.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-sm disabled:opacity-60 ${btnClass}`}>
                         <CheckCircle2 className="w-3.5 h-3.5" /> Xong
                       </button>
