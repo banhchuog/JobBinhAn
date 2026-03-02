@@ -10,7 +10,11 @@ export async function PATCH(
     const body = await req.json();
     const employee = await getEmployeeById(id);
     if (!employee) return NextResponse.json({ error: "Không tìm thấy nhân viên" }, { status: 404 });
-    const updated = await updateEmployee({ ...employee, name: body.name ?? employee.name });
+    const updated = await updateEmployee({
+      ...employee,
+      name: body.name ?? employee.name,
+      profile: body.profile !== undefined ? body.profile : (employee.profile ?? {}),
+    });
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json({ error: "Lỗi server" }, { status: 500 });

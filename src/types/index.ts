@@ -1,9 +1,21 @@
 export type Role = 'DIRECTOR' | 'EMPLOYEE';
 
+export interface EmployeeProfile {
+  cccd?: string;          // Số CCCD/CMND
+  ngayCapCccd?: string;   // YYYY-MM-DD
+  noiCapCccd?: string;    // Nơi cấp CCCD
+  diaChi?: string;        // Địa chỉ thường trú
+  mst?: string;           // Mã số thuế cá nhân
+  dienThoai?: string;     // Số điện thoại
+  stk?: string;           // Số tài khoản ngân hàng
+  nganHang?: string;      // Tên ngân hàng
+}
+
 export interface Employee {
   id: string;
   name: string;
   balance: number;
+  profile?: EmployeeProfile;
 }
 
 export interface Job {

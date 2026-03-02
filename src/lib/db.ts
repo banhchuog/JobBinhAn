@@ -16,8 +16,7 @@ function getPool(): Pool {
 // ─── Schema init ───────────────────────────────────────
 export async function initSchema(): Promise<void> {
   const pool = getPool();
-  await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);  await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'`);  await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS manual_salary (
       id TEXT PRIMARY KEY,

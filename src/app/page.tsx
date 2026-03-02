@@ -185,6 +185,8 @@ export default function Home() {
 
   // ── Director extra state ─────────────────────────────
   const [editingEmployee, setEditingEmployee] = useState<{ id: string; name: string } | null>(null);
+  const [profileModal, setProfileModal] = useState<Employee | null>(null);
+  const [profileForm, setProfileForm] = useState<Record<string, string>>({});
   const [directorMonth, setDirectorMonth] = useState<string>(currentYM());
   const [jobSearch, setJobSearch] = useState("");
   const [jobSort, setJobSort] = useState<"newest" | "oldest">("newest");
@@ -1346,7 +1348,7 @@ export default function Home() {
                               className="px-3 py-1.5 text-gray-500 hover:bg-gray-100 rounded-lg text-sm">Huỷ</button>
                           </div>
                         ) : (
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm shrink-0">
                                 {emp.name.charAt(0).toUpperCase()}
@@ -1356,9 +1358,31 @@ export default function Home() {
                                 <p className="text-xs text-green-600 flex items-center gap-0.5">
                                   <Wallet className="w-3 h-3" />{formatCurrency(emp.balance)}
                                 </p>
+                                {emp.profile?.stk && (
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    🏦 {emp.profile.stk} · {emp.profile.nganHang ?? ""}
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setProfileModal(emp);
+                                  setProfileForm({
+                                    cccd: emp.profile?.cccd ?? "",
+                                    ngayCapCccd: emp.profile?.ngayCapCccd ?? "",
+                                    noiCapCccd: emp.profile?.noiCapCccd ?? "",
+                                    diaChi: emp.profile?.diaChi ?? "",
+                                    mst: emp.profile?.mst ?? "",
+                                    dienThoai: emp.profile?.dienThoai ?? "",
+                                    stk: emp.profile?.stk ?? "",
+                                    nganHang: emp.profile?.nganHang ?? "",
+                                  });
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Thông tin cá nhân">
+                                <Users className="w-4 h-4" />
+                              </button>
                               <button onClick={() => setEditingEmployee({ id: emp.id, name: emp.name })}
                                 className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Đổi tên">
                                 <Pencil className="w-4 h-4" />
@@ -2252,6 +2276,66 @@ export default function Home() {
             );
           })()}
         </main>
+
+      {/* Modal thông tin cá nhân nhân viên */}
+      {profileModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setProfileModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-900">👤 Thông tin cá nhân</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{profileModal.name} · dùng để thanh toán & hợp đồng</p>
+              </div>
+              <button onClick={() => setProfileModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              {([
+                { key: "cccd",        label: "Số CCCD / CMND",     placeholder: "012345678901", type: "text" },
+                { key: "ngayCapCccd", label: "Ngày cấp",           placeholder: "DD/MM/YYYY",  type: "text" },
+                { key: "noiCapCccd",  label: "Nơi cấp",            placeholder: "Cục Cảnh sát QLHC về TTXH", type: "text" },
+                { key: "diaChi",      label: "Địa chỉ thường trú", placeholder: "Số nhà, đường, phường, quận/huyện, tỉnh/TP", type: "text" },
+                { key: "mst",         label: "Mã số thuế cá nhân", placeholder: "Để trống nếu chưa có", type: "text" },
+                { key: "dienThoai",   label: "Số điện thoại",      placeholder: "0901234567", type: "tel" },
+                { key: "stk",         label: "Số tài khoản NH",    placeholder: "1234567890123", type: "text" },
+                { key: "nganHang",    label: "Ngân hàng",          placeholder: "VD: Techcombank, Vietcombank...", type: "text" },
+              ] as {key:string;label:string;placeholder:string;type:string}[]).map(({ key, label, placeholder, type }) => (
+                <div key={key}>
+                  <label className="text-xs font-semibold text-gray-500 mb-1 block">{label}</label>
+                  <input
+                    type={type}
+                    value={profileForm[key] ?? ""}
+                    onChange={(e) => setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={async () => {
+                  setSubmitting(true);
+                  try {
+                    const res = await fetch(`/api/employees/${profileModal.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ profile: profileForm }),
+                    });
+                    if (res.ok) { await fetchAll(); setProfileModal(null); }
+                  } finally { setSubmitting(false); }
+                }}
+                disabled={submitting}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                {submitting ? "Đang lưu..." : "💾 Lưu thông tin"}
+              </button>
+              <button onClick={() => setProfileModal(null)}
+                className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">
+                Huỷ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal thêm lương thủ công */}
       {manualModal && (
