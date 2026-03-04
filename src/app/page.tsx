@@ -1613,29 +1613,43 @@ export default function Home() {
                       <Download className="w-5 h-5" />
                     </button>
                     <button onClick={() => {
-                      const contracts = rows.flatMap(({ emp, approved }) =>
-                        approved.map(({ job, assignment }) => ({ emp, job, assignment }))
-                      );
+                      type ContractItem =
+                        | { kind: "job"; emp: Employee; job: Job; assignment: JobAssignment }
+                        | { kind: "manual"; emp: Employee; entry: ManualEntry };
+                      const contracts: ContractItem[] = [
+                        ...rows.flatMap(({ emp, approved }) =>
+                          approved.map(({ job, assignment }) => ({ kind: "job" as const, emp, job, assignment }))
+                        ),
+                        ...rows.flatMap(({ emp, manual }) =>
+                          manual.map((entry) => ({ kind: "manual" as const, emp, entry }))
+                        ),
+                      ];
                       if (contracts.length === 0) return;
                       const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-                      const jobDate = (c: typeof contracts[0]) => new Date(c.job.createdAt);
+                      const empOf = (c: ContractItem) => c.emp;
+                      const amountOf = (c: ContractItem) => c.kind === "job" ? String(c.assignment.salaryEarned) : String(c.entry.amount);
+                      const contentOf = (c: ContractItem) => c.kind === "job" ? (c.job.description || c.job.title) : c.entry.title + (c.entry.note ? ` — ${c.entry.note}` : "");
+                      const dateOf = (c: ContractItem) => {
+                        const d = c.kind === "job" ? new Date(c.job.createdAt) : new Date(c.entry.month + "-01");
+                        return { dd: String(d.getDate()).padStart(2, "0"), mm: String(d.getMonth() + 1).padStart(2, "0"), yyyy: String(d.getFullYear()) };
+                      };
                       const varRows: string[][] = [
                         ["MÃ BIÊN (Dùng trong file Word) / (Không sửa cột này)", "DIỄN GIẢI (Hướng dẫn nhập liệu)", ...contracts.map(() => "")],
-                        ["HO_TEN_BEN_B", "Họ và tên người ký (Bắt buộc)", ...contracts.map(c => c.emp.profile?.hoTen || c.emp.name)],
-                        ["{CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.cccd || "")],
-                        ["{NGAY_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.ngayCapCccd || "")],
-                        ["{NOI_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.noiCapCccd || "")],
+                        ["HO_TEN_BEN_B", "Họ và tên người ký (Bắt buộc)", ...contracts.map(c => empOf(c).profile?.hoTen || empOf(c).name)],
+                        ["{CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.cccd || "")],
+                        ["{NGAY_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.ngayCapCccd || "")],
+                        ["{NOI_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.noiCapCccd || "")],
                         ["", "", ...contracts.map(() => "")],
-                        ["{DIA_CHI_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.diaChi || "")],
-                        ["{MST_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.mst || "")],
-                        ["{DIEN_THOAI_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.dienThoai || "")],
-                        ["{STK_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.stk || "")],
-                        ["{NGAN_HANG_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.nganHang || "")],
-                        ["SO_TIEN_DOI_TAC_THUC_NHAN", "Số tiền thực nhận", ...contracts.map(c => String(c.assignment.salaryEarned))],
-                        ["NOI_DUNG_CONG_VIEC", "Nội dung công việc", ...contracts.map(c => c.job.description || c.job.title)],
-                        ["NGAY_KY_KET", "Ngày ký", ...contracts.map(c => String(jobDate(c).getDate()).padStart(2, "0"))],
-                        ["THANG_KY_KET", "Tháng ký", ...contracts.map(c => String(jobDate(c).getMonth() + 1).padStart(2, "0"))],
-                        ["NAM_KY_KET", "Năm ký", ...contracts.map(c => String(jobDate(c).getFullYear()))],
+                        ["{DIA_CHI_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.diaChi || "")],
+                        ["{MST_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.mst || "")],
+                        ["{DIEN_THOAI_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.dienThoai || "")],
+                        ["{STK_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.stk || "")],
+                        ["{NGAN_HANG_BEN_B}", "Nhập thông tin này", ...contracts.map(c => empOf(c).profile?.nganHang || "")],
+                        ["SO_TIEN_DOI_TAC_THUC_NHAN", "Số tiền thực nhận", ...contracts.map(amountOf)],
+                        ["NOI_DUNG_CONG_VIEC", "Nội dung công việc", ...contracts.map(contentOf)],
+                        ["NGAY_KY_KET", "Ngày ký", ...contracts.map(c => dateOf(c).dd)],
+                        ["THANG_KY_KET", "Tháng ký", ...contracts.map(c => dateOf(c).mm)],
+                        ["NAM_KY_KET", "Năm ký", ...contracts.map(c => dateOf(c).yyyy)],
                       ];
                       const csv = varRows.map(row => row.map(esc).join(",")).join("\n");
                       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
