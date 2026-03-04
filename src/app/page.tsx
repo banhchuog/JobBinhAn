@@ -7,7 +7,7 @@ import {
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
   Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown,
-  Save, CheckCircle, Loader2,
+  Save, CheckCircle, Loader2, FileSpreadsheet,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
@@ -1611,6 +1611,43 @@ export default function Home() {
                       a.click(); URL.revokeObjectURL(url);
                     }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải CSV">
                       <Download className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => {
+                      const contracts = rows.flatMap(({ emp, approved }) =>
+                        approved.map(({ job, assignment }) => ({ emp, job, assignment }))
+                      );
+                      if (contracts.length === 0) return;
+                      const today = new Date();
+                      const dd = String(today.getDate()).padStart(2, "0");
+                      const mm = String(today.getMonth() + 1).padStart(2, "0");
+                      const yyyy = String(today.getFullYear());
+                      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+                      const varRows: string[][] = [
+                        ["MÃ BIÊN (Dùng trong file Word) / (Không sửa cột này)", "DIỄN GIẢI (Hướng dẫn nhập liệu)", ...contracts.map(() => "")],
+                        ["HO_TEN_BEN_B", "Họ và tên người ký (Bắt buộc)", ...contracts.map(c => c.emp.profile?.hoTen || c.emp.name)],
+                        ["{CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.cccd || "")],
+                        ["{NGAY_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.ngayCapCccd || "")],
+                        ["{NOI_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.noiCapCccd || "")],
+                        ["", "", ...contracts.map(() => "")],
+                        ["{DIA_CHI_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.diaChi || "")],
+                        ["{MST_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.mst || "")],
+                        ["{DIEN_THOAI_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.dienThoai || "")],
+                        ["{STK_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.stk || "")],
+                        ["{NGAN_HANG_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.nganHang || "")],
+                        ["SO_TIEN_DOI_TAC_THUC_NHAN", "Số tiền thực nhận", ...contracts.map(c => String(c.assignment.salaryEarned))],
+                        ["NOI_DUNG_CONG_VIEC", "Nội dung công việc", ...contracts.map(c => c.job.description || c.job.title)],
+                        ["NGAY_KY_KET", "Ngày ký", ...contracts.map(() => dd)],
+                        ["THANG_KY_KET", "Tháng ký", ...contracts.map(() => mm)],
+                        ["NAM_KY_KET", "Năm ký", ...contracts.map(() => yyyy)],
+                      ];
+                      const csv = varRows.map(row => row.map(esc).join(",")).join("\n");
+                      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url;
+                      a.download = `hop-dong-${directorMonth}.csv`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Xuất hợp đồng (mail merge Word)">
+                      <FileSpreadsheet className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
