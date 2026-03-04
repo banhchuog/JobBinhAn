@@ -3298,13 +3298,16 @@ export default function Home() {
         {/* ── Stats Banner ── */}
         {(() => {
           // Lọc assignment theo tháng lương được chọn
-          const earnedInMonth = myAssignments
+          const jobEarnedInMonth = myAssignments
             .filter(({ job, assignment }) => {
               if (assignment.status !== "APPROVED") return false;
               const jm = job.month || job.createdAt.slice(0, 7);
               return getSalaryMonth(jm, assignment.approvedAt) === selectedMonth;
             })
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
+          // Cộng thêm lương thủ công của tháng đang xem
+          const myManualBanner = (manualEntries[selectedMonth] ?? []).filter(e => e.empId === currentEmployee?.id);
+          const earnedInMonth = jobEarnedInMonth + myManualBanner.reduce((s, e) => s + e.amount, 0);
 
           // Đang làm / chờ duyệt: tất cả assignment chưa được duyệt (không lọc theo tháng)
           const inProgress = myAssignments
@@ -3410,6 +3413,9 @@ export default function Home() {
               (a) => a.employeeId === currentEmployee?.id && a.status === "APPROVED"
             )
           );
+
+          // Lương thủ công của tháng đang chọn
+          const myManualInMonth = (manualEntries[selectedMonth] ?? []).filter(e => e.empId === currentEmployee?.id);
 
           const JobCard = ({ job, theme }: { job: Job; theme: "amber" | "blue" | "green" }) => {
             const isMini = job.jobType === "mini";
@@ -3692,15 +3698,31 @@ export default function Home() {
               </div>
 
               {/* Đã hoàn thành */}
-              {myDoneJobs.length > 0 && (
+              {(myDoneJobs.length > 0 || myManualInMonth.length > 0) && (
                 <div>
                   <h2 className="text-base font-bold text-green-700 mb-3 flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
-                    Đã hoàn thành ({myDoneJobs.length})
+                    Đã hoàn thành ({myDoneJobs.length + myManualInMonth.length})
                   </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {myDoneJobs.map((job) => <JobCard key={job.id} job={job} theme="green" />)}
-                  </div>
+                  {myDoneJobs.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                      {myDoneJobs.map((job) => <JobCard key={job.id} job={job} theme="green" />)}
+                    </div>
+                  )}
+                  {myManualInMonth.length > 0 && (
+                    <div className="space-y-2">
+                      {myManualInMonth.map((entry) => (
+                        <div key={entry.id} className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-sm shrink-0">💰</div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 truncate">{entry.title}</p>
+                            {entry.note && <p className="text-xs text-gray-400 truncate">{entry.note}</p>}
+                          </div>
+                          <p className="text-sm font-bold text-emerald-700 shrink-0">+{new Intl.NumberFormat("vi-VN").format(entry.amount)}đ</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
