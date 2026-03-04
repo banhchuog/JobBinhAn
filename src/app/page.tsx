@@ -7,7 +7,7 @@ import {
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
   Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown,
-  Save, CheckCircle, Loader2, FileSpreadsheet,
+  Save, CheckCircle, Loader2, FileSpreadsheet, XCircle,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
@@ -544,6 +544,21 @@ export default function Home() {
       });
       setApprovingItem(null);
       setApproveNote("");
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Director: Reject (trả lại đang làm) ────────────────────────────────
+  const handleReject = async (jobId: string, assignmentId: string) => {
+    setSubmitting(true);
+    try {
+      await fetch(`/api/jobs/${jobId}/assignments/${assignmentId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -1482,6 +1497,12 @@ export default function Home() {
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-semibold text-green-600">{formatCurrency(a.salaryEarned)}</span>
                                     <button
+                                      onClick={() => handleReject(job.id, a.id)}
+                                      disabled={submitting}
+                                      className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-lg font-medium transition-colors">
+                                      Từ chối
+                                    </button>
+                                    <button
                                       onClick={() => {
                                         setApprovingItem({ jobId: job.id, assignmentId: a.id, jobTitle: job.title, empName: a.employeeName, salary: a.salaryEarned });
                                         setApproveNote("");
@@ -1509,16 +1530,25 @@ export default function Home() {
                                   <span className="text-green-600 font-medium">· {formatCurrency(assignment.salaryEarned)}</span>
                                 </p>
                               </div>
-                              <button
-                                onClick={() => {
-                                  setApprovingItem({ jobId: job.id, assignmentId: assignment.id, jobTitle: job.title, empName: assignment.employeeName, salary: assignment.salaryEarned });
-                                  setApproveNote("");
-                                }}
-                                disabled={submitting}
-                                className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto shrink-0"
-                              >
-                                <CheckCircle2 className="w-4 h-4" /> Duyệt
-                              </button>
+                              <div className="flex gap-2 w-full sm:w-auto">
+                                <button
+                                  onClick={() => handleReject(job.id, assignment.id)}
+                                  disabled={submitting}
+                                  className="flex items-center justify-center gap-1.5 bg-red-100 hover:bg-red-200 disabled:opacity-60 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 sm:flex-none shrink-0"
+                                >
+                                  <XCircle className="w-4 h-4" /> Từ chối
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setApprovingItem({ jobId: job.id, assignmentId: assignment.id, jobTitle: job.title, empName: assignment.employeeName, salary: assignment.salaryEarned });
+                                    setApproveNote("");
+                                  }}
+                                  disabled={submitting}
+                                  className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 sm:flex-none shrink-0"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" /> Duyệt
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
