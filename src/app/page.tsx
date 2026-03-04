@@ -257,6 +257,12 @@ export default function Home() {
   const [empProfileSaved, setEmpProfileSaved] = useState(false);
   const [miniDoneUnits, setMiniDoneUnits] = useState("");
 
+  // ── Edit date modal (salary tab) ────────────────────
+  const [dateEditModal, setDateEditModal] = useState<{
+    job: Job; assignment: JobAssignment;
+    createdAt: string; approvedAt: string;
+  } | null>(null);
+
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupInput, setGroupInput] = useState("");
@@ -1701,6 +1707,16 @@ export default function Home() {
                                 <div className="flex items-center gap-2 shrink-0">
                                   <span className="text-green-600 font-semibold">{formatCurrency(assignment.salaryEarned)}</span>
                                   <button
+                                    onClick={() => setDateEditModal({
+                                      job,
+                                      assignment,
+                                      createdAt: job.createdAt.slice(0, 10),
+                                      approvedAt: assignment.approvedAt ? assignment.approvedAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+                                    })}
+                                    className="text-gray-300 hover:text-blue-400 transition-colors"
+                                    title="Sửa ngày tạo / ngày duyệt"
+                                  ><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button
                                     onClick={async () => {
                                       if (!confirm(`Xoá "${job.title}" của ${emp.name}?\n${job.jobType === "mini" ? `${assignment.units ?? 1} clip` : `${assignment.percentage}%`} (${formatCurrency(assignment.salaryEarned)}) sẽ trở về chợ.`)) return;
                                       await fetch(`/api/jobs/${job.id}/assignments/${assignment.id}`, { method: "DELETE" });
@@ -2474,6 +2490,63 @@ export default function Home() {
       })()}
 
       {/* Modal thông tin cá nhân nhân viên */}
+      {/* ── Modal sửa ngày tạo / ngày duyệt job ── */}
+      {dateEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDateEditModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-900">📅 Sửa ngày ký kết</h2>
+                <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[220px]">{dateEditModal.job.title}</p>
+              </div>
+              <button onClick={() => setDateEditModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">Ngày tạo job (ký kết hợp đồng)</label>
+                <input
+                  type="date"
+                  value={dateEditModal.createdAt}
+                  onChange={(e) => setDateEditModal((p) => p ? { ...p, createdAt: e.target.value } : p)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">Ngày duyệt (thanh toán)</label>
+                <input
+                  type="date"
+                  value={dateEditModal.approvedAt}
+                  onChange={(e) => setDateEditModal((p) => p ? { ...p, approvedAt: e.target.value } : p)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!dateEditModal) return;
+                  const { job, assignment, createdAt, approvedAt } = dateEditModal;
+                  await fetch(`/api/jobs/${job.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      createdAt: new Date(createdAt).toISOString(),
+                      assignmentId: assignment.id,
+                      approvedAt: new Date(approvedAt).toISOString(),
+                    }),
+                  });
+                  await fetchAll();
+                  setDateEditModal(null);
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors"
+              >💾 Lưu</button>
+              <button onClick={() => setDateEditModal(null)}
+                className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {profileModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setProfileModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
