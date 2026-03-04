@@ -1617,11 +1617,8 @@ export default function Home() {
                         approved.map(({ job, assignment }) => ({ emp, job, assignment }))
                       );
                       if (contracts.length === 0) return;
-                      const today = new Date();
-                      const dd = String(today.getDate()).padStart(2, "0");
-                      const mm = String(today.getMonth() + 1).padStart(2, "0");
-                      const yyyy = String(today.getFullYear());
                       const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+                      const jobDate = (c: typeof contracts[0]) => new Date(c.job.createdAt);
                       const varRows: string[][] = [
                         ["MÃ BIÊN (Dùng trong file Word) / (Không sửa cột này)", "DIỄN GIẢI (Hướng dẫn nhập liệu)", ...contracts.map(() => "")],
                         ["HO_TEN_BEN_B", "Họ và tên người ký (Bắt buộc)", ...contracts.map(c => c.emp.profile?.hoTen || c.emp.name)],
@@ -1636,9 +1633,9 @@ export default function Home() {
                         ["{NGAN_HANG_BEN_B}", "Nhập thông tin này", ...contracts.map(c => c.emp.profile?.nganHang || "")],
                         ["SO_TIEN_DOI_TAC_THUC_NHAN", "Số tiền thực nhận", ...contracts.map(c => String(c.assignment.salaryEarned))],
                         ["NOI_DUNG_CONG_VIEC", "Nội dung công việc", ...contracts.map(c => c.job.description || c.job.title)],
-                        ["NGAY_KY_KET", "Ngày ký", ...contracts.map(() => dd)],
-                        ["THANG_KY_KET", "Tháng ký", ...contracts.map(() => mm)],
-                        ["NAM_KY_KET", "Năm ký", ...contracts.map(() => yyyy)],
+                        ["NGAY_KY_KET", "Ngày ký", ...contracts.map(c => String(jobDate(c).getDate()).padStart(2, "0"))],
+                        ["THANG_KY_KET", "Tháng ký", ...contracts.map(c => String(jobDate(c).getMonth() + 1).padStart(2, "0"))],
+                        ["NAM_KY_KET", "Năm ký", ...contracts.map(c => String(jobDate(c).getFullYear()))],
                       ];
                       const csv = varRows.map(row => row.map(esc).join(",")).join("\n");
                       const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
