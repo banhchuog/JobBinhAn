@@ -13,7 +13,7 @@ export async function POST(
     const job = await getJobById(id);
     if (!job) return NextResponse.json({ error: "Không tìm thấy job" }, { status: 404 });
 
-    // ── Mini job: claim N units at a time ──────────────────────
+    // ── Mini job: claim N units — nếu đã có WORKING assignment thì cộng thêm ──
     if (job.jobType === "mini") {
       const claimedSoFar = job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
       const remaining = (job.totalUnits ?? 0) - claimedSoFar;
@@ -24,21 +24,34 @@ export async function POST(
       if (claimUnits <= 0) {
         return NextResponse.json({ error: "Số clip không hợp lệ!" }, { status: 400 });
       }
-      const newAssignment: JobAssignment = {
-        id: Math.random().toString(36).substring(7),
-        employeeId,
-        employeeName,
-        percentage: 0,
-        units: claimUnits,
-        salaryEarned: (job.unitPrice ?? 0) * claimUnits,
-        assignedAt: new Date().toISOString(),
-        status: "WORKING",
-      };
-      const updatedJob = {
-        ...job,
-        assignments: [...job.assignments, newAssignment],
-        status: "IN_PROGRESS" as const,
-      };
+
+      // Nếu đã có assignment WORKING của người này → cộng thêm units vào đó
+      const existingWorking = job.assignments.find(
+        (a) => a.employeeId === employeeId && a.status === "WORKING"
+      );
+      let assignments;
+      if (existingWorking) {
+        const newUnits = (existingWorking.units ?? 1) + claimUnits;
+        assignments = job.assignments.map((a) =>
+          a.id === existingWorking.id
+            ? { ...a, units: newUnits, salaryEarned: (job.unitPrice ?? 0) * newUnits }
+            : a
+        );
+      } else {
+        const newAssignment: JobAssignment = {
+          id: Math.random().toString(36).substring(7),
+          employeeId,
+          employeeName,
+          percentage: 0,
+          units: claimUnits,
+          salaryEarned: (job.unitPrice ?? 0) * claimUnits,
+          assignedAt: new Date().toISOString(),
+          status: "WORKING",
+        };
+        assignments = [...job.assignments, newAssignment];
+      }
+
+      const updatedJob = { ...job, assignments, status: "IN_PROGRESS" as const };
       await updateJob(updatedJob);
       return NextResponse.json(updatedJob);
     }

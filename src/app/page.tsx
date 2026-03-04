@@ -255,7 +255,7 @@ export default function Home() {
   const [sharePercInput, setSharePercInput] = useState("");
   const [miniClaimJob, setMiniClaimJob] = useState<Job | null>(null);
   const [miniClaimUnits, setMiniClaimUnits] = useState("1");
-  const [miniDoneModal, setMiniDoneModal] = useState<{ job: Job; assignments: JobAssignment[] } | null>(null);
+  const [miniDoneModal, setMiniDoneModal] = useState<{ job: Job; assignment: JobAssignment } | null>(null);
   // Employee self-service profile state
   const [empProfileFormState, setEmpProfileFormState] = useState<Record<string, string>>({});
   const [empProfileSaving, setEmpProfileSaving] = useState(false);
@@ -640,27 +640,6 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(units !== undefined ? { units } : {}),
       });
-      await fetchAll();
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Gửi duyệt nhiều assignment mini cùng lúc (khi user nhận từng clip riêng)
-  const handleMarkDoneBatch = async (jobId: string, workingAssignments: JobAssignment[], totalDoneUnits: number) => {
-    setSubmitting(true);
-    try {
-      let remaining = totalDoneUnits;
-      for (const a of workingAssignments) {
-        if (remaining <= 0) break;
-        const units = Math.min(remaining, a.units ?? 1);
-        await fetch(`/api/jobs/${jobId}/assignments/${a.id}/done`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ units }),
-        });
-        remaining -= units;
-      }
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -3590,12 +3569,8 @@ export default function Home() {
                     {theme === "blue" && myAssignment?.status === "WORKING" && (
                       <button onClick={() => {
                         if (isMini) {
-                          const myWorkingAssignments = job.assignments.filter(
-                            (a) => a.employeeId === currentEmployee?.id && a.status === "WORKING"
-                          );
-                          const totalUnits = myWorkingAssignments.reduce((s, a) => s + (a.units ?? 1), 0);
-                          setMiniDoneModal({ job, assignments: myWorkingAssignments });
-                          setMiniDoneUnits(String(totalUnits));
+                          setMiniDoneModal({ job, assignment: myAssignment });
+                          setMiniDoneUnits(String(myAssignment.units ?? 1));
                         } else {
                           handleMarkDone(job.id, myAssignment.id);
                         }
@@ -3973,7 +3948,7 @@ export default function Home() {
 
       {/* ── Modal báo xong clip mini ── */}
       {miniDoneModal && (() => {
-        const maxUnits = miniDoneModal.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
+        const maxUnits = miniDoneModal.assignment.units ?? 1;
         return (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={() => setMiniDoneModal(null)}>
             <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -3986,7 +3961,7 @@ export default function Home() {
                     <p className="text-xs text-gray-500 line-clamp-1">{miniDoneModal.job.title}</p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">Bạn đang giữ <span className="font-bold text-violet-700">{maxUnits} clip</span>{miniDoneModal.assignments.length > 1 ? <span className="text-xs text-gray-400"> ({miniDoneModal.assignments.length} lần nhận)</span> : ""}. Nhập số clip đã xong:</p>
+                <p className="text-sm text-gray-600 mb-1">Bạn đang giữ <span className="font-bold text-violet-700">{maxUnits} clip</span>. Nhập số clip đã xong:</p>
                 {Number(miniDoneUnits) > 0 && (
                   <p className="text-xs text-green-600 mb-3 font-medium">
                     → {miniDoneUnits} clip · {formatCurrency(Number(miniDoneUnits) * (miniDoneModal.job.unitPrice ?? 0))}
@@ -4014,7 +3989,7 @@ export default function Home() {
                     onClick={async () => {
                       const units = Number(miniDoneUnits);
                       if (!units || units < 1 || units > maxUnits) { alert(`Nhập số clip hợp lệ (1–${maxUnits})`); return; }
-                      await handleMarkDoneBatch(miniDoneModal.job.id, miniDoneModal.assignments, units);
+                      await handleMarkDone(miniDoneModal.job.id, miniDoneModal.assignment.id, units);
                       setMiniDoneModal(null);
                     }}
                     disabled={submitting}
