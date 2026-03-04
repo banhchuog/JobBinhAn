@@ -2566,7 +2566,7 @@ export default function Home() {
                             setAepClassifying(false);
                           }
                         }}
-                        disabled={aepClassifying || !thuChiData}
+                        disabled={aepClassifying}
                         className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
                       >
                         {aepClassifying ? <><Loader2 className="w-4 h-4 animate-spin" />Gemini đang phân tích...</> : aepClassification ? <><RefreshCw className="w-4 h-4" />Phân tích lại với AI</> : <><Sparkles className="w-4 h-4" />Phân tích chi phí AEP với AI</>}
