@@ -2609,64 +2609,6 @@ export default function Home() {
           })()}
         </main>
 
-      {/* Modal báo xong clip mini */}
-      {miniDoneModal && (() => {
-        const maxUnits = miniDoneModal.assignment.units ?? 1;
-        return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setMiniDoneModal(null)}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <div>
-                  <h2 className="font-bold text-gray-900">🎞️ Báo xong clip</h2>
-                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{miniDoneModal.job.title}</p>
-                </div>
-                <button onClick={() => setMiniDoneModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-5 space-y-4">
-                <p className="text-sm text-gray-600">Bạn đang nhận <span className="font-bold text-violet-700">{maxUnits} clip</span>. Nhập số clip đã hoàn thành:</p>
-                <div className="flex gap-2 items-center">
-                  <input
-                    type="number" min={1} max={maxUnits}
-                    value={miniDoneUnits}
-                    onChange={(e) => setMiniDoneUnits(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 outline-none text-center font-bold text-lg"
-                  />
-                  <button
-                    onClick={() => setMiniDoneUnits(String(maxUnits))}
-                    className="px-3 py-2 bg-violet-50 hover:bg-violet-100 text-violet-700 rounded-xl text-sm font-semibold transition-colors">
-                    Tất cả ({maxUnits})
-                  </button>
-                </div>
-                {Number(miniDoneUnits) > 0 && (
-                  <p className="text-xs text-gray-400 text-center">
-                    → {formatCurrency(Number(miniDoneUnits) * (miniDoneModal.job.unitPrice ?? 0))} · {maxUnits - Number(miniDoneUnits) > 0 ? `còn ${maxUnits - Number(miniDoneUnits)} clip tiếp tục làm` : "xong toàn bộ"}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={async () => {
-                      const units = Number(miniDoneUnits);
-                      if (!units || units < 1 || units > maxUnits) {
-                        alert(`Nhập số clip hợp lệ (1–${maxUnits})`); return;
-                      }
-                      await handleMarkDone(miniDoneModal.job.id, miniDoneModal.assignment.id, units);
-                      setMiniDoneModal(null);
-                    }}
-                    disabled={submitting}
-                    className="flex-1 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors">
-                    {submitting ? "Đang gửi..." : "✓ Gửi duyệt"}
-                  </button>
-                  <button onClick={() => setMiniDoneModal(null)}
-                    className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">
-                    Huỷ
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Modal thông tin cá nhân nhân viên */}
       {/* ── Modal sửa ngày tạo / ngày duyệt job ── */}
       {dateEditModal && (
@@ -3981,6 +3923,63 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* ── Modal báo xong clip mini ── */}
+      {miniDoneModal && (() => {
+        const maxUnits = miniDoneModal.assignment.units ?? 1;
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={() => setMiniDoneModal(null)}>
+            <div className="bg-white w-full sm:max-w-sm sm:rounded-2xl rounded-t-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+              <div className="px-5 pb-6 pt-3 sm:p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center text-xl">🎞️</div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Báo xong clip</h3>
+                    <p className="text-xs text-gray-500 line-clamp-1">{miniDoneModal.job.title}</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600 mb-1">Bạn đang giữ <span className="font-bold text-violet-700">{maxUnits} clip</span>. Nhập số clip đã xong:</p>
+                {Number(miniDoneUnits) > 0 && (
+                  <p className="text-xs text-green-600 mb-3 font-medium">
+                    → {miniDoneUnits} clip · {formatCurrency(Number(miniDoneUnits) * (miniDoneModal.job.unitPrice ?? 0))}
+                    {maxUnits - Number(miniDoneUnits) > 0 ? ` · còn ${maxUnits - Number(miniDoneUnits)} clip tiếp tục` : " · xong hết"}
+                  </p>
+                )}
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[1, Math.ceil(maxUnits / 2), maxUnits]
+                    .filter((v, i, a) => v > 0 && v <= maxUnits && a.indexOf(v) === i)
+                    .map((n) => (
+                      <button key={n} onClick={() => setMiniDoneUnits(String(n))}
+                        className={`py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                          Number(miniDoneUnits) === n ? "bg-violet-600 text-white border-violet-600" : "bg-white text-gray-700 border-gray-200 hover:border-violet-400"
+                        }`}>{n}</button>
+                    ))}
+                </div>
+                <input type="number" min={1} max={maxUnits}
+                  value={miniDoneUnits} onChange={(e) => setMiniDoneUnits(e.target.value)}
+                  placeholder={`Hoặc nhập 1–${maxUnits}`}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-violet-400 text-sm mb-4" />
+                <div className="flex gap-3">
+                  <button onClick={() => setMiniDoneModal(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">Huỷ</button>
+                  <button
+                    onClick={async () => {
+                      const units = Number(miniDoneUnits);
+                      if (!units || units < 1 || units > maxUnits) { alert(`Nhập số clip hợp lệ (1–${maxUnits})`); return; }
+                      await handleMarkDone(miniDoneModal.job.id, miniDoneModal.assignment.id, units);
+                      setMiniDoneModal(null);
+                    }}
+                    disabled={submitting}
+                    className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-bold transition-colors">
+                    {submitting ? "Đang gửi…" : "✓ Gửi duyệt"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
