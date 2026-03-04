@@ -65,12 +65,12 @@ export async function deleteJob(id: string): Promise<boolean> {
 
 // ─── Employees ─────────────────────────────────────────
 export async function getAllEmployees(): Promise<Employee[]> {
-  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance FROM employees ORDER BY name`);
+  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile FROM employees ORDER BY name`);
   return rows as Employee[];
 }
 
 export async function getEmployeeById(id: string): Promise<Employee | null> {
-  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance FROM employees WHERE id = $1`, [id]);
+  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile FROM employees WHERE id = $1`, [id]);
   return rows.length > 0 ? (rows[0] as Employee) : null;
 }
 
@@ -80,7 +80,10 @@ export async function createEmployee(employee: Employee): Promise<Employee> {
 }
 
 export async function updateEmployee(updated: Employee): Promise<Employee | null> {
-  const { rowCount } = await getPool().query(`UPDATE employees SET name = $1, balance = $2 WHERE id = $3`, [updated.name, updated.balance, updated.id]);
+  const { rowCount } = await getPool().query(
+    `UPDATE employees SET name = $1, balance = $2, profile = $3 WHERE id = $4`,
+    [updated.name, updated.balance, JSON.stringify(updated.profile ?? {}), updated.id]
+  );
   return (rowCount ?? 0) > 0 ? updated : null;
 }
 
