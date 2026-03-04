@@ -244,10 +244,11 @@ export default function Home() {
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState<string | null>(null);
-  // AEP classification cache: { expenses: {id: bool}, salaryJobs: {jobId: bool} }
-  const [aepClassification, setAepClassification] = useState<{ expenses: Record<string, boolean>; salaryJobs: Record<string, boolean> } | null>(null);
-  const [aepClassifying, setAepClassifying] = useState(false);
-  const [aepClassifyError, setAepClassifyError] = useState<string | null>(null);
+  // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool} }
+  const [aepClassification, setAepClassification] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean> } | null>(null);
+  // Draft đang chỉnh trong tab Chốt số liệu
+  const [aepDraft, setAepDraft] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean> } | null>(null);
+  const [aepSubTab, setAepSubTab] = useState<"overview" | "chot">("overview");
   const [aepMonth, setAepMonth] = useState<string>("2026-02");
 
   // ── Share job state ──────────────────────────────────
@@ -2468,7 +2469,6 @@ export default function Home() {
 
                 {/* ── View: Anhemphim.vn ── */}
                 {financeView === "anhemphim" && (() => {
-                  // Chỉ tính từ 2026-02 trở đi
                   const AEP_START = "2026-02";
                   const aepMonths = [...new Set([
                     ...(revenueData ? Object.keys(revenueData) : []),
@@ -2478,19 +2478,19 @@ export default function Home() {
 
                   const aepRev = revenueData?.[aepMonth] ?? 0;
 
-                  // Chi phí AEP từ classification
+                  // Tính từ classification đã lưu
                   const aepExpenses = thuChiData
                     ? thuChiData.filter(t => t.type === "Chi" && t.date?.startsWith(aepMonth) && aepClassification?.expenses[String(t.id)] === true)
                     : [];
                   const aepExpensesTotal = aepExpenses.reduce((s,t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
 
-                  // Lương AEP từ classification
+                  // Lương AEP: dùng salaryAssignments (theo assignmentId)
                   const aepSalaryRows = employees.map(emp => {
                     const approved = jobs.flatMap(job =>
                       job.assignments.filter(a => {
                         if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                         const jm = job.month || job.createdAt.slice(0,7);
-                        return getSalaryMonth(jm, a.approvedAt) === aepMonth && aepClassification?.salaryJobs[job.id] === true;
+                        return getSalaryMonth(jm, a.approvedAt) === aepMonth && aepClassification?.salaryAssignments[a.id] === true;
                       }).map(a => ({ job, assignment: a }))
                     );
                     const total = approved.reduce((s,x) => s + x.assignment.salaryEarned, 0);
@@ -2500,6 +2500,25 @@ export default function Home() {
 
                   const aepTotalChi = aepExpensesTotal + aepSalaryTotal;
                   const aepProfit = aepRev - aepTotalChi;
+
+                  // Dữ liệu cho tab Chốt: tất cả chi phí và assignments của tháng
+                  const allChiMonth = thuChiData ? thuChiData.filter(t => t.type === "Chi" && t.date?.startsWith(aepMonth)) : [];
+                  const allSalaryAssignmentsMonth = jobs.flatMap(job =>
+                    job.assignments.filter(a => {
+                      if (a.status !== "APPROVED") return false;
+                      const jm = job.month || job.createdAt.slice(0,7);
+                      return getSalaryMonth(jm, a.approvedAt) === aepMonth;
+                    }).map(a => ({ job, assignment: a }))
+                  );
+
+                  // Khởi tạo draft khi vào tab Chốt
+                  const initDraft = () => {
+                    const base = aepClassification ?? { expenses: {}, salaryAssignments: {} };
+                    setAepDraft({
+                      expenses: Object.fromEntries(allChiMonth.map(t => [String(t.id), base.expenses[String(t.id)] ?? false])),
+                      salaryAssignments: Object.fromEntries(allSalaryAssignmentsMonth.map(({assignment}) => [assignment.id, base.salaryAssignments?.[assignment.id] ?? false])),
+                    });
+                  };
 
                   return (
                     <div className="space-y-4">
@@ -2516,121 +2535,222 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
                         {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => setAepMonth(ym)}
+                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); }}
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                             {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                           </button>
                         ))}
                       </div>
 
-                      {/* KPI cards */}
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
-                          <p className="text-[10px] text-green-600 font-semibold mb-1">🎬 Doanh thu AEP</p>
-                          <p className="font-black text-green-700 text-sm leading-tight">{formatCurrency(aepRev)}</p>
-                          <p className="text-[10px] text-green-400 mt-1">anhemphim.vn</p>
-                        </div>
-                        <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
-                          <p className="text-[10px] text-red-500 font-semibold mb-1">🧾 Chi phí AEP</p>
-                          <p className="font-black text-red-600 text-sm leading-tight">{formatCurrency(aepTotalChi)}</p>
-                          {aepClassification && <p className="text-[10px] text-red-400 mt-1">CP: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(aepExpensesTotal)} · Lương: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(aepSalaryTotal)}</p>}
-                          {!aepClassification && <p className="text-[10px] text-red-300 mt-1">Chưa phân tích</p>}
-                        </div>
-                        <div className={`border rounded-2xl p-3 ${aepProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
-                          <p className={`text-[10px] font-semibold mb-1 ${aepProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}>📈 Lợi nhuận</p>
-                          <p className={`font-black text-sm leading-tight ${aepProfit >= 0 ? "text-emerald-700" : "text-orange-600"}`}>{aepClassification ? formatCurrency(aepProfit) : "—"}</p>
-                          {aepClassification && aepRev > 0 && <p className={`text-[10px] mt-1 ${aepProfit >= 0 ? "text-emerald-400" : "text-orange-400"}`}>{Math.round(aepProfit/aepRev*100)}% biên lợi nhuận</p>}
-                        </div>
+                      {/* Sub-tabs */}
+                      <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
+                        <button onClick={() => setAepSubTab("overview")}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${aepSubTab === "overview" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
+                          📊 Tổng quan
+                        </button>
+                        <button onClick={() => { setAepSubTab("chot"); if (!aepDraft) initDraft(); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${aepSubTab === "chot" ? "bg-white text-violet-700 shadow-sm" : "text-gray-500"}`}>
+                          ✔️ Chốt số liệu
+                        </button>
                       </div>
 
-                      {/* Nút phân tích AI */}
-                      <button
-                        onClick={async () => {
-                          setAepClassifying(true);
-                          setAepClassifyError(null);
-                          try {
-                            // Gửi chi phí tháng >= AEP_START và tất cả jobs
-                            const txs = (thuChiData ?? []).filter(t => t.type === "Chi" && (t.date ?? "") >= AEP_START);
-                            const jobsForAI = jobs.map(j => ({ id: j.id, title: j.title, description: j.description || "" }));
-                            const res = await fetch("/api/ai/classify-expenses", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ transactions: txs, jobs: jobsForAI }),
-                            });
-                            if (!res.ok) throw new Error((await res.json()).error ?? `Lỗi ${res.status}`);
-                            const data = await res.json();
-                            setAepClassification(data);
-                          } catch (e) {
-                            setAepClassifyError(e instanceof Error ? e.message : String(e));
-                          } finally {
-                            setAepClassifying(false);
-                          }
-                        }}
-                        disabled={aepClassifying}
-                        className="w-full py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
-                      >
-                        {aepClassifying ? <><Loader2 className="w-4 h-4 animate-spin" />Gemini đang phân tích...</> : aepClassification ? <><RefreshCw className="w-4 h-4" />Phân tích lại với AI</> : <><Sparkles className="w-4 h-4" />Phân tích chi phí AEP với AI</>}
-                      </button>
-                      {aepClassifyError && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5" />{aepClassifyError}</p>}
+                      {/* TAB: Tổng quan */}
+                      {aepSubTab === "overview" && (
+                        <div className="space-y-4">
+                          {/* KPI */}
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
+                              <p className="text-[10px] text-green-600 font-semibold mb-1">🎬 Doanh thu</p>
+                              <p className="font-black text-green-700 text-sm leading-tight">{formatCurrency(aepRev)}</p>
+                              <p className="text-[10px] text-green-400 mt-1">anhemphim.vn</p>
+                            </div>
+                            <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
+                              <p className="text-[10px] text-red-500 font-semibold mb-1">🧾 Chi phí</p>
+                              <p className="font-black text-red-600 text-sm leading-tight">{formatCurrency(aepTotalChi)}</p>
+                              {aepClassification
+                                ? <p className="text-[10px] text-red-400 mt-1">VH: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(aepExpensesTotal)} · Lương: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(aepSalaryTotal)}</p>
+                                : <p className="text-[10px] text-red-300 mt-1">Chưa chốt</p>}
+                            </div>
+                            <div className={`border rounded-2xl p-3 ${aepProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
+                              <p className={`text-[10px] font-semibold mb-1 ${aepProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}>📈 Lợi nhuận</p>
+                              <p className={`font-black text-sm leading-tight ${aepProfit >= 0 ? "text-emerald-700" : "text-orange-600"}`}>{aepClassification ? formatCurrency(aepProfit) : "—"}</p>
+                              {aepClassification && aepRev > 0 && <p className={`text-[10px] mt-1 ${aepProfit >= 0 ? "text-emerald-400" : "text-orange-400"}`}>{Math.round(aepProfit/aepRev*100)}% biên</p>}
+                            </div>
+                          </div>
 
-                      {/* Chi tiết chi phí AEP */}
-                      {aepClassification && (
-                        <div className="space-y-3">
-                          {/* Chi phí vận hành */}
-                          {aepExpenses.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                              <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
-                                <p className="text-sm font-semibold text-red-700">🧾 Chi phí vận hành AEP — {monthLabel(aepMonth)}</p>
-                                <p className="text-sm font-black text-red-600">{formatCurrency(aepExpensesTotal)}</p>
-                              </div>
-                              <div className="divide-y divide-gray-50">
-                                {aepExpenses.map(t => {
-                                  const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
-                                  return (
-                                    <div key={t.id} className="px-4 py-2.5 flex justify-between items-start gap-2 text-sm">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate">{t.subject}</p>
-                                        {t.note && <p className="text-xs text-gray-400 truncate">{t.note}</p>}
-                                        <p className="text-xs text-gray-400">{t.date}</p>
-                                      </div>
-                                      <span className="text-red-500 font-semibold shrink-0">{formatCurrency(amt)}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                          {!aepClassification && (
+                            <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                              Chưa chốt số liệu. Sang tab <strong>✔️ Chốt số liệu</strong> để chọn các khoản thuộc AEP.
                             </div>
                           )}
 
-                          {/* Lương AEP */}
-                          {aepSalaryRows.length > 0 && (
-                            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-                                <p className="text-sm font-semibold text-blue-700">👥 Lương sản xuất AEP — {monthLabel(aepMonth)}</p>
-                                <p className="text-sm font-black text-blue-600">{formatCurrency(aepSalaryTotal)}</p>
-                              </div>
-                              <div className="divide-y divide-gray-50">
-                                {aepSalaryRows.map(({ emp, approved, total }) => (
-                                  <div key={emp.id} className="px-4 py-2.5 text-sm">
-                                    <div className="flex justify-between items-center mb-1">
-                                      <span className="font-semibold">{emp.profile?.hoTen || emp.name}</span>
-                                      <span className="text-blue-600 font-bold">{formatCurrency(total)}</span>
-                                    </div>
-                                    {approved.map(({ job, assignment }) => (
-                                      <p key={assignment.id} className="text-xs text-gray-400 ml-2">· {job.title} — {formatCurrency(assignment.salaryEarned)}</p>
+                          {aepClassification && (
+                            <div className="space-y-3">
+                              {aepExpenses.length > 0 && (
+                                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                  <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
+                                    <p className="text-sm font-semibold text-red-700">🧾 Chi phí vận hành — {monthLabel(aepMonth)}</p>
+                                    <p className="text-sm font-black text-red-600">{formatCurrency(aepExpensesTotal)}</p>
+                                  </div>
+                                  <div className="divide-y divide-gray-50">
+                                    {aepExpenses.map(t => {
+                                      const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+                                      return (
+                                        <div key={t.id} className="px-4 py-2.5 flex justify-between items-start gap-2 text-sm">
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">{t.subject}</p>
+                                            {t.note && <p className="text-xs text-gray-400 truncate">{t.note}</p>}
+                                            <p className="text-xs text-gray-400">{t.date}</p>
+                                          </div>
+                                          <span className="text-red-500 font-semibold shrink-0">{formatCurrency(amt)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              {aepSalaryRows.length > 0 && (
+                                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                  <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+                                    <p className="text-sm font-semibold text-blue-700">👥 Lương sản xuất — {monthLabel(aepMonth)}</p>
+                                    <p className="text-sm font-black text-blue-600">{formatCurrency(aepSalaryTotal)}</p>
+                                  </div>
+                                  <div className="divide-y divide-gray-50">
+                                    {aepSalaryRows.map(({ emp, approved, total }) => (
+                                      <div key={emp.id} className="px-4 py-2.5 text-sm">
+                                        <div className="flex justify-between items-center mb-1">
+                                          <span className="font-semibold">{emp.profile?.hoTen || emp.name}</span>
+                                          <span className="text-blue-600 font-bold">{formatCurrency(total)}</span>
+                                        </div>
+                                        {approved.map(({ job, assignment }) => (
+                                          <p key={assignment.id} className="text-xs text-gray-400 ml-2">· {job.title} — {formatCurrency(assignment.salaryEarned)}</p>
+                                        ))}
+                                      </div>
                                     ))}
                                   </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {aepExpenses.length === 0 && aepSalaryRows.length === 0 && (
-                            <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                              Không có chi phí AEP nào trong {monthLabel(aepMonth)}.
+                                </div>
+                              )}
+                              {aepExpenses.length === 0 && aepSalaryRows.length === 0 && (
+                                <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                  Không có chi phí AEP nào trong {monthLabel(aepMonth)}.
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
                       )}
+
+                      {/* TAB: Chốt số liệu */}
+                      {aepSubTab === "chot" && aepDraft && (() => {
+                        const draftExpensesTotal = allChiMonth
+                          .filter(t => aepDraft.expenses[String(t.id)])
+                          .reduce((s,t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+                        const draftSalaryTotal = allSalaryAssignmentsMonth
+                          .filter(({assignment}) => aepDraft.salaryAssignments[assignment.id])
+                          .reduce((s,{assignment}) => s + assignment.salaryEarned, 0);
+                        const draftTotal = draftExpensesTotal + draftSalaryTotal;
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Preview số đang chọn */}
+                            <div className="bg-violet-50 border border-violet-200 rounded-2xl px-4 py-3 flex items-center justify-between">
+                              <div>
+                                <p className="text-xs text-violet-500 font-medium">Tổng chi phí đang chọn</p>
+                                <p className="text-lg font-black text-violet-700">{formatCurrency(draftTotal)}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-gray-400">VH: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(draftExpensesTotal)}</p>
+                                <p className="text-xs text-gray-400">Lương: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(draftSalaryTotal)}</p>
+                              </div>
+                            </div>
+
+                            {/* Chi phí vận hành */}
+                            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                              <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
+                                <p className="text-sm font-semibold text-red-700">🧾 Chi phí — {monthLabel(aepMonth)}</p>
+                                <button
+                                  onClick={() => {
+                                    const allChecked = allChiMonth.every(t => aepDraft.expenses[String(t.id)]);
+                                    setAepDraft(d => d ? { ...d, expenses: Object.fromEntries(allChiMonth.map(t => [String(t.id), !allChecked])) } : d);
+                                  }}
+                                  className="text-xs text-red-500 hover:text-red-700 font-medium">
+                                  {allChiMonth.every(t => aepDraft.expenses[String(t.id)]) ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                </button>
+                              </div>
+                              {allChiMonth.length === 0 ? (
+                                <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có khoản chi nào trong tháng này</p>
+                              ) : (
+                                <div className="divide-y divide-gray-50">
+                                  {allChiMonth.map(t => {
+                                    const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+                                    const checked = !!aepDraft.expenses[String(t.id)];
+                                    return (
+                                      <label key={t.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-red-50/50" : "hover:bg-gray-50"}`}>
+                                        <input type="checkbox" checked={checked}
+                                          onChange={e => setAepDraft(d => d ? { ...d, expenses: { ...d.expenses, [String(t.id)]: e.target.checked } } : d)}
+                                          className="w-4 h-4 accent-red-500 shrink-0 rounded" />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate text-gray-800">{t.subject}</p>
+                                          {t.note && <p className="text-xs text-gray-400 truncate">{t.note}</p>}
+                                          <p className="text-xs text-gray-400">{t.date}</p>
+                                        </div>
+                                        <span className={`text-sm font-semibold shrink-0 ${checked ? "text-red-600" : "text-gray-400"}`}>{formatCurrency(amt)}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Lương */}
+                            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+                                <p className="text-sm font-semibold text-blue-700">👥 Lương — {monthLabel(aepMonth)}</p>
+                                <button
+                                  onClick={() => {
+                                    const allChecked = allSalaryAssignmentsMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]);
+                                    setAepDraft(d => d ? { ...d, salaryAssignments: Object.fromEntries(allSalaryAssignmentsMonth.map(({assignment}) => [assignment.id, !allChecked])) } : d);
+                                  }}
+                                  className="text-xs text-blue-500 hover:text-blue-700 font-medium">
+                                  {allSalaryAssignmentsMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]) ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+                                </button>
+                              </div>
+                              {allSalaryAssignmentsMonth.length === 0 ? (
+                                <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có khoản lương nào trong tháng này</p>
+                              ) : (
+                                <div className="divide-y divide-gray-50">
+                                  {allSalaryAssignmentsMonth.map(({ job, assignment }) => {
+                                    const checked = !!aepDraft.salaryAssignments[assignment.id];
+                                    const empName = employees.find(e => e.id === assignment.employeeId)?.profile?.hoTen || assignment.employeeName;
+                                    return (
+                                      <label key={assignment.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-blue-50/50" : "hover:bg-gray-50"}`}>
+                                        <input type="checkbox" checked={checked}
+                                          onChange={e => setAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, [assignment.id]: e.target.checked } } : d)}
+                                          className="w-4 h-4 accent-blue-500 shrink-0 rounded" />
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-medium truncate text-gray-800">{job.title}</p>
+                                          <p className="text-xs text-gray-400 truncate">{empName}</p>
+                                        </div>
+                                        <span className={`text-sm font-semibold shrink-0 ${checked ? "text-blue-600" : "text-gray-400"}`}>{formatCurrency(assignment.salaryEarned)}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Nút lưu */}
+                            <button
+                              onClick={() => {
+                                setAepClassification({ expenses: { ...aepDraft.expenses }, salaryAssignments: { ...aepDraft.salaryAssignments } });
+                                setAepSubTab("overview");
+                              }}
+                              className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm">
+                              <Save className="w-4 h-4" /> Lưu và xem tổng quan
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
