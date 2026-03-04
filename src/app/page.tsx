@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Job, Employee, ManualEntry, JobAssignment } from "@/types";
+import { Job, Employee, ManualEntry, JobAssignment, EmployeeProfile } from "@/types";
 import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
   Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown,
+  Save, CheckCircle, Loader2,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
@@ -171,7 +172,7 @@ export default function Home() {
   const [customPercentage, setCustomPercentage] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>(currentYM());
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [employeeView, setEmployeeView] = useState<"market" | "leaderboard">("market");
+  const [employeeView, setEmployeeView] = useState<"market" | "leaderboard" | "profile">("market");
 
   // Load avatar từ localStorage khi đăng nhập
   useEffect(() => {
@@ -250,6 +251,10 @@ export default function Home() {
   const [miniClaimJob, setMiniClaimJob] = useState<Job | null>(null);
   const [miniClaimUnits, setMiniClaimUnits] = useState("1");
   const [miniDoneModal, setMiniDoneModal] = useState<{ job: Job; assignment: JobAssignment } | null>(null);
+  // Employee self-service profile state
+  const [empProfileFormState, setEmpProfileFormState] = useState<Record<string, string>>({});
+  const [empProfileSaving, setEmpProfileSaving] = useState(false);
+  const [empProfileSaved, setEmpProfileSaved] = useState(false);
   const [miniDoneUnits, setMiniDoneUnits] = useState("");
 
   // ── Group AI modal ───────────────────────────────────
@@ -2433,6 +2438,7 @@ export default function Home() {
             </div>
             <div className="p-5 space-y-3">
               {([
+                { key: "hoTen",       label: "Họ và tên đầy đủ",  placeholder: "Nguyễn Văn A",  type: "text" },
                 { key: "cccd",        label: "Số CCCD / CMND",     placeholder: "012345678901", type: "text" },
                 { key: "ngayCapCccd", label: "Ngày cấp",           placeholder: "DD/MM/YYYY",  type: "text" },
                 { key: "noiCapCccd",  label: "Nơi cấp",            placeholder: "Cục Cảnh sát QLHC về TTXH", type: "text" },
@@ -2462,7 +2468,10 @@ export default function Home() {
                     const res = await fetch(`/api/employees/${profileModal.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ profile: profileForm }),
+                      body: JSON.stringify({
+                        ...(profileForm.hoTen ? { name: profileForm.hoTen } : {}),
+                        profile: profileForm,
+                      }),
                     });
                     if (res.ok) { await fetchAll(); setProfileModal(null); }
                   } finally { setSubmitting(false); }
@@ -2760,11 +2769,39 @@ export default function Home() {
                 e.target.value = "";
               }} />
             </label>
-            <p className="font-semibold text-gray-900 text-sm">{currentEmployee?.name}</p>
-          </div>
+            <p className="font-semibold text-gray-900 text-sm">
+                {currentEmployee?.profile?.hoTen || currentEmployee?.name}
+              </p>
+            </div>
 
           {/* Actions */}
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                if (employeeView !== "profile") {
+                  const p = currentEmployee?.profile ?? {};
+                  setEmpProfileFormState({
+                    hoTen: p.hoTen ?? "",
+                    cccd: p.cccd ?? "",
+                    ngayCapCccd: p.ngayCapCccd ?? "",
+                    noiCapCccd: p.noiCapCccd ?? "",
+                    diaChi: p.diaChi ?? "",
+                    mst: p.mst ?? "",
+                    dienThoai: p.dienThoai ?? "",
+                    stk: p.stk ?? "",
+                    nganHang: p.nganHang ?? "",
+                  });
+                }
+                setEmployeeView(employeeView === "profile" ? "market" : "profile");
+              }}
+              className={`p-2 rounded-lg transition-colors ${
+                employeeView === "profile"
+                  ? "text-indigo-600 bg-indigo-50"
+                  : "text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+              }`}
+              title="Thông tin cá nhân">
+              <Users className="w-4 h-4" />
+            </button>
             <button
               onClick={() => setEmployeeView(employeeView === "leaderboard" ? "market" : "leaderboard")}
               className={`p-2 rounded-lg transition-colors ${
@@ -2807,6 +2844,107 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* ══ PROFILE VIEW ══ */}
+        {employeeView === "profile" && (() => {
+          const empProfileForm = empProfileFormState;
+          const empFields: { key: keyof EmployeeProfile; label: string; type?: string; placeholder: string }[] = [
+            { key: "hoTen", label: "Họ và tên đầy đủ", placeholder: "Nguyễn Văn A" },
+            { key: "cccd", label: "Số CCCD / CMND", placeholder: "012345678901" },
+            { key: "ngayCapCccd", label: "Ngày cấp", type: "date", placeholder: "" },
+            { key: "noiCapCccd", label: "Nơi cấp", placeholder: "Công an tỉnh Bình Định" },
+            { key: "diaChi", label: "Địa chỉ thường trú", placeholder: "Số 1, đường ABC, phường XYZ..." },
+            { key: "mst", label: "Mã số thuế (MST)", placeholder: "1234567890" },
+            { key: "dienThoai", label: "Số điện thoại", placeholder: "0912 345 678" },
+            { key: "stk", label: "Số tài khoản ngân hàng", placeholder: "1234567890" },
+            { key: "nganHang", label: "Ngân hàng", placeholder: "Vietcombank, BIDV, VPBank..." },
+          ];
+
+          const handleSaveEmpProfile = async () => {
+            if (!currentEmployee) return;
+            setEmpProfileSaving(true);
+            const body: Record<string, unknown> = { profile: empProfileForm };
+            if (empProfileForm.hoTen?.trim()) body.name = empProfileForm.hoTen.trim();
+            const res = await fetch(`/api/employees/${currentEmployee.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (res.ok) {
+              const updated = await res.json();
+              setCurrentEmployee(updated);
+              fetchAll();
+              setEmpProfileSaving(false);
+              setEmpProfileSaved(true);
+              setTimeout(() => setEmpProfileSaved(false), 2500);
+            } else {
+              setEmpProfileSaving(false);
+              alert("Lưu thất bại, vui lòng thử lại.");
+            }
+          };
+
+          return (
+            <div className="pb-8">
+              {/* Header card */}
+              <div className="relative overflow-hidden rounded-2xl mb-5 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5 shadow-lg">
+                <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
+                <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/10" />
+                <div className="relative z-10 flex items-center gap-3">
+                  <div className="text-4xl">🪪</div>
+                  <div>
+                    <p className="text-white/80 text-xs font-medium">Hồ sơ cá nhân</p>
+                    <h2 className="text-white font-black text-xl leading-tight">
+                      {currentEmployee?.profile?.hoTen || currentEmployee?.name}
+                    </h2>
+                    <p className="text-white/70 text-xs mt-0.5">Cập nhật thông tin để nhận lương đúng hạn</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="divide-y divide-gray-50">
+                  {empFields.map((f) => {
+                    const val = empProfileForm[f.key] ?? "";
+                    return (
+                      <div key={f.key} className="px-4 py-3">
+                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">
+                          {f.label}
+                        </label>
+                        <input
+                          type={f.type ?? "text"}
+                          className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-800 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-300 transition-all"
+                          placeholder={f.placeholder}
+                          value={val}
+                          onChange={(e) => setEmpProfileFormState(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="px-4 py-4 bg-gray-50 border-t border-gray-100">
+                  <button
+                    onClick={handleSaveEmpProfile}
+                    disabled={empProfileSaving}
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    {empProfileSaving ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Đang lưu...</>
+                    ) : empProfileSaved ? (
+                      <><CheckCircle className="w-4 h-4" /> Đã lưu thành công!</>
+                    ) : (
+                      <><Save className="w-4 h-4" /> Lưu thông tin</>
+                    )}
+                  </button>
+                  <p className="text-center text-xs text-gray-400 mt-2">
+                    Thông tin sẽ được dùng để xác minh và thanh toán lương
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══ LEADERBOARD VIEW ══ */}
         {employeeView === "leaderboard" && (() => {

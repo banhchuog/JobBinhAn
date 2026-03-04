@@ -1,6 +1,7 @@
 export type Role = 'DIRECTOR' | 'EMPLOYEE';
 
 export interface EmployeeProfile {
+  hoTen?: string;         // Họ và tên đầy đủ (cập nhật display name)
   cccd?: string;          // Số CCCD/CMND
   ngayCapCccd?: string;   // YYYY-MM-DD
   noiCapCccd?: string;    // Nơi cấp CCCD
