@@ -342,6 +342,19 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directorTab]);
 
+  // Fetch AEP classification từ DB khi tháng thay đổi
+  useEffect(() => {
+    if (financeView !== "anhemphim") return;
+    fetch(`/api/aep/${aepMonth}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d) setAepClassification(d);
+        else setAepClassification(null);
+      })
+      .catch(() => setAepClassification(null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aepMonth, financeView]);
+
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
 
@@ -2808,9 +2821,17 @@ export default function Home() {
 
                             {/* Nút lưu */}
                             <button
-                              onClick={() => {
-                                setAepClassification({ expenses: { ...aepDraft.expenses }, salaryAssignments: { ...aepDraft.salaryAssignments }, manualEntries: { ...aepDraft.manualEntries } });
+                              onClick={async () => {
+                                const newClassification = { expenses: { ...aepDraft.expenses }, salaryAssignments: { ...aepDraft.salaryAssignments }, manualEntries: { ...aepDraft.manualEntries } };
+                                setAepClassification(newClassification);
                                 setAepSubTab("overview");
+                                try {
+                                  await fetch(`/api/aep/${aepMonth}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify(newClassification),
+                                  });
+                                } catch { /* ignore */ }
                               }}
                               className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm">
                               <Save className="w-4 h-4" /> Lưu và xem tổng quan

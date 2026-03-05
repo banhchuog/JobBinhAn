@@ -28,6 +28,27 @@ export async function initSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS aep_classifications (
+      month TEXT PRIMARY KEY,
+      data JSONB NOT NULL DEFAULT '{"expenses":{},"salaryAssignments":{},"manualEntries":{}}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+// ─── AEP Classifications ────────────────────────────────
+export async function getAepClassification(month: string): Promise<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null> {
+  const { rows } = await getPool().query(`SELECT data FROM aep_classifications WHERE month = $1`, [month]);
+  return rows.length > 0 ? rows[0].data : null;
+}
+
+export async function upsertAepClassification(month: string, data: { expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> }): Promise<void> {
+  await getPool().query(
+    `INSERT INTO aep_classifications (month, data, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (month) DO UPDATE SET data = $2, updated_at = NOW()`,
+    [month, JSON.stringify(data)]
+  );
 }
 
 // ─── Jobs ──────────────────────────────────────────────
