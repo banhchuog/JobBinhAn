@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAepClassification, upsertAepClassification } from "@/lib/db";
+import { getAepClassification, upsertAepClassification, initSchema } from "@/lib/db";
+
+async function ensureTable() {
+  try { await initSchema(); } catch { /* already exists */ }
+}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ month: string }> }) {
   const { month } = await params;
   try {
+    await ensureTable();
     const data = await getAepClassification(month);
     return NextResponse.json(data ?? { expenses: {}, salaryAssignments: {}, manualEntries: {} });
   } catch (err: unknown) {
@@ -14,6 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mon
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ month: string }> }) {
   const { month } = await params;
   try {
+    await ensureTable();
     const body = await req.json();
     const data = {
       expenses: body.expenses ?? {},
