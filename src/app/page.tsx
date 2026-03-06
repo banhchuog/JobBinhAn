@@ -337,6 +337,13 @@ export default function Home() {
   const [aepSubTab, setAepSubTab] = useState<"overview" | "chot">("overview");
   const [aepMonth, setAepMonth] = useState<string>("2026-02");
 
+  // ── AEP Chốt filters ────────────────────────────────
+  const [aepFilterExpense, setAepFilterExpense] = useState("");
+  const [aepFilterExpenseDateFrom, setAepFilterExpenseDateFrom] = useState("");
+  const [aepFilterExpenseDateTo, setAepFilterExpenseDateTo] = useState("");
+  const [aepFilterSalary, setAepFilterSalary] = useState("");
+  const [aepFilterManual, setAepFilterManual] = useState("");
+
   // ── Social links ─────────────────────────────────────
   const [socialLinks, setSocialLinks] = useState<Array<{ id: string; label: string; url: string }>>([]);
   const [socialLinkInput, setSocialLinkInput] = useState("");
@@ -2744,7 +2751,7 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
                         {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); }}
+                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                             {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                           </button>
@@ -2873,6 +2880,27 @@ export default function Home() {
 
                       {/* TAB: Chốt số liệu */}
                       {aepSubTab === "chot" && aepDraft && (() => {
+                        // ── Filtered lists ──────────────────────────────
+                        const filteredChiMonth = allChiMonth.filter(t => {
+                          const kw = aepFilterExpense.trim().toLowerCase();
+                          if (kw && !t.subject.toLowerCase().includes(kw) && !(t.note ?? "").toLowerCase().includes(kw)) return false;
+                          if (aepFilterExpenseDateFrom && t.date < aepFilterExpenseDateFrom) return false;
+                          if (aepFilterExpenseDateTo && t.date > aepFilterExpenseDateTo) return false;
+                          return true;
+                        });
+                        const filteredSalaryMonth = allSalaryAssignmentsMonth.filter(({ job, assignment }) => {
+                          const kw = aepFilterSalary.trim().toLowerCase();
+                          if (!kw) return true;
+                          const empName = (employees.find(e => e.id === assignment.employeeId)?.profile?.hoTen || assignment.employeeName || "").toLowerCase();
+                          return empName.includes(kw) || job.title.toLowerCase().includes(kw);
+                        });
+                        const filteredManualMonth = allManualMonth.filter(e => {
+                          const kw = aepFilterManual.trim().toLowerCase();
+                          if (!kw) return true;
+                          const empName = (employees.find(emp => emp.id === e.empId)?.profile?.hoTen || employees.find(emp => emp.id === e.empId)?.name || "").toLowerCase();
+                          return empName.includes(kw) || e.title.toLowerCase().includes(kw);
+                        });
+
                         const draftExpensesTotal = allChiMonth
                           .filter(t => aepDraft.expenses[String(t.id)])
                           .reduce((s,t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
@@ -2884,6 +2912,10 @@ export default function Home() {
                           .reduce((s,e) => s + e.amount, 0);
                         const draftSalaryTotal = draftJobSalaryTotal + draftManualTotal;
                         const draftTotal = draftExpensesTotal + draftSalaryTotal;
+
+                        const hasExpenseFilter = !!aepFilterExpense || !!aepFilterExpenseDateFrom || !!aepFilterExpenseDateTo;
+                        const hasSalaryFilter = !!aepFilterSalary;
+                        const hasManualFilter = !!aepFilterManual;
 
                         return (
                           <div className="space-y-4">
@@ -2899,24 +2931,74 @@ export default function Home() {
                               </div>
                             </div>
 
-                            {/* Chi phí vận hành */}
+                            {/* ── Chi phí vận hành ── */}
                             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                              <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
-                                <p className="text-sm font-semibold text-red-700">🧾 Chi phí — {monthLabel(aepMonth)}</p>
-                                <button
-                                  onClick={() => {
-                                    const allChecked = allChiMonth.every(t => aepDraft.expenses[String(t.id)]);
-                                    setAepDraft(d => d ? { ...d, expenses: Object.fromEntries(allChiMonth.map(t => [String(t.id), !allChecked])) } : d);
-                                  }}
-                                  className="text-xs text-red-500 hover:text-red-700 font-medium">
-                                  {allChiMonth.every(t => aepDraft.expenses[String(t.id)]) ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                                </button>
+                              <div className="px-4 py-3 bg-red-50 border-b border-red-100">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-semibold text-red-700">🧾 Chi phí — {monthLabel(aepMonth)}</p>
+                                  <button
+                                    onClick={() => {
+                                      const ids = filteredChiMonth.map(t => String(t.id));
+                                      const allChecked = ids.every(id => aepDraft.expenses[id]);
+                                      setAepDraft(d => d ? { ...d, expenses: { ...d.expenses, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                    }}
+                                    className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0">
+                                    {filteredChiMonth.every(t => aepDraft.expenses[String(t.id)]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                    {hasExpenseFilter ? " (đang lọc)" : ""}
+                                  </button>
+                                </div>
+                                {/* Filter chi phí */}
+                                <div className="space-y-1.5">
+                                  <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                    <input
+                                      type="text"
+                                      placeholder="Tìm theo tên khoản chi, ghi chú..."
+                                      value={aepFilterExpense}
+                                      onChange={e => setAepFilterExpense(e.target.value)}
+                                      className="w-full pl-7 pr-7 py-1.5 text-xs border border-red-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-red-300"
+                                    />
+                                    {aepFilterExpense && (
+                                      <button onClick={() => setAepFilterExpense("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-1.5 items-center">
+                                    <CalendarDays className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                    <input
+                                      type="date"
+                                      value={aepFilterExpenseDateFrom}
+                                      onChange={e => setAepFilterExpenseDateFrom(e.target.value)}
+                                      className="flex-1 px-2 py-1 text-xs border border-red-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-red-300"
+                                    />
+                                    <span className="text-xs text-gray-400 shrink-0">—</span>
+                                    <input
+                                      type="date"
+                                      value={aepFilterExpenseDateTo}
+                                      onChange={e => setAepFilterExpenseDateTo(e.target.value)}
+                                      className="flex-1 px-2 py-1 text-xs border border-red-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-red-300"
+                                    />
+                                    {(aepFilterExpenseDateFrom || aepFilterExpenseDateTo) && (
+                                      <button onClick={() => { setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); }} className="text-gray-400 hover:text-red-500 shrink-0">
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {hasExpenseFilter && (
+                                    <p className="text-[10px] text-red-400">
+                                      Hiển thị {filteredChiMonth.length}/{allChiMonth.length} khoản · <button onClick={() => { setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); }} className="underline">Xoá bộ lọc</button>
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                               {allChiMonth.length === 0 ? (
                                 <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có khoản chi nào trong tháng này</p>
+                              ) : filteredChiMonth.length === 0 ? (
+                                <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có kết quả phù hợp</p>
                               ) : (
                                 <div className="divide-y divide-gray-50">
-                                  {allChiMonth.map(t => {
+                                  {filteredChiMonth.map(t => {
                                     const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
                                     const checked = !!aepDraft.expenses[String(t.id)];
                                     return (
@@ -2937,24 +3019,51 @@ export default function Home() {
                               )}
                             </div>
 
-                            {/* Lương */}
+                            {/* ── Lương job ── */}
                             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-                                <p className="text-sm font-semibold text-blue-700">👥 Lương — {monthLabel(aepMonth)}</p>
-                                <button
-                                  onClick={() => {
-                                    const allChecked = allSalaryAssignmentsMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]);
-                                    setAepDraft(d => d ? { ...d, salaryAssignments: Object.fromEntries(allSalaryAssignmentsMonth.map(({assignment}) => [assignment.id, !allChecked])) } : d);
-                                  }}
-                                  className="text-xs text-blue-500 hover:text-blue-700 font-medium">
-                                  {allSalaryAssignmentsMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]) ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                                </button>
+                              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-semibold text-blue-700">👥 Lương — {monthLabel(aepMonth)}</p>
+                                  <button
+                                    onClick={() => {
+                                      const ids = filteredSalaryMonth.map(({assignment}) => assignment.id);
+                                      const allChecked = ids.every(id => aepDraft.salaryAssignments[id]);
+                                      setAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                    }}
+                                    className="text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0">
+                                    {filteredSalaryMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                    {hasSalaryFilter ? " (đang lọc)" : ""}
+                                  </button>
+                                </div>
+                                {/* Filter nhân viên */}
+                                <div className="relative">
+                                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                  <input
+                                    type="text"
+                                    placeholder="Tìm theo tên nhân viên, tên job..."
+                                    value={aepFilterSalary}
+                                    onChange={e => setAepFilterSalary(e.target.value)}
+                                    className="w-full pl-7 pr-7 py-1.5 text-xs border border-blue-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-blue-300"
+                                  />
+                                  {aepFilterSalary && (
+                                    <button onClick={() => setAepFilterSalary("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                                {hasSalaryFilter && (
+                                  <p className="text-[10px] text-blue-400 mt-1">
+                                    Hiển thị {filteredSalaryMonth.length}/{allSalaryAssignmentsMonth.length} khoản
+                                  </p>
+                                )}
                               </div>
                               {allSalaryAssignmentsMonth.length === 0 ? (
                                 <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có khoản lương nào trong tháng này</p>
+                              ) : filteredSalaryMonth.length === 0 ? (
+                                <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có kết quả phù hợp</p>
                               ) : (
                                 <div className="divide-y divide-gray-50">
-                                  {allSalaryAssignmentsMonth.map(({ job, assignment }) => {
+                                  {filteredSalaryMonth.map(({ job, assignment }) => {
                                     const checked = !!aepDraft.salaryAssignments[assignment.id];
                                     const empName = employees.find(e => e.id === assignment.employeeId)?.profile?.hoTen || assignment.employeeName;
                                     return (
@@ -2974,38 +3083,67 @@ export default function Home() {
                               )}
                             </div>
 
-                            {/* Lương thủ công */}
+                            {/* ── Lương thủ công ── */}
                             {allManualMonth.length > 0 && (
                               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
-                                  <p className="text-sm font-semibold text-emerald-700">💰 Lương thủ công — {monthLabel(aepMonth)}</p>
-                                  <button
-                                    onClick={() => {
-                                      const allChecked = allManualMonth.every(e => aepDraft.manualEntries[e.id]);
-                                      setAepDraft(d => d ? { ...d, manualEntries: Object.fromEntries(allManualMonth.map(e => [e.id, !allChecked])) } : d);
-                                    }}
-                                    className="text-xs text-emerald-500 hover:text-emerald-700 font-medium">
-                                    {allManualMonth.every(e => aepDraft.manualEntries[e.id]) ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                                  </button>
+                                <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-sm font-semibold text-emerald-700">💰 Lương thủ công — {monthLabel(aepMonth)}</p>
+                                    <button
+                                      onClick={() => {
+                                        const ids = filteredManualMonth.map(e => e.id);
+                                        const allChecked = ids.every(id => aepDraft.manualEntries[id]);
+                                        setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                      }}
+                                      className="text-xs text-emerald-500 hover:text-emerald-700 font-medium shrink-0">
+                                      {filteredManualMonth.every(e => aepDraft.manualEntries[e.id]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                      {hasManualFilter ? " (đang lọc)" : ""}
+                                    </button>
+                                  </div>
+                                  {/* Filter nhân viên */}
+                                  <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                                    <input
+                                      type="text"
+                                      placeholder="Tìm theo tên nhân viên, tiêu đề..."
+                                      value={aepFilterManual}
+                                      onChange={e => setAepFilterManual(e.target.value)}
+                                      className="w-full pl-7 pr-7 py-1.5 text-xs border border-emerald-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-300"
+                                    />
+                                    {aepFilterManual && (
+                                      <button onClick={() => setAepFilterManual("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {hasManualFilter && (
+                                    <p className="text-[10px] text-emerald-400 mt-1">
+                                      Hiển thị {filteredManualMonth.length}/{allManualMonth.length} khoản
+                                    </p>
+                                  )}
                                 </div>
-                                <div className="divide-y divide-gray-50">
-                                  {allManualMonth.map(e => {
-                                    const checked = !!aepDraft.manualEntries[e.id];
-                                    const empName = employees.find(emp => emp.id === e.empId)?.profile?.hoTen || employees.find(emp => emp.id === e.empId)?.name || e.empId;
-                                    return (
-                                      <label key={e.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-emerald-50/50" : "hover:bg-gray-50"}`}>
-                                        <input type="checkbox" checked={checked}
-                                          onChange={ev => setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, [e.id]: ev.target.checked } } : d)}
-                                          className="w-4 h-4 accent-emerald-500 shrink-0 rounded" />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-medium truncate text-gray-800">{e.title}</p>
-                                          <p className="text-xs text-gray-400 truncate">{empName}{e.note ? ` · ${e.note}` : ""}</p>
-                                        </div>
-                                        <span className={`text-sm font-semibold shrink-0 ${checked ? "text-emerald-600" : "text-gray-400"}`}>{formatCurrency(e.amount)}</span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
+                                {filteredManualMonth.length === 0 ? (
+                                  <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có kết quả phù hợp</p>
+                                ) : (
+                                  <div className="divide-y divide-gray-50">
+                                    {filteredManualMonth.map(e => {
+                                      const checked = !!aepDraft.manualEntries[e.id];
+                                      const empName = employees.find(emp => emp.id === e.empId)?.profile?.hoTen || employees.find(emp => emp.id === e.empId)?.name || e.empId;
+                                      return (
+                                        <label key={e.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-emerald-50/50" : "hover:bg-gray-50"}`}>
+                                          <input type="checkbox" checked={checked}
+                                            onChange={ev => setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, [e.id]: ev.target.checked } } : d)}
+                                            className="w-4 h-4 accent-emerald-500 shrink-0 rounded" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate text-gray-800">{e.title}</p>
+                                            <p className="text-xs text-gray-400 truncate">{empName}{e.note ? ` · ${e.note}` : ""}</p>
+                                          </div>
+                                          <span className={`text-sm font-semibold shrink-0 ${checked ? "text-emerald-600" : "text-gray-400"}`}>{formatCurrency(e.amount)}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             )}
 
