@@ -35,6 +35,27 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      data JSONB NOT NULL DEFAULT '{}',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+// ─── Settings ───────────────────────────────────────────
+export async function getSetting(key: string): Promise<unknown | null> {
+  const { rows } = await getPool().query(`SELECT data FROM settings WHERE key = $1`, [key]);
+  return rows.length > 0 ? rows[0].data : null;
+}
+
+export async function upsertSetting(key: string, data: unknown): Promise<void> {
+  await getPool().query(
+    `INSERT INTO settings (key, data, updated_at) VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET data = $2, updated_at = NOW()`,
+    [key, JSON.stringify(data)]
+  );
 }
 
 // ─── AEP Classifications ────────────────────────────────

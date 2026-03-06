@@ -350,6 +350,16 @@ export default function Home() {
   const [socialLinkLabel, setSocialLinkLabel] = useState("");
   const [showSocialAdd, setShowSocialAdd] = useState(false);
 
+  // ── Chia lợi nhuận ───────────────────────────────────
+  type ProfitShare = { id: string; name: string; percent: number };
+  const [profitShares, setProfitShares] = useState<ProfitShare[]>([]);
+  const [showProfitAdd, setShowProfitAdd] = useState(false);
+  const [profitAddName, setProfitAddName] = useState("");
+  const [profitAddPercent, setProfitAddPercent] = useState("");
+  const [editingProfitId, setEditingProfitId] = useState<string | null>(null);
+  const [editProfitName, setEditProfitName] = useState("");
+  const [editProfitPercent, setEditProfitPercent] = useState("");
+
   // ── Share job state ──────────────────────────────────
   const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number; isMini?: boolean; currentUnits?: number } | null>(null);
   const [sharePercInput, setSharePercInput] = useState("");
@@ -429,6 +439,24 @@ export default function Home() {
       if (saved) setSocialLinks(JSON.parse(saved));
     } catch {}
   }, []);
+
+  // Load profit shares từ DB
+  useEffect(() => {
+    fetch("/api/settings/profit_shares")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (Array.isArray(d)) setProfitShares(d); })
+      .catch(() => {});
+  }, []);
+
+  const saveProfitShares = async (shares: ProfitShare[]) => {
+    try {
+      await fetch("/api/settings/profit_shares", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(shares),
+      });
+    } catch { /* ignore */ }
+  };
 
   // Lưu social links vào localStorage khi thay đổi
   useEffect(() => {
@@ -2429,6 +2457,171 @@ export default function Home() {
                           </div>
                         )}
                       </div>
+
+                      {/* ── Chia lợi nhuận ── */}
+                      {(() => {
+                        const totalAllocated = profitShares.reduce((s, p) => s + p.percent, 0);
+                        const remaining = 100 - totalAllocated;
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">💵 Chia lợi nhuận</p>
+                                {profitShares.length > 0 && totalAllocated !== 100 && (
+                                  <p className="text-[10px] text-orange-500 mt-0.5">⚠️ Tổng = {Math.round(totalAllocated * 10) / 10}% (chưa đủ 100%)</p>
+                                )}
+                                {profitShares.length > 0 && totalAllocated === 100 && (
+                                  <p className="text-[10px] text-emerald-500 mt-0.5">✔️ Tổng đúng 100%</p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => { setShowProfitAdd(v => !v); setProfitAddName(""); setProfitAddPercent(""); setEditingProfitId(null); }}
+                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                                <PlusCircle className="w-3.5 h-3.5" /> Thêm người
+                              </button>
+                            </div>
+
+                            {/* Form thêm mới */}
+                            {showProfitAdd && (
+                              <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                                <p className="text-xs font-semibold text-gray-600">➕ Thêm thành viên</p>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Tên (ví dụ: Hiếu)"
+                                    value={profitAddName}
+                                    onChange={e => setProfitAddName(e.target.value)}
+                                    className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                    autoFocus
+                                  />
+                                  <input
+                                    type="number"
+                                    placeholder="% (ví dụ: 30)"
+                                    value={profitAddPercent}
+                                    onChange={e => setProfitAddPercent(e.target.value)}
+                                    min={0} max={100} step={0.01}
+                                    className="w-24 px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    disabled={!profitAddName.trim() || !profitAddPercent}
+                                    onClick={async () => {
+                                      const pct = parseFloat(profitAddPercent);
+                                      if (!profitAddName.trim() || isNaN(pct)) return;
+                                      const newShares = [...profitShares, { id: Date.now().toString(), name: profitAddName.trim(), percent: pct }];
+                                      setProfitShares(newShares);
+                                      setShowProfitAdd(false);
+                                      await saveProfitShares(newShares);
+                                    }}
+                                    className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors">
+                                    Lưu
+                                  </button>
+                                  <button
+                                    onClick={() => { setShowProfitAdd(false); setProfitAddName(""); setProfitAddPercent(""); }}
+                                    className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
+                                    Huỷ
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Danh sách */}
+                            {profitShares.length === 0 ? (
+                              <p className="text-xs text-gray-400 text-center py-4">Chưa có ai. Bấm <span className="font-semibold text-blue-500">+ Thêm người</span> để bắt đầu.</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {profitShares.map(ps => {
+                                  const amount = totalProfit * ps.percent / 100;
+                                  const isEditing = editingProfitId === ps.id;
+                                  return (
+                                    <div key={ps.id} className="rounded-xl border border-gray-100 overflow-hidden">
+                                      {isEditing ? (
+                                        <div className="p-2.5 bg-blue-50 space-y-2">
+                                          <div className="flex gap-2">
+                                            <input
+                                              type="text"
+                                              value={editProfitName}
+                                              onChange={e => setEditProfitName(e.target.value)}
+                                              className="flex-1 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                              autoFocus
+                                            />
+                                            <input
+                                              type="number"
+                                              value={editProfitPercent}
+                                              onChange={e => setEditProfitPercent(e.target.value)}
+                                              min={0} max={100} step={0.01}
+                                              className="w-20 px-2.5 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                            />
+                                          </div>
+                                          <div className="flex gap-2">
+                                            <button
+                                              onClick={async () => {
+                                                const pct = parseFloat(editProfitPercent);
+                                                if (!editProfitName.trim() || isNaN(pct)) return;
+                                                const newShares = profitShares.map(p => p.id === ps.id ? { ...p, name: editProfitName.trim(), percent: pct } : p);
+                                                setProfitShares(newShares);
+                                                setEditingProfitId(null);
+                                                await saveProfitShares(newShares);
+                                              }}
+                                              className="flex-1 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">
+                                              Lưu
+                                            </button>
+                                            <button
+                                              onClick={() => setEditingProfitId(null)}
+                                              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg">
+                                              Huỷ
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400 to-blue-500 flex items-center justify-center shrink-0">
+                                            <span className="text-white text-xs font-bold">{ps.name.slice(0, 2).toUpperCase()}</span>
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-gray-800 truncate">{ps.name}</p>
+                                            <p className="text-xs text-gray-400">{ps.percent}% lợi nhuận</p>
+                                          </div>
+                                          <div className="text-right shrink-0">
+                                            <p className={`text-sm font-black ${amount >= 0 ? "text-emerald-600" : "text-red-500"}`}>{formatCurrency(Math.round(amount))}</p>
+                                            <p className="text-[10px] text-gray-400">{totalProfit >= 0 ? "lãi" : "lỗ chia"}</p>
+                                          </div>
+                                          <div className="flex gap-1 shrink-0 ml-1">
+                                            <button
+                                              onClick={() => { setEditingProfitId(ps.id); setEditProfitName(ps.name); setEditProfitPercent(String(ps.percent)); setShowProfitAdd(false); }}
+                                              className="p-1.5 rounded-lg hover:bg-blue-100 text-gray-400 hover:text-blue-600 transition-colors">
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              onClick={async () => {
+                                                const newShares = profitShares.filter(p => p.id !== ps.id);
+                                                setProfitShares(newShares);
+                                                await saveProfitShares(newShares);
+                                              }}
+                                              className="p-1.5 rounded-lg hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                                {/* Dòng tổng */}
+                                <div className="mt-2 pt-2 border-t border-dashed border-gray-200 flex items-center justify-between px-1">
+                                  <p className="text-xs text-gray-500">
+                                    Tổng đã phân bổ: <span className={`font-bold ${totalAllocated === 100 ? "text-emerald-600" : "text-orange-500"}`}>{Math.round(totalAllocated * 10) / 10}%</span>
+                                    {remaining > 0.001 && <span className="text-gray-400"> — còn <span className="font-semibold text-gray-600">{Math.round(remaining * 10) / 10}%</span> chưa chia</span>}
+                                  </p>
+                                  <p className="text-xs font-black text-gray-700">{formatCurrency(totalProfit)}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                     </div>
                   );
                 })()}
@@ -2799,35 +2992,6 @@ export default function Home() {
                               Chưa chốt số liệu. Sang tab <strong>✔️ Chốt số liệu</strong> để chọn các khoản thuộc AEP.
                             </div>
                           )}
-
-                          {/* 🔒 Lợi nhuận kín */}
-                          {aepClassification && (() => {
-                            const tien  = aepRev * 0.10;
-                            const vy    = aepProfit * 0.2332;
-                            const hieu  = aepProfit - tien - vy;
-                            const rows = [
-                              { name: "Tiến",  amount: tien,  note: "10% Doanh thu AEP",      color: "text-violet-700", bg: "bg-violet-50", border: "border-violet-200" },
-                              { name: "Vỹ",    amount: vy,    note: "23.32% Lợi nhuận tổng",  color: "text-indigo-700", bg: "bg-indigo-50", border: "border-indigo-200" },
-                              { name: "Hiếu",  amount: hieu,  note: "Còn lại",                color: "text-sky-700",    bg: "bg-sky-50",    border: "border-sky-200" },
-                            ];
-                            return (
-                              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                                <div className="px-4 py-3 bg-gray-900 flex items-center justify-between">
-                                  <p className="text-sm font-bold text-white">🔒 Lợi nhuận kín — {monthLabel(aepMonth)}</p>
-                                  <p className="text-sm font-black text-yellow-300">{formatCurrency(aepProfit)}</p>
-                                </div>
-                                <div className="grid grid-cols-3 divide-x divide-gray-100">
-                                  {rows.map(r => (
-                                    <div key={r.name} className={`p-3 ${r.bg}`}>
-                                      <p className={`text-xs font-bold mb-1 ${r.color}`}>{r.name}</p>
-                                      <p className={`text-sm font-black leading-tight ${r.color}`}>{formatCurrency(r.amount)}</p>
-                                      <p className="text-[10px] text-gray-400 mt-1">{r.note}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })()}
 
                           {aepClassification && (
                             <div className="space-y-3">
