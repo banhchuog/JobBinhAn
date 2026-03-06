@@ -432,13 +432,23 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load social links từ localStorage
+  // Load social links từ DB
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("social_links");
-      if (saved) setSocialLinks(JSON.parse(saved));
-    } catch {}
+    fetch("/api/settings/social_links")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (Array.isArray(d)) setSocialLinks(d); })
+      .catch(() => {});
   }, []);
+
+  const saveSocialLinks = async (links: Array<{ id: string; label: string; url: string }>) => {
+    try {
+      await fetch("/api/settings/social_links", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(links),
+      });
+    } catch { /* ignore */ }
+  };
 
   // Load profit shares từ DB
   useEffect(() => {
@@ -457,11 +467,6 @@ export default function Home() {
       });
     } catch { /* ignore */ }
   };
-
-  // Lưu social links vào localStorage khi thay đổi
-  useEffect(() => {
-    localStorage.setItem("social_links", JSON.stringify(socialLinks));
-  }, [socialLinks]);
 
   useEffect(() => {
     if (view !== "LOGIN") fetchAll();
@@ -2404,16 +2409,18 @@ export default function Home() {
                             />
                             <div className="flex gap-2">
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   const url = socialLinkInput.trim();
                                   if (!url) return;
                                   const fullUrl = url.startsWith("http") ? url : `https://${url}`;
                                   const platform = getSocialPlatform(fullUrl);
                                   const label = socialLinkLabel.trim() || platform.label;
-                                  setSocialLinks((prev) => [...prev, { id: Date.now().toString(), label, url: fullUrl }]);
+                                  const newLinks = [...socialLinks, { id: Date.now().toString(), label, url: fullUrl }];
+                                  setSocialLinks(newLinks);
                                   setSocialLinkInput("");
                                   setSocialLinkLabel("");
                                   setShowSocialAdd(false);
+                                  await saveSocialLinks(newLinks);
                                 }}
                                 disabled={!socialLinkInput.trim()}
                                 className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors">
@@ -2446,7 +2453,11 @@ export default function Home() {
                                     <span>{link.label}</span>
                                   </a>
                                   <button
-                                    onClick={() => setSocialLinks((prev) => prev.filter((l) => l.id !== link.id))}
+                                    onClick={async () => {
+                                      const newLinks = socialLinks.filter((l) => l.id !== link.id);
+                                      setSocialLinks(newLinks);
+                                      await saveSocialLinks(newLinks);
+                                    }}
                                     title="Xoá link"
                                     className="px-2 py-2 bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
                                     <X className="w-3 h-3" />
