@@ -2800,6 +2800,35 @@ export default function Home() {
                             </div>
                           )}
 
+                          {/* 🔒 Lợi nhuận kín */}
+                          {aepClassification && (() => {
+                            const tien  = aepRev * 0.10;
+                            const vy    = aepProfit * 0.2332;
+                            const hieu  = aepProfit - tien - vy;
+                            const rows = [
+                              { name: "Tiến",  amount: tien,  note: "10% Doanh thu AEP",      color: "text-violet-700", bg: "bg-violet-50", border: "border-violet-200" },
+                              { name: "Vỹ",    amount: vy,    note: "23.32% Lợi nhuận tổng",  color: "text-indigo-700", bg: "bg-indigo-50", border: "border-indigo-200" },
+                              { name: "Hiếu",  amount: hieu,  note: "Còn lại",                color: "text-sky-700",    bg: "bg-sky-50",    border: "border-sky-200" },
+                            ];
+                            return (
+                              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                                <div className="px-4 py-3 bg-gray-900 flex items-center justify-between">
+                                  <p className="text-sm font-bold text-white">🔒 Lợi nhuận kín — {monthLabel(aepMonth)}</p>
+                                  <p className="text-sm font-black text-yellow-300">{formatCurrency(aepProfit)}</p>
+                                </div>
+                                <div className="grid grid-cols-3 divide-x divide-gray-100">
+                                  {rows.map(r => (
+                                    <div key={r.name} className={`p-3 ${r.bg}`}>
+                                      <p className={`text-xs font-bold mb-1 ${r.color}`}>{r.name}</p>
+                                      <p className={`text-sm font-black leading-tight ${r.color}`}>{formatCurrency(r.amount)}</p>
+                                      <p className="text-[10px] text-gray-400 mt-1">{r.note}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+
                           {aepClassification && (
                             <div className="space-y-3">
                               {aepExpenses.length > 0 && (
