@@ -1065,21 +1065,21 @@ export default function Home() {
                     <button
                       onClick={() => setCreateMode("postprod")}
                       className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all">
-                      <span className="text-3xl">🎬</span>
+                      <span className="text-3xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg></span>
                       <span className="font-bold text-blue-700 text-sm text-center leading-snug">Hậu kỳ lẻ</span>
                       <span className="text-xs text-blue-500 text-center">Tạo 1 job dựng / edit đơn lẻ</span>
                     </button>
                     <button
                       onClick={() => setCreateMode("mini")}
                       className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-400 transition-all">
-                      <span className="text-3xl">🎞️</span>
+                      <span className="text-3xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg></span>
                       <span className="font-bold text-purple-700 text-sm text-center leading-snug">Hậu kỳ Mini</span>
                       <span className="text-xs text-purple-500 text-center">Loạt clip ngắn, nhận từng clip</span>
                     </button>
                     <button
                       onClick={() => setCreateMode("shooting")}
                       className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all">
-                      <span className="text-3xl">📅</span>
+                      <span className="text-3xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
                       <span className="font-bold text-orange-700 text-sm text-center leading-snug">Tạo Ngày Quay</span>
                       <span className="text-xs text-orange-500 text-center">Tất cả jobs cho 1 ngày quay</span>
                     </button>
@@ -1090,7 +1090,7 @@ export default function Home() {
                 {createMode === "postprod" && (
                   <form onSubmit={handleCreateJob} className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">🎬</span>
+                      <span className="text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg></span>
                       <span className="font-bold text-blue-700">Hậu kỳ lẻ</span>
                       <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
@@ -1127,7 +1127,7 @@ export default function Home() {
                 {createMode === "mini" && (
                   <form onSubmit={handleCreateMiniJob} className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">🎞️</span>
+                      <span className="text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg></span>
                       <span className="font-bold text-purple-700">Hậu kỳ Mini (theo clip)</span>
                       <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
@@ -1176,14 +1176,14 @@ export default function Home() {
                 {createMode === "shooting" && (
                   <div className="space-y-5">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xl">📅</span>
+                      <span className="text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
                       <span className="font-bold text-orange-700">Tạo Ngày Quay</span>
                       <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
 
                     {/* Thông tin ngày quay */}
                     <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
-                      <p className="text-sm font-semibold text-orange-700">📋 Thông tin ngày quay</p>
+                      <p className="text-sm font-semibold text-orange-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg> Thông tin ngày quay</p>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="sm:col-span-1">
                           <label className="block text-xs font-medium text-gray-600 mb-1">Tên phim / dự án</label>
@@ -1208,15 +1208,15 @@ export default function Home() {
 
                     {/* Chọn loại hậu kỳ */}
                     <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
-                      <p className="text-sm font-semibold text-gray-700">🎬 Loại hậu kỳ cho ngày quay này</p>
+                      <p className="text-sm font-semibold text-gray-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Loại hậu kỳ cho ngày quay này</p>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setShootSubType("large")}
                           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${shootSubType === "large" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}>
-                          🎬 Job lớn (theo tập)
+                          <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Job lớn (theo tập)
                         </button>
                         <button type="button" onClick={() => setShootSubType("mini_clips")}
                           className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${shootSubType === "mini_clips" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
-                          🎞️ Mini clip
+                          <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Mini clip
                         </button>
                       </div>
                     </div>
@@ -1270,7 +1270,7 @@ export default function Home() {
                     {/* Hậu kỳ: job lớn theo tập */}
                     {shootSubType === "large" && (
                       <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
-                        <p className="text-sm font-semibold text-blue-700">🎬 Tập dựng phim</p>
+                        <p className="text-sm font-semibold text-blue-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Tập dựng phim</p>
                         <div className="grid grid-cols-12 gap-2 mb-1">
                           <div className="col-span-6 text-xs text-gray-400 font-medium">Tên tập</div>
                           <div className="col-span-5 text-xs text-gray-400 font-medium">Thù lao dựng</div>
@@ -1312,7 +1312,7 @@ export default function Home() {
                     {/* Hậu kỳ: mini clips */}
                     {shootSubType === "mini_clips" && (
                       <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
-                        <p className="text-sm font-semibold text-purple-700">🎞️ Clip ngắn hậu kỳ</p>
+                        <p className="text-sm font-semibold text-purple-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Clip ngắn hậu kỳ</p>
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Tên loạt clip</label>
                           <input type="text" value={shootClipTitle} onChange={(e) => setShootClipTitle(e.target.value)}
@@ -1345,7 +1345,7 @@ export default function Home() {
                     {/* Preview tổng chi phí */}
                     {shootFilmName && shootDay && shootMonth && (
                       <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl p-4">
-                        <p className="text-sm font-bold mb-2">📅 {shootFilmName} — {shootDay}/{shootMonth}</p>
+                        <p className="text-sm font-bold mb-2"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> {shootFilmName} — {shootDay}/{shootMonth}</p>
                         <div className="text-xs space-y-1 opacity-90">
                           <p>• {shootPositions.reduce((s, p) => s + p.qty, 0)} vị trí tại chỗ ({shootPositions.length} hạng mục) — {new Intl.NumberFormat("vi-VN").format(shootPositions.reduce((s, p) => s + p.salary * p.qty, 0))}đ</p>
                           {shootSubType === "large"
@@ -1461,7 +1461,7 @@ export default function Home() {
                                 <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h3 className="font-semibold text-base leading-snug">{job.title}</h3>
-                                  {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0">🎞️ Mini · {job.assignments.reduce((s, a) => s + (a.units ?? 1), 0)}/{job.totalUnits} clip</span>}
+                                  {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Mini · {job.assignments.reduce((s, a) => s + (a.units ?? 1), 0)}/{job.totalUnits} clip</span>}
                                   {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
                                   {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">{job.groupName}</span>}
                                 </div>
@@ -1556,7 +1556,7 @@ export default function Home() {
                                 </p>
                                 {emp.profile?.stk && (
                                   <p className="text-xs text-gray-400 mt-0.5">
-                                    🏦 {emp.profile.stk} · {emp.profile.nganHang ?? ""}
+                                    <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 10h18M5 6l7-4 7 4M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11"/></svg> {emp.profile.stk} · {emp.profile.nganHang ?? ""}
                                   </p>
                                 )}
                               </div>
@@ -2070,19 +2070,19 @@ export default function Home() {
                   <div className="flex gap-1 bg-gray-100 rounded-xl p-1 flex-1">
                     <button onClick={() => setFinanceView("overview")}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${financeView === "overview" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                      🏠 Tổng quan
+                      <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V21H3V9.5Z"/><path d="M9 21V12h6v9"/></svg> Tổng quan
                     </button>
                     <button onClick={() => setFinanceView("month")}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${financeView === "month" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                      📅 Chi tiết
+                      <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Chi tiết
                     </button>
                     <button onClick={() => setFinanceView("report")}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${financeView === "report" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                      📊 Báo cáo
+                      <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> Báo cáo
                     </button>
                     <button onClick={() => setFinanceView("anhemphim")}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${financeView === "anhemphim" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                      🎬 AEP
+                      <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> AEP
                     </button>
                   </div>
                   {/* Nút xuất CSV */}
@@ -2258,19 +2258,19 @@ export default function Home() {
                       {/* 3 KPI cards */}
                       <div className="grid grid-cols-3 gap-3">
                         <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
-                          <p className="text-[10px] text-green-600 font-semibold mb-1">💰 Tổng doanh thu</p>
+                          <p className="text-[10px] text-green-600 font-semibold mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Tổng doanh thu</p>
                           <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(totalThu)}</p>
-                          {totalAEP > 0 && <p className="text-[10px] text-green-500 mt-1">🎬 {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalAEP)}</p>}
+                          {totalAEP > 0 && <p className="text-[10px] text-green-500 mt-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalAEP)}</p>}
                           {totalThuKhac > 0 && <p className="text-[10px] text-green-400">+ {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalThuKhac)} khác</p>}
                         </div>
                         <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
-                          <p className="text-[10px] text-red-500 font-semibold mb-1">🧾 Tổng chi phí</p>
+                          <p className="text-[10px] text-red-500 font-semibold mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Tổng chi phí</p>
                           <p className="font-black text-red-600 text-base leading-tight">{formatCurrency(totalChiAll)}</p>
                           {totalChi > 0 && <p className="text-[10px] text-red-400 mt-1">Chi: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalChi)}</p>}
                           {totalSalary > 0 && <p className="text-[10px] text-red-300">Lương: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalSalary)}</p>}
                         </div>
                         <div className={`${totalProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"} border rounded-2xl p-3`}>
-                          <p className={`text-[10px] font-semibold mb-1 ${totalProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}>📈 Lợi nhuận</p>
+                          <p className={`text-[10px] font-semibold mb-1 ${totalProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> Lợi nhuận</p>
                           <p className={`font-black text-base leading-tight ${totalProfit >= 0 ? "text-emerald-700" : "text-orange-600"}`}>{formatCurrency(totalProfit)}</p>
                           {totalThu > 0 && <p className={`text-[10px] mt-1 ${totalProfit >= 0 ? "text-emerald-400" : "text-orange-400"}`}>
                             {Math.round(totalProfit / totalThu * 100)}% biên lợi nhuận
@@ -2288,7 +2288,7 @@ export default function Home() {
                               <p className={`text-xs font-semibold mb-0.5 ${
                                 refRow.LoiNhuan >= 0 ? "text-emerald-600" : "text-red-500"
                               }`}>
-                                {refRow.LoiNhuan >= 0 ? "📈" : "📉"} {refRow.name} — {refRow.LoiNhuan >= 0 ? "Có lời" : "Lỗ"}
+                                {refRow.LoiNhuan >= 0 ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>} {refRow.name} — {refRow.LoiNhuan >= 0 ? "Có lời" : "Lỗ"}
                               </p>
                               <p className={`text-2xl font-black ${
                                 refRow.LoiNhuan >= 0 ? "text-emerald-700" : "text-red-600"
@@ -2332,9 +2332,9 @@ export default function Home() {
                               cursor={{ fill: "#f9fafb" }}
                             />
                             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                            <Bar dataKey="AEP" name="🎬 Anh Em Phim" stackId="thu" fill="#34d399" radius={[0,0,0,0]} />
-                            <Bar dataKey="ThuKhac" name="💼 Thu khác" stackId="thu" fill="#6ee7b7" radius={[4,4,0,0]} />
-                            <Bar dataKey="TongChi" name="🧧 Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
+                            <Bar dataKey="AEP" name="Anh Em Phim" stackId="thu" fill="#34d399" radius={[0,0,0,0]} />
+                            <Bar dataKey="ThuKhac" name="Thu khác" stackId="thu" fill="#6ee7b7" radius={[4,4,0,0]} />
+                            <Bar dataKey="TongChi" name="Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -2381,7 +2381,7 @@ export default function Home() {
                       {/* ── Kênh mạng xã hội ── */}
                       <div className="bg-white border border-gray-200 rounded-2xl p-4">
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">🔗 Kênh mạng xã hội</p>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Kênh mạng xã hội</p>
                           <button
                             onClick={() => { setShowSocialAdd((v) => !v); setSocialLinkInput(""); setSocialLinkLabel(""); }}
                             className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors">
@@ -2477,12 +2477,12 @@ export default function Home() {
                           <div className="bg-white border border-gray-200 rounded-2xl p-4">
                             <div className="flex items-center justify-between mb-3">
                               <div>
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">💵 Chia lợi nhuận</p>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M1 9h5M18 9h5M1 15h5M18 15h5"/></svg> Chia lợi nhuận</p>
                                 {profitShares.length > 0 && totalAllocated !== 100 && (
-                                  <p className="text-[10px] text-orange-500 mt-0.5">⚠️ Tổng = {Math.round(totalAllocated * 10) / 10}% (chưa đủ 100%)</p>
+                                  <p className="text-[10px] text-orange-500 mt-0.5"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Tổng = {Math.round(totalAllocated * 10) / 10}% (chưa đủ 100%)</p>
                                 )}
                                 {profitShares.length > 0 && totalAllocated === 100 && (
-                                  <p className="text-[10px] text-emerald-500 mt-0.5">✔️ Tổng đúng 100%</p>
+                                  <p className="text-[10px] text-emerald-500 mt-0.5"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Tổng đúng 100%</p>
                                 )}
                               </div>
                               <button
@@ -2495,7 +2495,7 @@ export default function Home() {
                             {/* Form thêm mới */}
                             {showProfitAdd && (
                               <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
-                                <p className="text-xs font-semibold text-gray-600">➕ Thêm thành viên</p>
+                                <p className="text-xs font-semibold text-gray-600"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm thành viên</p>
                                 <div className="flex gap-2">
                                   <input
                                     type="text"
@@ -2657,29 +2657,29 @@ export default function Home() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {/* Doanh thu tổng */}
                       <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
-                        <p className="text-xs text-green-600 font-medium mb-1">💰 Doanh thu</p>
+                        <p className="text-xs text-green-600 font-medium mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Doanh thu</p>
                         <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(tongThu)}</p>
                         {anhEmPhimThu > 0 && thuChiThu > 0 && (
                           <div className="mt-1.5 space-y-0.5">
-                            <p className="text-[10px] text-green-500">🎬 AEP: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(anhEmPhimThu)}</p>
-                            <p className="text-[10px] text-green-500">📊 TC: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuChiThu)}</p>
+                            <p className="text-[10px] text-green-500"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> AEP: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(anhEmPhimThu)}</p>
+                            <p className="text-[10px] text-green-500"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> TC: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuChiThu)}</p>
                           </div>
                         )}
                         {anhEmPhimThu > 0 && thuChiThu === 0 && (
-                          <p className="text-[10px] text-green-500 mt-1">🎬 anhemphim.vn</p>
+                          <p className="text-[10px] text-green-500 mt-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> anhemphim.vn</p>
                         )}
                       </div>
                       <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
-                        <p className="text-xs text-red-500 font-medium mb-1">🧾 Chi phí khác</p>
+                        <p className="text-xs text-red-500 font-medium mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi phí khác</p>
                         <p className="font-black text-red-600 text-base leading-tight">{formatCurrency(thuChiChi)}</p>
                       </div>
                       <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3">
-                        <p className="text-xs text-blue-600 font-medium mb-1">👥 Lương nhân viên</p>
+                        <p className="text-xs text-blue-600 font-medium mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương nhân viên</p>
                         <p className="font-black text-blue-700 text-base leading-tight">{formatCurrency(grandTotalSalary)}</p>
                       </div>
                       <div className={`rounded-2xl p-3 border ${loiNhuan >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
                         <p className={`text-xs font-medium mb-1 ${loiNhuan >= 0 ? "text-emerald-600" : "text-orange-600"}`}>
-                          {loiNhuan >= 0 ? "📈 Lợi nhuận" : "📉 Lỗ"}
+                          {loiNhuan >= 0 ? <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> Lợi nhuận</> : <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg> Lỗ</>}
                         </p>
                         <p className={`font-black text-base leading-tight ${loiNhuan >= 0 ? "text-emerald-700" : "text-orange-600"}`}>
                           {loiNhuan >= 0 ? "" : "–"}{formatCurrency(Math.abs(loiNhuan))}
@@ -2691,23 +2691,23 @@ export default function Home() {
                     {(tongThu > 0 || tongChiTat > 0) && (
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 space-y-2">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm">📋</span>
+                          <span className="text-sm"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg></span>
                           <p className="text-xs font-semibold text-amber-700">Dự báo thuế</p>
                           <span className="text-[10px] bg-amber-100 text-amber-500 px-2 py-0.5 rounded-full font-medium ml-auto">Chỉ báo — không tính vào chi phí</span>
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           <div className="bg-white/70 rounded-xl p-2">
-                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5">🏷 VAT (8%)</p>
+                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> VAT (8%)</p>
                             <p className="text-sm font-black text-amber-700">{formatCurrency(tongThu * 0.08)}</p>
                             <p className="text-[10px] text-amber-400">8% × Tổng thu</p>
                           </div>
                           <div className="bg-white/70 rounded-xl p-2">
-                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5">👤 TNCN (~3%)</p>
+                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20v-2a8 8 0 0 1 16 0v2"/></svg> TNCN (~3%)</p>
                             <p className="text-sm font-black text-amber-700">{formatCurrency(tongChiTat * 0.03)}</p>
                             <p className="text-[10px] text-amber-400">3% × Tổng chi</p>
                           </div>
                           <div className="bg-white/70 rounded-xl p-2">
-                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5">🏢 TNDN (18%)</p>
+                            <p className="text-[10px] text-amber-500 font-semibold mb-0.5"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="18" height="20"/><path d="M9 22V12h6v10M9 6h1M14 6h1M9 10h1M14 10h1M9 14h1M14 14h1"/></svg> TNDN (18%)</p>
                             <p className="text-sm font-black text-amber-700">{loiNhuan > 0 ? formatCurrency(loiNhuan * 0.18) : "—"}</p>
                             <p className="text-[10px] text-amber-400">18% × Lợi nhuận</p>
                           </div>
@@ -2719,7 +2719,7 @@ export default function Home() {
                     {(thuChiMonth?.length ?? 0) > 0 || anhEmPhimThu > 0 || grandTotalSalary > 0 ? (
                       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                          <p className="font-semibold text-sm text-gray-800">📋 Giao dịch {monthLabel(directorMonth)}</p>
+                          <p className="font-semibold text-sm text-gray-800"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg> Giao dịch {monthLabel(directorMonth)}</p>
                           <span className="text-xs text-gray-400">{(thuChiMonth?.length ?? 0) + (anhEmPhimThu > 0 ? 1 : 0) + (grandTotalSalary > 0 ? 1 : 0)} mục</span>
                         </div>
                         <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
@@ -2727,7 +2727,7 @@ export default function Home() {
                           {anhEmPhimThu > 0 && (
                             <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-green-50/30">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-green-700">🎬 anhemphim.vn</p>
+                                <p className="text-sm font-medium text-green-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> anhemphim.vn</p>
                                 <p className="text-xs text-green-400">Doanh thu dịch vụ online — {monthLabel(directorMonth)}</p>
                               </div>
                               <span className="font-bold text-sm text-green-600 shrink-0">+{formatCurrency(anhEmPhimThu)}</span>
@@ -2749,7 +2749,7 @@ export default function Home() {
                           {grandTotalSalary > 0 && (
                             <div className="flex items-center justify-between px-4 py-2.5 gap-2 bg-blue-50/50">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-blue-700">👥 Lương nhân viên ({salaryRows.length} người)</p>
+                                <p className="text-sm font-medium text-blue-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương nhân viên ({salaryRows.length} người)</p>
                                 <p className="text-xs text-blue-400">Job Bình An — đã duyệt</p>
                               </div>
                               <span className="font-bold text-sm text-red-500 shrink-0">–{formatCurrency(grandTotalSalary)}</span>
@@ -2777,7 +2777,7 @@ export default function Home() {
                       {/* Bảng số liệu */}
                       <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                          <p className="font-semibold text-sm text-gray-800">📊 Tổng hợp {reportRows.length} tháng</p>
+                          <p className="font-semibold text-sm text-gray-800"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> Tổng hợp {reportRows.length} tháng</p>
                           {revenueLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-gray-400" />}
                         </div>
                         <div className="overflow-x-auto">
@@ -2785,10 +2785,10 @@ export default function Home() {
                             <thead>
                               <tr className="border-b border-gray-100 text-xs text-gray-400 font-medium">
                                 <th className="px-4 py-2 text-left">Tháng</th>
-                                <th className="px-3 py-2 text-right">🎬 AEP</th>
-                                <th className="px-3 py-2 text-right">📊 Thu khác</th>
-                                <th className="px-3 py-2 text-right">🧾 Chi khác</th>
-                                <th className="px-3 py-2 text-right">👥 Lương</th>
+                                <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> AEP</th>
+                                <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> Thu khác</th>
+                                <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi khác</th>
+                                <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương</th>
                                 <th className="px-3 py-2 text-right">Lợi nhuận</th>
                               </tr>
                             </thead>
@@ -2851,23 +2851,23 @@ export default function Home() {
                           return (
                             <div className="px-4 py-3 border-t border-amber-100 bg-amber-50">
                               <div className="flex items-center gap-1.5 mb-2">
-                                <span className="text-xs">📋</span>
+                                <span className="text-xs"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg></span>
                                 <p className="text-xs font-semibold text-amber-700">Dự báo thuế tổng hợp</p>
                                 <span className="text-[10px] bg-amber-100 text-amber-500 px-2 py-0.5 rounded-full font-medium ml-auto">Chỉ báo</span>
                               </div>
                               <div className="grid grid-cols-3 gap-3">
                                 <div>
-                                  <p className="text-[10px] text-amber-500 font-medium">🏷 VAT (8%)</p>
+                                  <p className="text-[10px] text-amber-500 font-medium"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> VAT (8%)</p>
                                   <p className="text-sm font-black text-amber-700">{formatCurrency(totalThu * 0.08)}</p>
                                   <p className="text-[10px] text-amber-400">8% × Tổng thu</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-amber-500 font-medium">👤 TNCN (~3%)</p>
+                                  <p className="text-[10px] text-amber-500 font-medium"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20v-2a8 8 0 0 1 16 0v2"/></svg> TNCN (~3%)</p>
                                   <p className="text-sm font-black text-amber-700">{formatCurrency(totalChi * 0.03)}</p>
                                   <p className="text-[10px] text-amber-400">3% × Tổng chi</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-amber-500 font-medium">🏢 TNDN (18%)</p>
+                                  <p className="text-[10px] text-amber-500 font-medium"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="2" width="18" height="20"/><path d="M9 22V12h6v10M9 6h1M14 6h1M9 10h1M14 10h1M9 14h1M14 14h1"/></svg> TNDN (18%)</p>
                                   <p className="text-sm font-black text-amber-700">{totalProfit > 0 ? formatCurrency(totalProfit * 0.18) : "—"}</p>
                                   <p className="text-[10px] text-amber-400">18% × Lợi nhuận</p>
                                 </div>
@@ -2966,11 +2966,11 @@ export default function Home() {
                       <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
                         <button onClick={() => setAepSubTab("overview")}
                           className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${aepSubTab === "overview" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}>
-                          📊 Tổng quan
+                          <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> Tổng quan
                         </button>
                         <button onClick={() => { setAepSubTab("chot"); if (!aepDraft) initDraft(); }}
                           className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${aepSubTab === "chot" ? "bg-white text-violet-700 shadow-sm" : "text-gray-500"}`}>
-                          ✔️ Chốt số liệu
+                          <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Chốt số liệu
                         </button>
                       </div>
 
@@ -2980,19 +2980,19 @@ export default function Home() {
                           {/* KPI */}
                           <div className="grid grid-cols-3 gap-3">
                             <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
-                              <p className="text-[10px] text-green-600 font-semibold mb-1">🎬 Doanh thu</p>
+                              <p className="text-[10px] text-green-600 font-semibold mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Doanh thu</p>
                               <p className="font-black text-green-700 text-sm leading-tight">{formatCurrency(aepRev)}</p>
                               <p className="text-[10px] text-green-400 mt-1">anhemphim.vn</p>
                             </div>
                             <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
-                              <p className="text-[10px] text-red-500 font-semibold mb-1">🧾 Chi phí</p>
+                              <p className="text-[10px] text-red-500 font-semibold mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi phí</p>
                               <p className="font-black text-red-600 text-sm leading-tight">{formatCurrency(aepTotalChi)}</p>
                               {aepClassification
                                 ? <p className="text-[10px] text-red-400 mt-1">VH: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(aepExpensesTotal)} · Lương: {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(aepSalaryTotal)}</p>
                                 : <p className="text-[10px] text-red-300 mt-1">Chưa chốt</p>}
                             </div>
                             <div className={`border rounded-2xl p-3 ${aepProfit >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-orange-50 border-orange-200"}`}>
-                              <p className={`text-[10px] font-semibold mb-1 ${aepProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}>📈 Lợi nhuận</p>
+                              <p className={`text-[10px] font-semibold mb-1 ${aepProfit >= 0 ? "text-emerald-600" : "text-orange-500"}`}><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg> Lợi nhuận</p>
                               <p className={`font-black text-sm leading-tight ${aepProfit >= 0 ? "text-emerald-700" : "text-orange-600"}`}>{aepClassification ? formatCurrency(aepProfit) : "—"}</p>
                               {aepClassification && aepRev > 0 && <p className={`text-[10px] mt-1 ${aepProfit >= 0 ? "text-emerald-400" : "text-orange-400"}`}>{Math.round(aepProfit/aepRev*100)}% biên</p>}
                             </div>
@@ -3000,7 +3000,7 @@ export default function Home() {
 
                           {!aepClassification && (
                             <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                              Chưa chốt số liệu. Sang tab <strong>✔️ Chốt số liệu</strong> để chọn các khoản thuộc AEP.
+                              Chưa chốt số liệu. Sang tab <strong><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Chốt số liệu</strong> để chọn các khoản thuộc AEP.
                             </div>
                           )}
 
@@ -3009,7 +3009,7 @@ export default function Home() {
                               {aepExpenses.length > 0 && (
                                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                                   <div className="px-4 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-red-700">🧾 Chi phí vận hành — {monthLabel(aepMonth)}</p>
+                                    <p className="text-sm font-semibold text-red-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi phí vận hành — {monthLabel(aepMonth)}</p>
                                     <p className="text-sm font-black text-red-600">{formatCurrency(aepExpensesTotal)}</p>
                                   </div>
                                   <div className="divide-y divide-gray-50">
@@ -3032,7 +3032,7 @@ export default function Home() {
                               {aepSalaryRows.length > 0 && (
                                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                                   <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-blue-700">👥 Lương sản xuất — {monthLabel(aepMonth)}</p>
+                                    <p className="text-sm font-semibold text-blue-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương sản xuất — {monthLabel(aepMonth)}</p>
                                     <p className="text-sm font-black text-blue-600">{formatCurrency(aepSalaryTotal)}</p>
                                   </div>
                                   <div className="divide-y divide-gray-50">
@@ -3053,7 +3053,7 @@ export default function Home() {
                               {aepManualEntries.length > 0 && (
                                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                                   <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-emerald-700">💰 Lương thủ công — {monthLabel(aepMonth)}</p>
+                                    <p className="text-sm font-semibold text-emerald-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Lương thủ công — {monthLabel(aepMonth)}</p>
                                     <p className="text-sm font-black text-emerald-600">{formatCurrency(aepManualTotal)}</p>
                                   </div>
                                   <div className="divide-y divide-gray-50">
@@ -3139,7 +3139,7 @@ export default function Home() {
                             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                               <div className="px-4 py-3 bg-red-50 border-b border-red-100">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-sm font-semibold text-red-700">🧾 Chi phí — {monthLabel(aepMonth)}</p>
+                                  <p className="text-sm font-semibold text-red-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi phí — {monthLabel(aepMonth)}</p>
                                   <button
                                     onClick={() => {
                                       const ids = filteredChiMonth.map(t => String(t.id));
@@ -3227,7 +3227,7 @@ export default function Home() {
                             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                               <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
                                 <div className="flex items-center justify-between mb-2">
-                                  <p className="text-sm font-semibold text-blue-700">👥 Lương — {monthLabel(aepMonth)}</p>
+                                  <p className="text-sm font-semibold text-blue-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương — {monthLabel(aepMonth)}</p>
                                   <button
                                     onClick={() => {
                                       const ids = filteredSalaryMonth.map(({assignment}) => assignment.id);
@@ -3292,7 +3292,7 @@ export default function Home() {
                               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
                                 <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
                                   <div className="flex items-center justify-between mb-2">
-                                    <p className="text-sm font-semibold text-emerald-700">💰 Lương thủ công — {monthLabel(aepMonth)}</p>
+                                    <p className="text-sm font-semibold text-emerald-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Lương thủ công — {monthLabel(aepMonth)}</p>
                                     <button
                                       onClick={() => {
                                         const ids = filteredManualMonth.map(e => e.id);
@@ -3386,7 +3386,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
-                <h2 className="font-bold text-gray-900">📅 Sửa ngày ký kết</h2>
+                <h2 className="font-bold text-gray-900"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Sửa ngày ký kết</h2>
                 <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[220px]">{dateEditModal.job.title}</p>
               </div>
               <button onClick={() => setDateEditModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -3429,7 +3429,7 @@ export default function Home() {
                   setDateEditModal(null);
                 }}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors"
-              >💾 Lưu</button>
+              ><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu</button>
               <button onClick={() => setDateEditModal(null)}
                 className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">Huỷ</button>
             </div>
@@ -3442,7 +3442,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div>
-                <h2 className="font-bold text-gray-900">👤 Thông tin cá nhân</h2>
+                <h2 className="font-bold text-gray-900"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20v-2a8 8 0 0 1 16 0v2"/></svg> Thông tin cá nhân</h2>
                 <p className="text-xs text-gray-400 mt-0.5">{profileModal.name} · dùng để thanh toán & hợp đồng</p>
               </div>
               <button onClick={() => setProfileModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
@@ -3489,7 +3489,7 @@ export default function Home() {
                 }}
                 disabled={submitting}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors">
-                {submitting ? "Đang lưu..." : "💾 Lưu thông tin"}
+                {submitting ? "Đang lưu..." : <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu thông tin</>}
               </button>
               <button onClick={() => setProfileModal(null)}
                 className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">
@@ -3506,7 +3506,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 border-b border-gray-100 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-base">➕ Thêm lương thủ công</h3>
+                <h3 className="font-bold text-base"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Thêm lương thủ công</h3>
                 <p className="text-xs text-gray-400 mt-0.5">{manualModal.emp.name} · {monthLabel(directorMonth)}</p>
               </div>
               <button onClick={() => setManualModal(null)} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg"><X className="w-5 h-5" /></button>
@@ -3901,7 +3901,7 @@ export default function Home() {
                 <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
                 <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/10" />
                 <div className="relative z-10 flex items-center gap-3">
-                  <div className="text-4xl">🪪</div>
+                  <div className="text-4xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="9" cy="12" r="2.5"/><path d="M14 10h5M14 14h3"/></svg></div>
                   <div>
                     <p className="text-white/80 text-xs font-medium">Hồ sơ cá nhân</p>
                     <h2 className="text-white font-black text-xl leading-tight">
@@ -3980,7 +3980,11 @@ export default function Home() {
             .filter((e) => e.earned > 0)
             .sort((a, b) => b.earned - a.earned);
 
-          const medals = ["🥇", "🥈", "🥉"];
+          const medals = [
+            <svg key="1" className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="15" r="6"/><path d="M8.56 2.9A7 7 0 0 1 18.71 9l1.6 2.77M3.69 9l1.61-2.77A7 7 0 0 1 13.14 2.1"/><text x="9.5" y="20" fontSize="8" strokeWidth="0.5" fill="currentColor" stroke="none" fontFamily="sans-serif">1</text></svg>,
+            <svg key="2" className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="15" r="6"/><path d="M8.56 2.9A7 7 0 0 1 18.71 9l1.6 2.77M3.69 9l1.61-2.77A7 7 0 0 1 13.14 2.1"/><text x="9.5" y="20" fontSize="8" strokeWidth="0.5" fill="currentColor" stroke="none" fontFamily="sans-serif">2</text></svg>,
+            <svg key="3" className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="15" r="6"/><path d="M8.56 2.9A7 7 0 0 1 18.71 9l1.6 2.77M3.69 9l1.61-2.77A7 7 0 0 1 13.14 2.1"/><text x="9.5" y="20" fontSize="8" strokeWidth="0.5" fill="currentColor" stroke="none" fontFamily="sans-serif">3</text></svg>,
+          ];
           const topEarned = ranked[0]?.earned ?? 1;
 
           return (
@@ -3990,7 +3994,7 @@ export default function Home() {
                 <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
                 <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/10" />
                 <div className="relative z-10 flex items-center gap-3">
-                  <div className="text-4xl">🏆</div>
+                  <div className="text-4xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4a2 2 0 0 1-2-2V5h4M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M6 9a6 6 0 0 0 12 0V3H6v6Z"/><path d="M12 15v3M9 18h6"/></svg></div>
                   <div>
                     <p className="text-white/80 text-xs font-medium">Bảng xếp hạng</p>
                     <h2 className="text-white font-black text-xl leading-tight">{monthLabel(selectedMonth)}</h2>
@@ -4244,8 +4248,8 @@ export default function Home() {
               ? isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"
               : isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white";
 
-            const badgeLabel = theme === "green"
-              ? "✓ Xong"
+            const badgeLabel: React.ReactNode = theme === "green"
+              ? <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Xong</>
               : theme === "blue"
                 ? isMini ? `${myTotalUnits} clip` : `${myAssignment?.percentage ?? 0}%`
                 : isMini ? `Còn ${(job.totalUnits ?? 0) - totalClaimed}` : `Còn ${100 - totalClaimed}%`;
@@ -4257,7 +4261,7 @@ export default function Home() {
 
                 {/* Top row: type icon + badge */}
                 <div className="flex items-start justify-between gap-1 mb-2 relative z-10">
-                  <span className="text-base leading-none">{isMini ? "🎞️" : theme === "amber" && job.expiresAt ? "📅" : "🎬"}</span>
+                  <span className="text-base leading-none">{isMini ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> : theme === "amber" && job.expiresAt ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeBg}`}>
                     {badgeLabel}
                   </span>
@@ -4271,7 +4275,7 @@ export default function Home() {
                 {/* Date for onsite */}
                 {theme === "amber" && job.expiresAt && (
                   <p className={`text-[11px] mt-1 relative z-10 font-medium ${accentText}`}>
-                    📅 {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}/{new Date(job.expiresAt).getFullYear()}
+                    <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}/{new Date(job.expiresAt).getFullYear()}
                   </p>
                 )}
 
@@ -4309,7 +4313,7 @@ export default function Home() {
                   <div className="flex items-center gap-1">
                     {theme === "amber" && myApprovedPct > 0 && (
                       <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
-                        ✓ {isMini ? `${myApprovedPct} clip` : `${myApprovedPct}%`}
+                        <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> {isMini ? `${myApprovedPct} clip` : `${myApprovedPct}%`}
                       </span>
                     )}
                     {theme === "green" && myApprovedAssignments[0]?.note && (
@@ -4318,7 +4322,7 @@ export default function Home() {
                       </span>
                     )}
                     {theme === "blue" && myAssignment?.status === "PENDING_APPROVAL" && (
-                      <span className="text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">⏳ Chờ duyệt</span>
+                      <span className="text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 2h14M5 22h14"/><path d="M5 2l7 10 7-10M5 22l7-10 7 10"/></svg> Chờ duyệt</span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 ml-auto">
@@ -4404,7 +4408,7 @@ export default function Home() {
                               : "bg-gray-800 text-white border-gray-800"
                             : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
                         }`}>
-                        {f === "all" ? "Tất cả" : f === "onsite" ? "📅 Đi quay" : f === "postprod" ? "🎬 Hậu kỳ" : "🎞️ Mini"}
+                        {f === "all" ? "Tất cả" : f === "onsite" ? <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Đi quay</> : f === "postprod" ? <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Hậu kỳ</> : <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Mini</>}
                       </button>
                     ))}
                   </div>
@@ -4450,7 +4454,7 @@ export default function Home() {
                                 <div>
                                   <p className="text-sm font-bold text-orange-700 leading-none">{group.label}</p>
                                   {group.date && (
-                                    <p className="text-xs text-orange-500 mt-0.5">📅 Ngày quay: {group.date}</p>
+                                    <p className="text-xs text-orange-500 mt-0.5"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Ngày quay: {group.date}</p>
                                   )}
                                 </div>
                                 <span className="ml-auto text-xs text-orange-500 font-medium shrink-0">{group.jobs.length} job</span>
@@ -4483,7 +4487,7 @@ export default function Home() {
                     <div className="space-y-2">
                       {myManualInMonth.map((entry) => (
                         <div key={entry.id} className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
-                          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-sm shrink-0">💰</div>
+                          <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-sm shrink-0"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg></div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800 truncate">{entry.title}</p>
                             {entry.note && <p className="text-xs text-gray-400 truncate">{entry.note}</p>}
@@ -4571,7 +4575,7 @@ export default function Home() {
             </div>
             <div className="px-5 pb-6 pt-3 sm:p-6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center text-xl">🎞️</div>
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg></div>
                 <div>
                   <h3 className="font-bold text-gray-900">Nhận clip</h3>
                   <p className="text-xs text-gray-500 truncate max-w-[200px]">{miniClaimJob.title}</p>
@@ -4617,7 +4621,7 @@ export default function Home() {
                 </button>
                 <button onClick={handleMiniClaim} disabled={submitting}
                   className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white text-sm font-bold transition-colors">
-                  {submitting ? "Đang nhận…" : "✓ Nhận"}
+                  {submitting ? "Đang nhận…" : <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Nhận</>}
                 </button>
               </div>
             </div>
@@ -4667,7 +4671,7 @@ export default function Home() {
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-400 text-sm mb-4" />
                   {Number(sharePercInput) === (sharingItem.currentUnits ?? 1) && (
                     <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
-                      ⚠️ Nhường hết {sharingItem.currentUnits} clip — bạn sẽ rời khỏi job này.
+                      <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Nhường hết {sharingItem.currentUnits} clip — bạn sẽ rời khỏi job này.
                     </p>
                   )}
                 </>
@@ -4698,7 +4702,7 @@ export default function Home() {
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-orange-400 text-sm mb-4" />
                   {Number(sharePercInput) === sharingItem.currentPct && (
                     <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mb-3">
-                      ⚠️ Nhường hết {sharingItem.currentPct}% — bạn sẽ rời khỏi job này.
+                      <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Nhường hết {sharingItem.currentPct}% — bạn sẽ rời khỏi job này.
                     </p>
                   )}
                 </>
@@ -4725,7 +4729,7 @@ export default function Home() {
               <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
               <div className="px-5 pb-6 pt-3 sm:p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center text-xl">🎞️</div>
+                  <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg></div>
                   <div>
                     <h3 className="font-bold text-gray-900">Báo xong clip</h3>
                     <p className="text-xs text-gray-500 line-clamp-1">{miniDoneModal.job.title}</p>
@@ -4764,7 +4768,7 @@ export default function Home() {
                     }}
                     disabled={submitting}
                     className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-bold transition-colors">
-                    {submitting ? "Đang gửi…" : "✓ Gửi duyệt"}
+                    {submitting ? "Đang gửi…" : <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Gửi duyệt</>}
                   </button>
                 </div>
               </div>
