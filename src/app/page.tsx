@@ -142,6 +142,92 @@ function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] }
 }
 
 
+/** Nhận dạng nền tảng mạng xã hội từ URL */
+function getSocialPlatform(url: string): { icon: React.ReactNode; label: string; bgColor: string; textColor: string } {
+  const u = url.toLowerCase();
+  if (u.includes("facebook.com") || u.includes("fb.com") || u.includes("fb.watch"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.513c-1.491 0-1.956.93-1.956 1.885v2.27h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+        </svg>
+      ),
+      label: "Facebook", bgColor: "bg-[#1877F2]", textColor: "text-white",
+    };
+  if (u.includes("youtube.com") || u.includes("youtu.be"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+      ),
+      label: "YouTube", bgColor: "bg-[#FF0000]", textColor: "text-white",
+    };
+  if (u.includes("tiktok.com"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+        </svg>
+      ),
+      label: "TikTok", bgColor: "bg-gray-900", textColor: "text-white",
+    };
+  if (u.includes("instagram.com"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
+        </svg>
+      ),
+      label: "Instagram", bgColor: "bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888]", textColor: "text-white",
+    };
+  if (u.includes("twitter.com") || u.includes("x.com"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 5.867zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+        </svg>
+      ),
+      label: "X / Twitter", bgColor: "bg-black", textColor: "text-white",
+    };
+  if (u.includes("zalo.me") || u.includes("chat.zalo.me"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M12.005 0C5.376 0 0 5.373 0 12c0 2.55.806 4.919 2.173 6.865L.756 23.235l4.565-1.462A11.945 11.945 0 0 0 12.005 24C18.629 24 24 18.627 24 12S18.629 0 12.005 0zm5.822 16.418c-.246.687-1.21 1.259-1.994 1.425-.53.113-1.222.203-3.554-.763-2.984-1.229-4.907-4.265-5.056-4.462-.143-.198-1.2-1.598-1.2-3.047s.751-2.155 1.018-2.45a1.071 1.071 0 0 1 .775-.362c.193 0 .386.003.556.012.178.009.417-.067.653.499.246.584.835 2.033.908 2.179.074.145.122.314.024.505-.099.194-.148.314-.293.484-.146.168-.307.375-.438.504-.146.146-.297.304-.128.597.17.294.753 1.243 1.616 2.013 1.11.991 2.047 1.297 2.34 1.443.295.145.466.121.637-.073.17-.194.732-.854.928-1.147.193-.294.386-.244.651-.146.264.097 1.679.791 1.967.936.288.145.48.218.55.338.071.121.071.696-.175 1.383z"/>
+        </svg>
+      ),
+      label: "Zalo", bgColor: "bg-[#0068FF]", textColor: "text-white",
+    };
+  if (u.includes("threads.net"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.583-1.313-.883-2.378-.892h-.036c-.874 0-2.018.241-2.76 1.168l-1.608-1.38c1.114-1.31 2.752-2.032 4.387-2.032h.068c3.019.025 4.819 1.805 5.063 5.021.157.019.314.04.467.066 1.353.229 2.506.86 3.33 1.824 1.14 1.342 1.55 3.21.995 5.124-.64 2.214-2.048 3.915-4.042 4.92-1.769.892-3.901 1.329-6.537 1.347z"/>
+        </svg>
+      ),
+      label: "Threads", bgColor: "bg-gray-900", textColor: "text-white",
+    };
+  if (u.includes("anhemphim"))
+    return {
+      icon: (
+        <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M18 3v2h-2V3H8v2H6V3H4v18h2v-2h2v2h8v-2h2v2h2V3h-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/>
+        </svg>
+      ),
+      label: "Anh Em Phim", bgColor: "bg-emerald-600", textColor: "text-white",
+    };
+  return {
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    ),
+    label: "Link", bgColor: "bg-gray-500", textColor: "text-white",
+  };
+}
+
 export default function Home() {
   const [view, setView] = useState<View>(() => {
     if (typeof window !== "undefined" && localStorage.getItem("director_session") === "1") {
@@ -251,6 +337,12 @@ export default function Home() {
   const [aepSubTab, setAepSubTab] = useState<"overview" | "chot">("overview");
   const [aepMonth, setAepMonth] = useState<string>("2026-02");
 
+  // ── Social links ─────────────────────────────────────
+  const [socialLinks, setSocialLinks] = useState<Array<{ id: string; label: string; url: string }>>([]);
+  const [socialLinkInput, setSocialLinkInput] = useState("");
+  const [socialLinkLabel, setSocialLinkLabel] = useState("");
+  const [showSocialAdd, setShowSocialAdd] = useState(false);
+
   // ── Share job state ──────────────────────────────────
   const [sharingItem, setSharingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; currentPct: number; isMini?: boolean; currentUnits?: number } | null>(null);
   const [sharePercInput, setSharePercInput] = useState("");
@@ -322,6 +414,19 @@ export default function Home() {
     fetchAll(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load social links từ localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("social_links");
+      if (saved) setSocialLinks(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  // Lưu social links vào localStorage khi thay đổi
+  useEffect(() => {
+    localStorage.setItem("social_links", JSON.stringify(socialLinks));
+  }, [socialLinks]);
 
   useEffect(() => {
     if (view !== "LOGIN") fetchAll();
@@ -2231,6 +2336,91 @@ export default function Home() {
                             />
                           </AreaChart>
                         </ResponsiveContainer>
+                      </div>
+
+                      {/* ── Kênh mạng xã hội ── */}
+                      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">🔗 Kênh mạng xã hội</p>
+                          <button
+                            onClick={() => { setShowSocialAdd((v) => !v); setSocialLinkInput(""); setSocialLinkLabel(""); }}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                            <PlusCircle className="w-3.5 h-3.5" /> Thêm
+                          </button>
+                        </div>
+
+                        {/* Form thêm link */}
+                        {showSocialAdd && (
+                          <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                            <input
+                              type="url"
+                              placeholder="Dán link vào đây (vd: https://facebook.com/...)"
+                              value={socialLinkInput}
+                              onChange={(e) => setSocialLinkInput(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                              autoFocus
+                            />
+                            <input
+                              type="text"
+                              placeholder="Tên hiển thị (tuỳ chọn)"
+                              value={socialLinkLabel}
+                              onChange={(e) => setSocialLinkLabel(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  const url = socialLinkInput.trim();
+                                  if (!url) return;
+                                  const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+                                  const platform = getSocialPlatform(fullUrl);
+                                  const label = socialLinkLabel.trim() || platform.label;
+                                  setSocialLinks((prev) => [...prev, { id: Date.now().toString(), label, url: fullUrl }]);
+                                  setSocialLinkInput("");
+                                  setSocialLinkLabel("");
+                                  setShowSocialAdd(false);
+                                }}
+                                disabled={!socialLinkInput.trim()}
+                                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors">
+                                Lưu
+                              </button>
+                              <button
+                                onClick={() => { setShowSocialAdd(false); setSocialLinkInput(""); setSocialLinkLabel(""); }}
+                                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
+                                Huỷ
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Danh sách link */}
+                        {socialLinks.length === 0 ? (
+                          <p className="text-xs text-gray-400 text-center py-4">Chưa có kênh nào. Bấm <span className="font-semibold text-blue-500">+ Thêm</span> để thêm link.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {socialLinks.map((link) => {
+                              const platform = getSocialPlatform(link.url);
+                              return (
+                                <div key={link.id} className="flex items-center gap-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                                  <a
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`flex items-center gap-1.5 px-3 py-2 ${platform.bgColor} ${platform.textColor} text-xs font-semibold transition-opacity hover:opacity-90`}>
+                                    {platform.icon}
+                                    <span>{link.label}</span>
+                                  </a>
+                                  <button
+                                    onClick={() => setSocialLinks((prev) => prev.filter((l) => l.id !== link.id))}
+                                    title="Xoá link"
+                                    className="px-2 py-2 bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
