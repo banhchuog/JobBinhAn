@@ -387,6 +387,16 @@ export default function Home() {
     createdAt: string; approvedAt: string;
   } | null>(null);
 
+  // ── Dark mode (auto based on system preference) ─────
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDark(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupInput, setGroupInput] = useState("");
@@ -1015,7 +1025,7 @@ export default function Home() {
   // ══════════════════════════════════════════════════════
   if (view === "DIRECTOR") {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className={`min-h-screen bg-gray-50${isDark ? " admin-dark" : ""}`}>
         <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
             <div className="flex items-center gap-2 text-blue-600">
