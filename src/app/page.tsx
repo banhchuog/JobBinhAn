@@ -152,6 +152,44 @@ function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] }
 
 
 /** Nhận dạng nền tảng mạng xã hội từ URL */
+// ── Social channel types ────────────────────────────
+interface SocialChannel {
+  id: string;
+  platform: string; // platform key
+  label: string;    // custom display name (empty = use platform default)
+  url: string;      // empty = channel not created yet
+}
+interface SocialGroup {
+  id: string;
+  name: string;
+  channels: SocialChannel[];
+}
+
+const PLATFORM_LIST: Array<{ id: string; label: string; bgColor: string; textColor: string; icon: React.ReactNode }> = [
+  { id: "facebook",  label: "Facebook",    bgColor: "bg-[#1877F2]", textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.513c-1.491 0-1.956.93-1.956 1.885v2.27h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg> },
+  { id: "youtube",   label: "YouTube",     bgColor: "bg-[#FF0000]", textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg> },
+  { id: "tiktok",    label: "TikTok",      bgColor: "bg-gray-900",   textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg> },
+  { id: "instagram", label: "Instagram",   bgColor: "bg-gradient-to-br from-[#f09433] via-[#e6683c] to-[#bc1888]", textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/></svg> },
+  { id: "x",         label: "X / Twitter", bgColor: "bg-black",      textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.713 5.867zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+  { id: "zalo",      label: "Zalo",        bgColor: "bg-[#0068FF]",  textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M12.005 0C5.376 0 0 5.373 0 12c0 2.55.806 4.919 2.173 6.865L.756 23.235l4.565-1.462A11.945 11.945 0 0 0 12.005 24C18.629 24 24 18.627 24 12S18.629 0 12.005 0zm5.822 16.418c-.246.687-1.21 1.259-1.994 1.425-.53.113-1.222.203-3.554-.763-2.984-1.229-4.907-4.265-5.056-4.462-.143-.198-1.2-1.598-1.2-3.047s.751-2.155 1.018-2.45a1.071 1.071 0 0 1 .775-.362c.193 0 .386.003.556.012.178.009.417-.067.653.499.246.584.835 2.033.908 2.179.074.145.122.314.024.505-.099.194-.148.314-.293.484-.146.168-.307.375-.438.504-.146.146-.297.304-.128.597.17.294.753 1.243 1.616 2.013 1.11.991 2.047 1.297 2.34 1.443.295.145.466.121.637-.073.17-.194.732-.854.928-1.147.193-.294.386-.244.651-.146.264.097 1.679.791 1.967.936.288.145.48.218.55.338.071.121.071.696-.175 1.383z"/></svg> },
+  { id: "threads",   label: "Threads",     bgColor: "bg-gray-900",   textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5"><path d="M12.186 24h-.007c-3.581-.024-6.334-1.205-8.184-3.509C2.35 18.44 1.5 15.586 1.472 12.01v-.017c.03-3.579.879-6.43 2.525-8.482C5.845 1.205 8.6.024 12.18 0h.014c2.746.02 5.043.725 6.826 2.098 1.677 1.29 2.858 3.13 3.509 5.467l-2.04.569c-1.104-3.96-3.898-5.984-8.304-6.015-2.91.022-5.11.936-6.54 2.717C4.307 6.504 3.616 8.914 3.589 12c.027 3.086.718 5.496 2.057 7.164 1.43 1.783 3.631 2.698 6.54 2.717 2.623-.02 4.358-.631 5.8-2.045 1.647-1.613 1.618-3.593 1.09-4.798-.31-.71-.873-1.3-1.634-1.75-.192 1.352-.622 2.446-1.284 3.272-.886 1.102-2.14 1.704-3.73 1.79-1.202.065-2.361-.218-3.259-.801-1.063-.689-1.685-1.74-1.752-2.964-.065-1.19.408-2.285 1.33-3.082.88-.76 2.119-1.207 3.583-1.291a13.853 13.853 0 0 1 3.02.142c-.126-.742-.375-1.332-.75-1.757-.513-.583-1.313-.883-2.378-.892h-.036c-.874 0-2.018.241-2.76 1.168l-1.608-1.38c1.114-1.31 2.752-2.032 4.387-2.032h.068c3.019.025 4.819 1.805 5.063 5.021.157.019.314.04.467.066 1.353.229 2.506.86 3.33 1.824 1.14 1.342 1.55 3.21.995 5.124-.64 2.214-2.048 3.915-4.042 4.92-1.769.892-3.901 1.329-6.537 1.347z"/></svg> },
+  { id: "website",   label: "Website",     bgColor: "bg-emerald-600", textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> },
+  { id: "other",     label: "Khác",        bgColor: "bg-gray-500",   textColor: "text-white",
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
+];
+
+function getPlatformMeta(platformId: string) {
+  return PLATFORM_LIST.find(p => p.id === platformId) ?? PLATFORM_LIST[PLATFORM_LIST.length - 1];
+}
+
 function getSocialPlatform(url: string): { icon: React.ReactNode; label: string; bgColor: string; textColor: string } {
   const u = url.toLowerCase();
   if (u.includes("facebook.com") || u.includes("fb.com") || u.includes("fb.watch"))
@@ -353,11 +391,20 @@ export default function Home() {
   const [aepFilterSalary, setAepFilterSalary] = useState("");
   const [aepFilterManual, setAepFilterManual] = useState("");
 
-  // ── Social links ─────────────────────────────────────
-  const [socialLinks, setSocialLinks] = useState<Array<{ id: string; label: string; url: string }>>([]);
-  const [socialLinkInput, setSocialLinkInput] = useState("");
-  const [socialLinkLabel, setSocialLinkLabel] = useState("");
-  const [showSocialAdd, setShowSocialAdd] = useState(false);
+  // ── Social groups ─────────────────────────────────────
+  const [socialGroups, setSocialGroups] = useState<SocialGroup[]>([]);
+  const [showAddGroup, setShowAddGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [addChannelGroupId, setAddChannelGroupId] = useState<string | null>(null);
+  const [addChannelStep, setAddChannelStep] = useState<"pick" | "detail">("pick");
+  const [newChannelPlatform, setNewChannelPlatform] = useState("");
+  const [newChannelLabel, setNewChannelLabel] = useState("");
+  const [newChannelUrl, setNewChannelUrl] = useState("");
+  const [editChannelId, setEditChannelId] = useState<string | null>(null);
+  const [editChannelUrl, setEditChannelUrl] = useState("");
+  const [editChannelLabel, setEditChannelLabel] = useState("");
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState("");
 
   // ── Chia lợi nhuận ───────────────────────────────────
   type ProfitShare = { id: string; name: string; percent: number };
@@ -451,20 +498,40 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load social links từ DB
+  // Load social groups từ DB
   useEffect(() => {
     fetch("/api/settings/social_links")
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (Array.isArray(d)) setSocialLinks(d); })
+      .then(d => {
+        if (!d) return;
+        // Backward compat: nếu data là flat array (format cũ) → migrate thành 1 group
+        if (Array.isArray(d) && d.length > 0 && 'url' in d[0]) {
+          const migrated: SocialGroup[] = [{
+            id: Date.now().toString(),
+            name: "Kênh của tôi",
+            channels: (d as Array<{ id: string; label: string; url: string }>).map(l => ({
+              id: l.id,
+              platform: "other",
+              label: l.label,
+              url: l.url,
+            })),
+          }];
+          setSocialGroups(migrated);
+          saveSocialGroups(migrated);
+        } else if (Array.isArray(d)) {
+          setSocialGroups(d as SocialGroup[]);
+        }
+      })
       .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const saveSocialLinks = async (links: Array<{ id: string; label: string; url: string }>) => {
+  const saveSocialGroups = async (groups: SocialGroup[]) => {
     try {
       await fetch("/api/settings/social_links", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(links),
+        body: JSON.stringify(groups),
       });
     } catch { /* ignore */ }
   };
@@ -2427,95 +2494,253 @@ export default function Home() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* ── Kênh mạng xã hội ── */}
-                      <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Kênh mạng xã hội</p>
-                          <button
-                            onClick={() => { setShowSocialAdd((v) => !v); setSocialLinkInput(""); setSocialLinkLabel(""); }}
+                      {/* ── Kế hoạch kênh theo nhóm ── */}
+                      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            Kế hoạch kênh
+                          </p>
+                          <button onClick={() => { setShowAddGroup(v => !v); setNewGroupName(""); }}
                             className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors">
-                            <PlusCircle className="w-3.5 h-3.5" /> Thêm
+                            <PlusCircle className="w-3.5 h-3.5" /> Thêm nhóm
                           </button>
                         </div>
 
-                        {/* Form thêm link */}
-                        {showSocialAdd && (
-                          <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                        {/* Form thêm nhóm */}
+                        {showAddGroup && (
+                          <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                            <p className="text-xs font-semibold text-gray-600">Tên nhóm / dự án</p>
                             <input
-                              type="url"
-                              placeholder="Dán link vào đây (vd: https://facebook.com/...)"
-                              value={socialLinkInput}
-                              onChange={(e) => setSocialLinkInput(e.target.value)}
-                              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                               autoFocus
-                            />
-                            <input
                               type="text"
-                              placeholder="Tên hiển thị (tuỳ chọn)"
-                              value={socialLinkLabel}
-                              onChange={(e) => setSocialLinkLabel(e.target.value)}
+                              placeholder="vd: Nhóm Drama, Nhóm Sức Khoẻ, Hiếu Ráng Làm Phim..."
+                              value={newGroupName}
+                              onChange={e => setNewGroupName(e.target.value)}
+                              onKeyDown={async e => {
+                                if (e.key === "Enter" && newGroupName.trim()) {
+                                  const g: SocialGroup = { id: Date.now().toString(), name: newGroupName.trim(), channels: [] };
+                                  const next = [...socialGroups, g];
+                                  setSocialGroups(next); setShowAddGroup(false); setNewGroupName("");
+                                  await saveSocialGroups(next);
+                                }
+                              }}
                               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                             />
                             <div className="flex gap-2">
                               <button
+                                disabled={!newGroupName.trim()}
                                 onClick={async () => {
-                                  const url = socialLinkInput.trim();
-                                  if (!url) return;
-                                  const fullUrl = url.startsWith("http") ? url : `https://${url}`;
-                                  const platform = getSocialPlatform(fullUrl);
-                                  const label = socialLinkLabel.trim() || platform.label;
-                                  const newLinks = [...socialLinks, { id: Date.now().toString(), label, url: fullUrl }];
-                                  setSocialLinks(newLinks);
-                                  setSocialLinkInput("");
-                                  setSocialLinkLabel("");
-                                  setShowSocialAdd(false);
-                                  await saveSocialLinks(newLinks);
+                                  const g: SocialGroup = { id: Date.now().toString(), name: newGroupName.trim(), channels: [] };
+                                  const next = [...socialGroups, g];
+                                  setSocialGroups(next); setShowAddGroup(false); setNewGroupName("");
+                                  await saveSocialGroups(next);
                                 }}
-                                disabled={!socialLinkInput.trim()}
-                                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors">
-                                Lưu
-                              </button>
-                              <button
-                                onClick={() => { setShowSocialAdd(false); setSocialLinkInput(""); setSocialLinkLabel(""); }}
-                                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg transition-colors">
-                                Huỷ
-                              </button>
+                                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold rounded-lg transition-colors">Tạo nhóm</button>
+                              <button onClick={() => { setShowAddGroup(false); setNewGroupName(""); }}
+                                className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg transition-colors">Huỷ</button>
                             </div>
                           </div>
                         )}
 
-                        {/* Danh sách link */}
-                        {socialLinks.length === 0 ? (
-                          <p className="text-xs text-gray-400 text-center py-4">Chưa có kênh nào. Bấm <span className="font-semibold text-blue-500">+ Thêm</span> để thêm link.</p>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {socialLinks.map((link) => {
-                              const platform = getSocialPlatform(link.url);
+                        {/* Danh sách nhóm */}
+                        {socialGroups.length === 0 && !showAddGroup && (
+                          <p className="text-xs text-gray-400 text-center py-4">Chưa có nhóm kênh nào. Bấm <span className="font-semibold text-blue-500">+ Thêm nhóm</span> để lên kế hoạch.</p>
+                        )}
+
+                        {socialGroups.map((group) => (
+                          <div key={group.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                            {/* Group header */}
+                            <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-100">
+                              {editingGroupId === group.id ? (
+                                <input
+                                  autoFocus
+                                  value={editGroupName}
+                                  onChange={e => setEditGroupName(e.target.value)}
+                                  onKeyDown={async e => {
+                                    if (e.key === "Enter" && editGroupName.trim()) {
+                                      const next = socialGroups.map(g => g.id === group.id ? { ...g, name: editGroupName.trim() } : g);
+                                      setSocialGroups(next); setEditingGroupId(null);
+                                      await saveSocialGroups(next);
+                                    } else if (e.key === "Escape") setEditingGroupId(null);
+                                  }}
+                                  onBlur={async () => {
+                                    if (editGroupName.trim()) {
+                                      const next = socialGroups.map(g => g.id === group.id ? { ...g, name: editGroupName.trim() } : g);
+                                      setSocialGroups(next); await saveSocialGroups(next);
+                                    }
+                                    setEditingGroupId(null);
+                                  }}
+                                  className="flex-1 text-sm font-semibold border border-blue-300 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                />
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingGroupId(group.id); setEditGroupName(group.name); }}
+                                  className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors flex items-center gap-1">
+                                  {group.name}
+                                  <Pencil className="w-3 h-3 opacity-40" />
+                                </button>
+                              )}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => { setAddChannelGroupId(group.id); setAddChannelStep("pick"); setNewChannelPlatform(""); setNewChannelLabel(""); setNewChannelUrl(""); }}
+                                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors px-2 py-0.5 rounded-lg hover:bg-blue-50">
+                                  <PlusCircle className="w-3 h-3" /> Kênh
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (group.channels.length > 0 && !confirm(`Xoá nhóm "${group.name}" và ${group.channels.length} kênh?`)) return;
+                                    const next = socialGroups.filter(g => g.id !== group.id);
+                                    setSocialGroups(next); await saveSocialGroups(next);
+                                  }}
+                                  className="p-0.5 text-gray-300 hover:text-red-400 transition-colors rounded">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Add channel form — step 1: pick platform */}
+                            {addChannelGroupId === group.id && addChannelStep === "pick" && (
+                              <div className="p-3 bg-blue-50 border-b border-blue-100">
+                                <p className="text-xs font-semibold text-blue-700 mb-2">Chọn nền tảng:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {PLATFORM_LIST.map(p => (
+                                    <button key={p.id}
+                                      onClick={() => { setNewChannelPlatform(p.id); setAddChannelStep("detail"); setNewChannelLabel(""); setNewChannelUrl(""); }}
+                                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold ${p.bgColor} ${p.textColor} opacity-90 hover:opacity-100 transition-opacity`}>
+                                      {p.icon}{p.label}
+                                    </button>
+                                  ))}
+                                  <button onClick={() => setAddChannelGroupId(null)}
+                                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors">Huỷ</button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Add channel form — step 2: detail */}
+                            {addChannelGroupId === group.id && addChannelStep === "detail" && (() => {
+                              const pm = getPlatformMeta(newChannelPlatform);
                               return (
-                                <div key={link.id} className="flex items-center gap-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                                  <a
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`flex items-center gap-1.5 px-3 py-2 ${platform.bgColor} ${platform.textColor} text-xs font-semibold transition-opacity hover:opacity-90`}>
-                                    {platform.icon}
-                                    <span>{link.label}</span>
-                                  </a>
-                                  <button
-                                    onClick={async () => {
-                                      const newLinks = socialLinks.filter((l) => l.id !== link.id);
-                                      setSocialLinks(newLinks);
-                                      await saveSocialLinks(newLinks);
-                                    }}
-                                    title="Xoá link"
-                                    className="px-2 py-2 bg-gray-100 hover:bg-red-100 text-gray-400 hover:text-red-500 transition-colors">
-                                    <X className="w-3 h-3" />
-                                  </button>
+                                <div className="p-3 bg-blue-50 border-b border-blue-100 space-y-2">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${pm.bgColor} ${pm.textColor}`}>{pm.icon}{pm.label}</span>
+                                    <p className="text-xs text-blue-600 font-medium">Điền thông tin kênh</p>
+                                  </div>
+                                  <input type="text"
+                                    placeholder={`Tên kênh (vd: ${pm.label} Drama) — để trống dùng tên mặc định`}
+                                    value={newChannelLabel}
+                                    onChange={e => setNewChannelLabel(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                  />
+                                  <input type="url"
+                                    placeholder="URL kênh (để trống nếu chưa tạo)"
+                                    value={newChannelUrl}
+                                    onChange={e => setNewChannelUrl(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={async () => {
+                                        const ch: SocialChannel = {
+                                          id: Date.now().toString(),
+                                          platform: newChannelPlatform,
+                                          label: newChannelLabel.trim() || pm.label,
+                                          url: newChannelUrl.trim(),
+                                        };
+                                        const next = socialGroups.map(g => g.id === group.id ? { ...g, channels: [...g.channels, ch] } : g);
+                                        setSocialGroups(next);
+                                        setAddChannelGroupId(null);
+                                        await saveSocialGroups(next);
+                                      }}
+                                      className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors">Thêm kênh</button>
+                                    <button onClick={() => setAddChannelStep("pick")}
+                                      className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg transition-colors">← Quay lại</button>
+                                    <button onClick={() => setAddChannelGroupId(null)}
+                                      className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-semibold rounded-lg transition-colors">Huỷ</button>
+                                  </div>
                                 </div>
                               );
-                            })}
+                            })()}
+
+                            {/* Channel list */}
+                            <div className="p-3">
+                              {group.channels.length === 0 ? (
+                                <p className="text-xs text-gray-400 text-center py-2">Chưa có kênh nào — bấm <span className="text-blue-500 font-semibold">+ Kênh</span> để thêm.</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {group.channels.map(ch => {
+                                    const pm = getPlatformMeta(ch.platform);
+                                    const hasUrl = !!ch.url;
+                                    const isEditing = editChannelId === ch.id;
+                                    return (
+                                      <div key={ch.id} className="group/ch relative">
+                                        {isEditing ? (
+                                          <div className="absolute z-20 bottom-full left-0 mb-1 w-64 bg-white border border-gray-200 rounded-xl shadow-lg p-3 space-y-2">
+                                            <p className="text-xs font-semibold text-gray-600">Chỉnh sửa kênh</p>
+                                            <input type="text"
+                                              placeholder="Tên kênh"
+                                              value={editChannelLabel}
+                                              onChange={e => setEditChannelLabel(e.target.value)}
+                                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300"
+                                            />
+                                            <input type="url"
+                                              placeholder="URL (để trống nếu chưa tạo)"
+                                              value={editChannelUrl}
+                                              onChange={e => setEditChannelUrl(e.target.value)}
+                                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-300"
+                                            />
+                                            <div className="flex gap-1.5">
+                                              <button
+                                                onClick={async () => {
+                                                  const next = socialGroups.map(g => ({
+                                                    ...g,
+                                                    channels: g.channels.map(c => c.id === ch.id
+                                                      ? { ...c, label: editChannelLabel.trim() || pm.label, url: editChannelUrl.trim() }
+                                                      : c),
+                                                  }));
+                                                  setSocialGroups(next); setEditChannelId(null);
+                                                  await saveSocialGroups(next);
+                                                }}
+                                                className="flex-1 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg">Lưu</button>
+                                              <button onClick={() => setEditChannelId(null)}
+                                                className="px-2 py-1 bg-gray-200 hover:bg-gray-300 text-xs text-gray-600 font-semibold rounded-lg">Huỷ</button>
+                                              <button
+                                                onClick={async () => {
+                                                  const next = socialGroups.map(g => ({ ...g, channels: g.channels.filter(c => c.id !== ch.id) }));
+                                                  setSocialGroups(next); setEditChannelId(null);
+                                                  await saveSocialGroups(next);
+                                                }}
+                                                className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 text-xs font-semibold rounded-lg">Xoá</button>
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                        {hasUrl ? (
+                                          <div className="flex items-center gap-0 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                                            <a href={ch.url} target="_blank" rel="noopener noreferrer"
+                                              className={`flex items-center gap-1.5 px-2.5 py-1.5 ${pm.bgColor} ${pm.textColor} text-xs font-semibold hover:opacity-90 transition-opacity`}>
+                                              {pm.icon}<span>{ch.label}</span>
+                                            </a>
+                                            <button onClick={() => { setEditChannelId(ch.id); setEditChannelUrl(ch.url); setEditChannelLabel(ch.label); }}
+                                              className="px-1.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-400 transition-colors">
+                                              <Pencil className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => { setEditChannelId(ch.id); setEditChannelUrl(""); setEditChannelLabel(ch.label); }}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border-2 border-dashed border-gray-200 text-xs font-semibold text-gray-400 hover:border-blue-300 hover:text-blue-500 transition-colors">
+                                            {pm.icon}<span>{ch.label}</span><span className="text-[10px] text-gray-300">• chưa tạo</span>
+                                          </button>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
 
                       {/* ── Chia lợi nhuận ── */}
