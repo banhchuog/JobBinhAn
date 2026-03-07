@@ -53,6 +53,15 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+/** Phân loại nguồn gửi doanh thu từ thu chi app */
+function classifyRevenueSender(subject: string): "metub" | "yeah1" | "mcv" | "other" {
+  const s = (subject || "").toUpperCase();
+  if (s.includes("METUB")) return "metub";
+  if (s.includes("YEAH1")) return "yeah1";
+  if (s.includes("MCV")) return "mcv";
+  return "other";
+}
+
 // ── Default shooting positions ──────────────────────────
 interface ShootPosition {
   role: string;
@@ -2027,6 +2036,11 @@ export default function Home() {
               : null;
             const thuChiThu = thuChiMonth?.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
             const thuChiChi = thuChiMonth?.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
+            const _amtM = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+            const thuMetubMonth = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject) === "metub").reduce((s, t) => s + _amtM(t), 0) ?? 0;
+            const thuYeah1Month = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject) === "yeah1").reduce((s, t) => s + _amtM(t), 0) ?? 0;
+            const thuMCVMonth   = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject) === "mcv").reduce((s, t) => s + _amtM(t), 0) ?? 0;
+            const thuKhacMonth  = thuChiThu - thuMetubMonth - thuYeah1Month - thuMCVMonth;
 
             // Revenue (anhemphim.vn) cho tháng đang chọn
             const anhEmPhimThu = revenueData?.[directorMonth] ?? 0;
@@ -2046,8 +2060,14 @@ export default function Home() {
 
             const reportRows = allReportMonths.map((ym) => {
               const txs = thuChiData?.filter((t) => t.date?.startsWith(ym)) ?? [];
-              const thuChiThuYm = txs.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
-              const chiYm = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+              const _amt = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+              const thuTxs = txs.filter((t) => t.type === "Thu");
+              const thuChiThuYm = thuTxs.reduce((s, t) => s + _amt(t), 0);
+              const thuMetubYm  = thuTxs.filter(t => classifyRevenueSender(t.subject) === "metub").reduce((s, t) => s + _amt(t), 0);
+              const thuYeah1Ym  = thuTxs.filter(t => classifyRevenueSender(t.subject) === "yeah1").reduce((s, t) => s + _amt(t), 0);
+              const thuMCVYm    = thuTxs.filter(t => classifyRevenueSender(t.subject) === "mcv").reduce((s, t) => s + _amt(t), 0);
+              const thuKhacYm   = thuChiThuYm - thuMetubYm - thuYeah1Ym - thuMCVYm;
+              const chiYm = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + _amt(t), 0);
               const revYm = revenueData?.[ym] ?? 0;
               const thuYm = thuChiThuYm + revYm;
               const salaryFromJobs = employees.map((emp) =>
@@ -2060,7 +2080,7 @@ export default function Home() {
               const salary = salaryFromJobs + manualSalaryYm;
               const tongChi = chiYm + salary;
               const loiNhuanYm = thuYm - tongChi;
-              return { ym, thu: thuYm, thuChiThu: thuChiThuYm, revYm, chi: chiYm, salary, tongChi, loiNhuan: loiNhuanYm };
+              return { ym, thu: thuYm, thuChiThu: thuChiThuYm, thuMetub: thuMetubYm, thuYeah1: thuYeah1Ym, thuMCV: thuMCVYm, thuKhac: thuKhacYm, revYm, chi: chiYm, salary, tongChi, loiNhuan: loiNhuanYm };
             });
 
             return (
@@ -2112,14 +2132,17 @@ export default function Home() {
                           a.click();
                         } else {
                           // Xuất báo cáo tổng hợp
-                          const header = "Tháng,AEP (VND),Thu khác (VND),Chi khác (VND),Lương (VND),Lợi nhuận (VND),VAT 8% (VND),TNCN 3% (VND),TNDN 18% (VND)";
+                          const header = "Tháng,AEP (VND),Metub (VND),Yeah1 (VND),MCV (VND),Thu khác (VND),Chi khác (VND),Lương (VND),Lợi nhuận (VND),VAT 8% (VND),TNCN 3% (VND),TNDN 18% (VND)";
                           const rows = reportRows.map((r) => {
                             const totalThu = r.revYm + r.thuChiThu;
                             const totalChi = r.chi + r.salary;
                             return [
                               r.ym,
                               r.revYm,
-                              r.thuChiThu,
+                              r.thuMetub,
+                              r.thuYeah1,
+                              r.thuMCV,
+                              r.thuKhac,
                               r.chi,
                               r.salary,
                               r.loiNhuan,
@@ -2134,7 +2157,10 @@ export default function Home() {
                           rows.push([
                             "TỔNG CỘNG",
                             reportRows.reduce((s, r) => s + r.revYm, 0),
-                            reportRows.reduce((s, r) => s + r.thuChiThu, 0),
+                            reportRows.reduce((s, r) => s + r.thuMetub, 0),
+                            reportRows.reduce((s, r) => s + r.thuYeah1, 0),
+                            reportRows.reduce((s, r) => s + r.thuMCV, 0),
+                            reportRows.reduce((s, r) => s + r.thuKhac, 0),
                             reportRows.reduce((s, r) => s + r.chi, 0),
                             reportRows.reduce((s, r) => s + r.salary, 0),
                             totProfit,
@@ -2199,6 +2225,10 @@ export default function Home() {
 
                   const totalAEP     = filteredRows.reduce((s, r) => s + r.revYm, 0);
                   const totalThuKhac = filteredRows.reduce((s, r) => s + r.thuChiThu, 0);
+                  const totalMetub   = filteredRows.reduce((s, r) => s + r.thuMetub, 0);
+                  const totalYeah1   = filteredRows.reduce((s, r) => s + r.thuYeah1, 0);
+                  const totalMCV     = filteredRows.reduce((s, r) => s + r.thuMCV, 0);
+                  const totalKhac    = filteredRows.reduce((s, r) => s + r.thuKhac, 0);
                   const totalThu     = totalAEP + totalThuKhac;
                   const totalChi     = filteredRows.reduce((s, r) => s + r.chi, 0);
                   const totalSalary  = filteredRows.reduce((s, r) => s + r.salary, 0);
@@ -2212,7 +2242,10 @@ export default function Home() {
                       ym: r.ym,
                       name: r.ym.slice(5) + "/" + r.ym.slice(2, 4),
                       AEP: Math.round(r.revYm / 1e6 * 10) / 10,
-                      ThuKhac: Math.round(r.thuChiThu / 1e6 * 10) / 10,
+                      Metub: Math.round(r.thuMetub / 1e6 * 10) / 10,
+                      Yeah1: Math.round(r.thuYeah1 / 1e6 * 10) / 10,
+                      MCV: Math.round(r.thuMCV / 1e6 * 10) / 10,
+                      ThuKhac: Math.round(r.thuKhac / 1e6 * 10) / 10,
                       TongThu: Math.round((r.revYm + r.thuChiThu) / 1e6 * 10) / 10,
                       TongChi: Math.round((r.chi + r.salary) / 1e6 * 10) / 10,
                       LoiNhuan: Math.round(r.loiNhuan / 1e6 * 10) / 10,
@@ -2261,7 +2294,10 @@ export default function Home() {
                           <p className="text-[10px] text-green-600 font-semibold mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Tổng doanh thu</p>
                           <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(totalThu)}</p>
                           {totalAEP > 0 && <p className="text-[10px] text-green-500 mt-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalAEP)}</p>}
-                          {totalThuKhac > 0 && <p className="text-[10px] text-green-400">+ {new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalThuKhac)} khác</p>}
+                          {totalMetub > 0 && <p className="text-[10px] text-blue-500">Metub: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalMetub)}</p>}
+                          {totalYeah1 > 0 && <p className="text-[10px] text-pink-500">Yeah1: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalYeah1)}</p>}
+                          {totalMCV > 0 && <p className="text-[10px] text-purple-500">MCV: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalMCV)}</p>}
+                          {totalKhac > 0 && <p className="text-[10px] text-green-400">Khác: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(totalKhac)}</p>}
                         </div>
                         <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
                           <p className="text-[10px] text-red-500 font-semibold mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Tổng chi phí</p>
@@ -2333,6 +2369,9 @@ export default function Home() {
                             />
                             <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
                             <Bar dataKey="AEP" name="Anh Em Phim" stackId="thu" fill="#34d399" radius={[0,0,0,0]} />
+                            <Bar dataKey="Metub" name="Metub" stackId="thu" fill="#60a5fa" radius={[0,0,0,0]} />
+                            <Bar dataKey="Yeah1" name="Yeah1" stackId="thu" fill="#f472b6" radius={[0,0,0,0]} />
+                            <Bar dataKey="MCV" name="MCV" stackId="thu" fill="#a78bfa" radius={[0,0,0,0]} />
                             <Bar dataKey="ThuKhac" name="Thu khác" stackId="thu" fill="#6ee7b7" radius={[4,4,0,0]} />
                             <Bar dataKey="TongChi" name="Tổng chi" fill="#fb923c" radius={[4,4,0,0]} />
                           </BarChart>
@@ -2659,14 +2698,14 @@ export default function Home() {
                       <div className="bg-green-50 border border-green-200 rounded-2xl p-3">
                         <p className="text-xs text-green-600 font-medium mb-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Doanh thu</p>
                         <p className="font-black text-green-700 text-base leading-tight">{formatCurrency(tongThu)}</p>
-                        {anhEmPhimThu > 0 && thuChiThu > 0 && (
+                        {(anhEmPhimThu > 0 || thuChiThu > 0) && (
                           <div className="mt-1.5 space-y-0.5">
-                            <p className="text-[10px] text-green-500"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> AEP: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(anhEmPhimThu)}</p>
-                            <p className="text-[10px] text-green-500"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> TC: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuChiThu)}</p>
+                            {anhEmPhimThu > 0 && <p className="text-[10px] text-green-500"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> AEP: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(anhEmPhimThu)}</p>}
+                            {thuMetubMonth > 0 && <p className="text-[10px] text-blue-500">Metub: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuMetubMonth)}</p>}
+                            {thuYeah1Month > 0 && <p className="text-[10px] text-pink-500">Yeah1: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuYeah1Month)}</p>}
+                            {thuMCVMonth > 0 && <p className="text-[10px] text-purple-500">MCV: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuMCVMonth)}</p>}
+                            {thuKhacMonth > 0 && <p className="text-[10px] text-green-400">Khác: +{new Intl.NumberFormat("vi-VN",{notation:"compact"}).format(thuKhacMonth)}</p>}
                           </div>
-                        )}
-                        {anhEmPhimThu > 0 && thuChiThu === 0 && (
-                          <p className="text-[10px] text-green-500 mt-1"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> anhemphim.vn</p>
                         )}
                       </div>
                       <div className="bg-red-50 border border-red-200 rounded-2xl p-3">
@@ -2786,6 +2825,9 @@ export default function Home() {
                               <tr className="border-b border-gray-100 text-xs text-gray-400 font-medium">
                                 <th className="px-4 py-2 text-left">Tháng</th>
                                 <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> AEP</th>
+                                <th className="px-3 py-2 text-right text-blue-400">Metub</th>
+                                <th className="px-3 py-2 text-right text-pink-400">Yeah1</th>
+                                <th className="px-3 py-2 text-right text-purple-400">MCV</th>
                                 <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 16V10M12 16V6M17 16v-5"/></svg> Thu khác</th>
                                 <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi khác</th>
                                 <th className="px-3 py-2 text-right"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương</th>
@@ -2803,8 +2845,17 @@ export default function Home() {
                                   <td className="px-3 py-2.5 text-right text-green-600 font-medium whitespace-nowrap">
                                     {r.revYm > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.revYm)}` : "—"}
                                   </td>
+                                  <td className="px-3 py-2.5 text-right text-blue-500 whitespace-nowrap">
+                                    {r.thuMetub > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thuMetub)}` : "—"}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-pink-500 whitespace-nowrap">
+                                    {r.thuYeah1 > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thuYeah1)}` : "—"}
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right text-purple-500 whitespace-nowrap">
+                                    {r.thuMCV > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thuMCV)}` : "—"}
+                                  </td>
                                   <td className="px-3 py-2.5 text-right text-green-500 whitespace-nowrap">
-                                    {r.thuChiThu > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thuChiThu)}` : "—"}
+                                    {r.thuKhac > 0 ? `+${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.thuKhac)}` : "—"}
                                   </td>
                                   <td className="px-3 py-2.5 text-right text-red-500 whitespace-nowrap">
                                     {r.chi > 0 ? `–${new Intl.NumberFormat("vi-VN", { notation: "compact" }).format(r.chi)}` : "—"}
@@ -2824,8 +2875,17 @@ export default function Home() {
                                 <td className="px-3 py-2.5 text-right text-green-600">
                                   {formatCurrency(reportRows.reduce((s, r) => s + r.revYm, 0))}
                                 </td>
+                                <td className="px-3 py-2.5 text-right text-blue-500">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thuMetub, 0))}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-pink-500">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thuYeah1, 0))}
+                                </td>
+                                <td className="px-3 py-2.5 text-right text-purple-500">
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thuMCV, 0))}
+                                </td>
                                 <td className="px-3 py-2.5 text-right text-green-500">
-                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thuChiThu, 0))}
+                                  {formatCurrency(reportRows.reduce((s, r) => s + r.thuKhac, 0))}
                                 </td>
                                 <td className="px-3 py-2.5 text-right text-red-500">
                                   {formatCurrency(reportRows.reduce((s, r) => s + r.chi, 0))}
