@@ -4387,8 +4387,9 @@ export default function Home() {
 
           const availableJobs = jobs.filter((job) => {
             if (job.jobType === "mini") {
+              const claimedUnits = job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
               return (
-                job.assignments.length < (job.totalUnits ?? 0) &&
+                claimedUnits < (job.totalUnits ?? 0) &&
                 !job.assignments.some((a) => a.employeeId === currentEmployee?.id)
               );
             }
@@ -4398,7 +4399,7 @@ export default function Home() {
 
           const availableValue = availableJobs.reduce((sum, job) => {
             if (job.jobType === "mini") {
-              const remaining = (job.totalUnits ?? 0) - job.assignments.length;
+              const remaining = (job.totalUnits ?? 0) - job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
               return sum + (job.unitPrice ?? 0) * remaining;
             }
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
@@ -4463,8 +4464,9 @@ export default function Home() {
 
           const openJobs = jobs.filter((job) => {
             if (job.jobType === "mini") {
-              // Mini: still open if claimed clips < totalUnits
-              return job.assignments.length < (job.totalUnits ?? 0);
+              // Mini: still open if total claimed units < totalUnits
+              const claimedUnits = job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
+              return claimedUnits < (job.totalUnits ?? 0);
             }
             const claimed = job.assignments.reduce((a, b) => a + b.percentage, 0);
             // Hiện trên chợ nếu còn % chưa được nhận (kể cả khi mình đang làm 1 phần)
