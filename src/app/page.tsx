@@ -377,6 +377,11 @@ export default function Home() {
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState<string | null>(null);
+  // Daily revenue
+  const [revenueDailyData, setRevenueDailyData] = useState<Record<string, number> | null>(null);
+  const [revenueDailyLoading, setRevenueDailyLoading] = useState(false);
+  const [revenueDailyError, setRevenueDailyError] = useState<string | null>(null);
+  const [dailyChartMonth, setDailyChartMonth] = useState<string>(() => currentYM());
   // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool}, manualEntries: {id: bool} }
   const [aepClassification, setAepClassification] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null>(null);
   // Draft đang chỉnh trong tab Chốt số liệu
@@ -585,6 +590,13 @@ export default function Home() {
       .catch(() => setAepClassification(null));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aepMonth, financeView]);
+
+  // Fetch doanh thu AEP theo ngày khi vào tab Tổng quan hoặc đổi tháng
+  useEffect(() => {
+    if (financeView !== "overview") return;
+    fetchRevenueDaily(dailyChartMonth);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyChartMonth, financeView]);
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -919,6 +931,24 @@ export default function Home() {
       setRevenueError("Không lấy được dữ liệu doanh thu");
     } finally {
       setRevenueLoading(false);
+    }
+  };
+
+  // ─── Director: Fetch Daily Revenue (anhemphim.vn) ────────
+  const fetchRevenueDaily = async (month?: string) => {
+    const m = month ?? dailyChartMonth;
+    setRevenueDailyLoading(true);
+    setRevenueDailyError(null);
+    try {
+      const res = await fetch(`/api/revenue/daily?month=${m}`);
+      const data = await res.json();
+      if (!res.ok) { setRevenueDailyError(data.error || "Lỗi API doanh thu theo ngày"); return; }
+      // Merge vào cache, giữ data các tháng đã fetch trước
+      setRevenueDailyData(prev => ({ ...(prev ?? {}), ...data }));
+    } catch {
+      setRevenueDailyError("Không lấy được dữ liệu doanh thu theo ngày");
+    } finally {
+      setRevenueDailyLoading(false);
     }
   };
 
@@ -2494,92 +2524,119 @@ export default function Home() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* Chart: Doanh thu theo ngày */}
-                      {thuChiData && (() => {
-                        // Tháng hiển thị: dùng overviewFilter nếu chọn cụ thể, không thì tháng hiện tại hoặc gần nhất có Thu
-                        const dailyMonth = overviewFilter !== "all"
-                          ? overviewFilter
-                          : (() => {
-                              const ym = currentYM();
-                              const hasCurrent = thuChiData.some(t => t.type === "Thu" && t.date?.startsWith(ym));
-                              if (hasCurrent) return ym;
-                              const months = [...new Set(
-                                thuChiData.filter(t => t.type === "Thu").map(t => t.date?.slice(0, 7)).filter(Boolean) as string[]
-                              )].sort().reverse();
-                              return months[0] ?? ym;
-                            })();
+                      {/* ── Chart: Doanh thu AEP theo ngày ── */}
+                      <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>
+                            Doanh thu AEP theo ngày
+                          </p>
+                          <select
+                            value={dailyChartMonth}
+                            onChange={e => setDailyChartMonth(e.target.value)}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-600"
+                          >
+                            {[...reportRows].reverse().slice(0, 12).map(r => (
+                              <option key={r.ym} value={r.ym}>{monthLabel(r.ym)}</option>
+                            ))}
+                          </select>
+                        </div>
 
-                        const _amtD = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+                        {revenueDailyLoading && (
+                          <div className="h-40 flex items-center justify-center text-xs text-gray-400">
+                            <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Đang tải dữ liệu...
+                          </div>
+                        )}
 
-                        const dayMap: Record<string, { Metub: number; Yeah1: number; MCV: number; Khac: number }> = {};
-                        thuChiData
-                          .filter(t => t.type === "Thu" && t.date?.startsWith(dailyMonth))
-                          .forEach(t => {
-                            const day = t.date?.slice(8, 10) ?? "?";
-                            if (!dayMap[day]) dayMap[day] = { Metub: 0, Yeah1: 0, MCV: 0, Khac: 0 };
-                            const src = classifyRevenueSender(t.subject);
-                            const amtMil = _amtD(t) / 1e6;
-                            if (src === "metub") dayMap[day].Metub += amtMil;
-                            else if (src === "yeah1") dayMap[day].Yeah1 += amtMil;
-                            else if (src === "mcv") dayMap[day].MCV += amtMil;
-                            else dayMap[day].Khac += amtMil;
-                          });
+                        {revenueDailyError && !revenueDailyLoading && (
+                          <div className="h-40 flex items-center justify-center text-xs text-red-400">
+                            {revenueDailyError}
+                            <button onClick={() => fetchRevenueDaily(dailyChartMonth)} className="underline ml-1.5 text-blue-500">Thử lại</button>
+                          </div>
+                        )}
 
-                        const [dyy, dmm] = dailyMonth.split("-").map(Number);
-                        const daysInMonth = new Date(dyy, dmm, 0).getDate();
-                        const dailyData = Array.from({ length: daysInMonth }, (_, i) => {
-                          const day = String(i + 1).padStart(2, "0");
-                          const d = dayMap[day] ?? { Metub: 0, Yeah1: 0, MCV: 0, Khac: 0 };
-                          return {
-                            day: String(i + 1),
-                            Metub: Math.round(d.Metub * 10) / 10,
-                            Yeah1: Math.round(d.Yeah1 * 10) / 10,
-                            MCV: Math.round(d.MCV * 10) / 10,
-                            Khac: Math.round(d.Khac * 10) / 10,
-                            total: Math.round((d.Metub + d.Yeah1 + d.MCV + d.Khac) * 10) / 10,
-                          };
-                        });
+                        {!revenueDailyLoading && !revenueDailyError && (() => {
+                          const dayEntries = Object.entries(revenueDailyData ?? {})
+                            .filter(([k]) => k.startsWith(dailyChartMonth))
+                            .sort(([a], [b]) => a.localeCompare(b));
 
-                        const hasData = dailyData.some(d => d.total > 0);
-                        const totalDayRev = dailyData.reduce((s, d) => s + d.total, 0);
+                          if (dayEntries.length === 0) {
+                            return (
+                              <div className="h-40 flex flex-col items-center justify-center text-xs text-gray-400 gap-1">
+                                <svg className="w-8 h-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M17 6V2"/></svg>
+                                Chưa có dữ liệu tháng {monthLabel(dailyChartMonth)}
+                              </div>
+                            );
+                          }
 
-                        return (
-                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                                Doanh thu theo ngày — {monthLabel(dailyMonth)}
-                              </p>
-                              {totalDayRev > 0 && (
-                                <span className="text-xs font-bold text-green-600">{totalDayRev.toFixed(1)}tr</span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-gray-400 mb-3">Giao dịch Thu — Metub · Yeah1 · MCV · Khác (không gồm AEP)</p>
-                            {hasData ? (
-                              <ResponsiveContainer width="100%" height={160}>
-                                <BarChart data={dailyData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }} barCategoryGap="15%">
+                          const dayData = dayEntries.map(([date, amount]) => ({
+                            day: date.slice(8),   // "DD"
+                            date,
+                            amount: Math.round(amount / 1e6 * 10) / 10,
+                          }));
+
+                          const total  = dayData.reduce((s, d) => s + d.amount, 0);
+                          const maxVal = Math.max(...dayData.map(d => d.amount));
+                          const avg    = dayData.length > 0 ? Math.round(total / dayData.length * 10) / 10 : 0;
+
+                          return (
+                            <>
+                              {/* Mini summary */}
+                              <div className="flex gap-4 mb-3">
+                                <div className="text-center">
+                                  <p className="text-[10px] text-gray-400">Tổng tháng</p>
+                                  <p className="text-sm font-black text-emerald-600">{total.toFixed(1)}tr</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-[10px] text-gray-400">Trung bình/ngày</p>
+                                  <p className="text-sm font-black text-blue-500">{avg.toFixed(1)}tr</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-[10px] text-gray-400">Cao nhất/ngày</p>
+                                  <p className="text-sm font-black text-amber-500">{maxVal.toFixed(1)}tr</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-[10px] text-gray-400">Số ngày có DT</p>
+                                  <p className="text-sm font-black text-gray-600">{dayData.filter(d => d.amount > 0).length}</p>
+                                </div>
+                              </div>
+
+                              <ResponsiveContainer width="100%" height={170}>
+                                <BarChart data={dayData} margin={{ top: 4, right: 24, left: -16, bottom: 0 }} barCategoryGap="25%">
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={2} />
-                                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                                  <XAxis
+                                    dataKey="day"
+                                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    interval={dayData.length > 20 ? 4 : dayData.length > 10 ? 2 : 0}
+                                  />
+                                  <YAxis
+                                    tick={{ fontSize: 10, fill: "#9ca3af" }}
+                                    tickFormatter={(v) => `${v}tr`}
+                                    axisLine={false}
+                                    tickLine={false}
+                                  />
                                   <Tooltip
-                                    formatter={(v, name) => [`${v ?? 0}tr`, String(name)]}
-                                    contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                                    formatter={(v) => [`${v}tr`, "Doanh thu AEP"]}
+                                    labelFormatter={(l) => `Ngày ${l}/${dailyChartMonth.slice(5)}/${dailyChartMonth.slice(0, 4)}`}
+                                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
                                     cursor={{ fill: "#f9fafb" }}
                                   />
-                                  <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
-                                  <Bar dataKey="Metub" name="Metub" stackId="a" fill="#60a5fa" radius={[0,0,0,0]} />
-                                  <Bar dataKey="Yeah1" name="Yeah1" stackId="a" fill="#f472b6" radius={[0,0,0,0]} />
-                                  <Bar dataKey="MCV" name="MCV" stackId="a" fill="#a78bfa" radius={[0,0,0,0]} />
-                                  <Bar dataKey="Khac" name="Khác" stackId="a" fill="#6ee7b7" radius={[2,2,0,0]} />
+                                  <ReferenceLine
+                                    y={avg}
+                                    stroke="#10b981"
+                                    strokeDasharray="5 3"
+                                    strokeWidth={1.5}
+                                    label={{ value: `TB ${avg}tr`, position: "right", fill: "#10b981", fontSize: 9 }}
+                                  />
+                                  <Bar dataKey="amount" name="Doanh thu AEP" fill="#34d399" radius={[3, 3, 0, 0]} />
                                 </BarChart>
                               </ResponsiveContainer>
-                            ) : (
-                              <div className="text-center py-8 text-gray-300 text-sm">
-                                Không có giao dịch Thu nào trong {monthLabel(dailyMonth)}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
+                            </>
+                          );
+                        })()}
+                      </div>
 
                       {/* ── Kế hoạch kênh theo nhóm ── */}
                       <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
