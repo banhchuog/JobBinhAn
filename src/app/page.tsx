@@ -2494,6 +2494,93 @@ export default function Home() {
                         </ResponsiveContainer>
                       </div>
 
+                      {/* Chart: Doanh thu theo ngày */}
+                      {thuChiData && (() => {
+                        // Tháng hiển thị: dùng overviewFilter nếu chọn cụ thể, không thì tháng hiện tại hoặc gần nhất có Thu
+                        const dailyMonth = overviewFilter !== "all"
+                          ? overviewFilter
+                          : (() => {
+                              const ym = currentYM();
+                              const hasCurrent = thuChiData.some(t => t.type === "Thu" && t.date?.startsWith(ym));
+                              if (hasCurrent) return ym;
+                              const months = [...new Set(
+                                thuChiData.filter(t => t.type === "Thu").map(t => t.date?.slice(0, 7)).filter(Boolean) as string[]
+                              )].sort().reverse();
+                              return months[0] ?? ym;
+                            })();
+
+                        const _amtD = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+
+                        const dayMap: Record<string, { Metub: number; Yeah1: number; MCV: number; Khac: number }> = {};
+                        thuChiData
+                          .filter(t => t.type === "Thu" && t.date?.startsWith(dailyMonth))
+                          .forEach(t => {
+                            const day = t.date?.slice(8, 10) ?? "?";
+                            if (!dayMap[day]) dayMap[day] = { Metub: 0, Yeah1: 0, MCV: 0, Khac: 0 };
+                            const src = classifyRevenueSender(t.subject);
+                            const amtMil = _amtD(t) / 1e6;
+                            if (src === "metub") dayMap[day].Metub += amtMil;
+                            else if (src === "yeah1") dayMap[day].Yeah1 += amtMil;
+                            else if (src === "mcv") dayMap[day].MCV += amtMil;
+                            else dayMap[day].Khac += amtMil;
+                          });
+
+                        const [dyy, dmm] = dailyMonth.split("-").map(Number);
+                        const daysInMonth = new Date(dyy, dmm, 0).getDate();
+                        const dailyData = Array.from({ length: daysInMonth }, (_, i) => {
+                          const day = String(i + 1).padStart(2, "0");
+                          const d = dayMap[day] ?? { Metub: 0, Yeah1: 0, MCV: 0, Khac: 0 };
+                          return {
+                            day: String(i + 1),
+                            Metub: Math.round(d.Metub * 10) / 10,
+                            Yeah1: Math.round(d.Yeah1 * 10) / 10,
+                            MCV: Math.round(d.MCV * 10) / 10,
+                            Khac: Math.round(d.Khac * 10) / 10,
+                            total: Math.round((d.Metub + d.Yeah1 + d.MCV + d.Khac) * 10) / 10,
+                          };
+                        });
+
+                        const hasData = dailyData.some(d => d.total > 0);
+                        const totalDayRev = dailyData.reduce((s, d) => s + d.total, 0);
+
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                Doanh thu theo ngày — {monthLabel(dailyMonth)}
+                              </p>
+                              {totalDayRev > 0 && (
+                                <span className="text-xs font-bold text-green-600">{totalDayRev.toFixed(1)}tr</span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 mb-3">Giao dịch Thu — Metub · Yeah1 · MCV · Khác (không gồm AEP)</p>
+                            {hasData ? (
+                              <ResponsiveContainer width="100%" height={160}>
+                                <BarChart data={dailyData} margin={{ top: 4, right: 4, left: -22, bottom: 0 }} barCategoryGap="15%">
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="day" tick={{ fontSize: 9, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={2} />
+                                  <YAxis tick={{ fontSize: 9, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    formatter={(v, name) => [`${v ?? 0}tr`, String(name)]}
+                                    contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e7eb" }}
+                                    cursor={{ fill: "#f9fafb" }}
+                                  />
+                                  <Legend wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
+                                  <Bar dataKey="Metub" name="Metub" stackId="a" fill="#60a5fa" radius={[0,0,0,0]} />
+                                  <Bar dataKey="Yeah1" name="Yeah1" stackId="a" fill="#f472b6" radius={[0,0,0,0]} />
+                                  <Bar dataKey="MCV" name="MCV" stackId="a" fill="#a78bfa" radius={[0,0,0,0]} />
+                                  <Bar dataKey="Khac" name="Khác" stackId="a" fill="#6ee7b7" radius={[2,2,0,0]} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            ) : (
+                              <div className="text-center py-8 text-gray-300 text-sm">
+                                Không có giao dịch Thu nào trong {monthLabel(dailyMonth)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {/* ── Kế hoạch kênh theo nhóm ── */}
                       <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
                         {/* Header */}
