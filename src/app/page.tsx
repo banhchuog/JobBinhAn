@@ -377,11 +377,6 @@ export default function Home() {
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState<string | null>(null);
-  // Daily revenue
-  const [revenueDailyData, setRevenueDailyData] = useState<Record<string, number> | null>(null);
-  const [revenueDailyLoading, setRevenueDailyLoading] = useState(false);
-  const [revenueDailyError, setRevenueDailyError] = useState<string | null>(null);
-  const [dailyChartMonth, setDailyChartMonth] = useState<string>(() => currentYM());
   // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool}, manualEntries: {id: bool} }
   const [aepClassification, setAepClassification] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null>(null);
   // Draft đang chỉnh trong tab Chốt số liệu
@@ -591,12 +586,7 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aepMonth, financeView]);
 
-  // Fetch doanh thu AEP theo ngày khi vào tab Tổng quan hoặc đổi tháng
-  useEffect(() => {
-    if (financeView !== "overview") return;
-    fetchRevenueDaily(dailyChartMonth);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dailyChartMonth, financeView]);
+
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(amount);
@@ -934,23 +924,6 @@ export default function Home() {
     }
   };
 
-  // ─── Director: Fetch Daily Revenue (anhemphim.vn) ────────
-  const fetchRevenueDaily = async (month?: string) => {
-    const m = month ?? dailyChartMonth;
-    setRevenueDailyLoading(true);
-    setRevenueDailyError(null);
-    try {
-      const res = await fetch(`/api/revenue/daily?month=${m}`);
-      const data = await res.json();
-      if (!res.ok) { setRevenueDailyError(data.error || "Lỗi API doanh thu theo ngày"); return; }
-      // Merge vào cache, giữ data các tháng đã fetch trước
-      setRevenueDailyData(prev => ({ ...(prev ?? {}), ...data }));
-    } catch {
-      setRevenueDailyError("Không lấy được dữ liệu doanh thu theo ngày");
-    } finally {
-      setRevenueDailyLoading(false);
-    }
-  };
 
   // ─── Director: Fetch Thu Chi data ──────────────────────
   const fetchThuChi = async () => {
@@ -2524,119 +2497,85 @@ export default function Home() {
                         </ResponsiveContainer>
                       </div>
 
-                      {/* ── Chart: Doanh thu AEP theo ngày ── */}
-                      <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>
-                            Doanh thu AEP theo ngày
-                          </p>
-                          <select
-                            value={dailyChartMonth}
-                            onChange={e => setDailyChartMonth(e.target.value)}
-                            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 text-gray-600"
-                          >
-                            {[...reportRows].reverse().slice(0, 12).map(r => (
-                              <option key={r.ym} value={r.ym}>{monthLabel(r.ym)}</option>
-                            ))}
-                          </select>
-                        </div>
+                      {/* ── Chart: Doanh thu AEP từng tháng chi tiết ── */}
+                      {revenueData && (() => {
+                        const aepEntries = Object.entries(revenueData)
+                          .sort(([a], [b]) => a.localeCompare(b));
 
-                        {revenueDailyLoading && (
-                          <div className="h-40 flex items-center justify-center text-xs text-gray-400">
-                            <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Đang tải dữ liệu...
-                          </div>
-                        )}
+                        if (aepEntries.length === 0) return null;
 
-                        {revenueDailyError && !revenueDailyLoading && (
-                          <div className="h-40 flex items-center justify-center text-xs text-red-400">
-                            {revenueDailyError}
-                            <button onClick={() => fetchRevenueDaily(dailyChartMonth)} className="underline ml-1.5 text-blue-500">Thử lại</button>
-                          </div>
-                        )}
-
-                        {!revenueDailyLoading && !revenueDailyError && (() => {
-                          const dayEntries = Object.entries(revenueDailyData ?? {})
-                            .filter(([k]) => k.startsWith(dailyChartMonth))
-                            .sort(([a], [b]) => a.localeCompare(b));
-
-                          if (dayEntries.length === 0) {
-                            return (
-                              <div className="h-40 flex flex-col items-center justify-center text-xs text-gray-400 gap-1">
-                                <svg className="w-8 h-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M17 6V2"/></svg>
-                                Chưa có dữ liệu tháng {monthLabel(dailyChartMonth)}
-                              </div>
-                            );
-                          }
-
-                          const dayData = dayEntries.map(([date, amount]) => ({
-                            day: date.slice(8),   // "DD"
-                            date,
+                        const aepChartData = aepEntries.map(([ym, amount], i, arr) => {
+                          const prev = i > 0 ? arr[i - 1][1] : null;
+                          const growth = prev !== null && prev > 0 ? Math.round((amount - prev) / prev * 100) : null;
+                          return {
+                            name: ym.slice(5) + "/" + ym.slice(2, 4),
+                            ym,
                             amount: Math.round(amount / 1e6 * 10) / 10,
-                          }));
+                            growth,
+                          };
+                        });
 
-                          const total  = dayData.reduce((s, d) => s + d.amount, 0);
-                          const maxVal = Math.max(...dayData.map(d => d.amount));
-                          const avg    = dayData.length > 0 ? Math.round(total / dayData.length * 10) / 10 : 0;
+                        const total = aepChartData.reduce((s, d) => s + d.amount, 0);
+                        const avg   = aepChartData.length > 0 ? Math.round(total / aepChartData.length * 10) / 10 : 0;
+                        const maxMonth = aepChartData.reduce((best, d) => d.amount > best.amount ? d : best, aepChartData[0]);
+                        const lastMonth = aepChartData[aepChartData.length - 1];
+                        const prevMonth = aepChartData.length >= 2 ? aepChartData[aepChartData.length - 2] : null;
 
-                          return (
-                            <>
-                              {/* Mini summary */}
-                              <div className="flex gap-4 mb-3">
-                                <div className="text-center">
-                                  <p className="text-[10px] text-gray-400">Tổng tháng</p>
-                                  <p className="text-sm font-black text-emerald-600">{total.toFixed(1)}tr</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-[10px] text-gray-400">Trung bình/ngày</p>
-                                  <p className="text-sm font-black text-blue-500">{avg.toFixed(1)}tr</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-[10px] text-gray-400">Cao nhất/ngày</p>
-                                  <p className="text-sm font-black text-amber-500">{maxVal.toFixed(1)}tr</p>
-                                </div>
-                                <div className="text-center">
-                                  <p className="text-[10px] text-gray-400">Số ngày có DT</p>
-                                  <p className="text-sm font-black text-gray-600">{dayData.filter(d => d.amount > 0).length}</p>
-                                </div>
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                              <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>
+                              Doanh thu Anh Em Phim theo tháng (triệu đồng)
+                            </p>
+
+                            {/* Mini summary */}
+                            <div className="flex flex-wrap gap-4 mb-3">
+                              <div className="text-center">
+                                <p className="text-[10px] text-gray-400">Tháng mới nhất</p>
+                                <p className="text-sm font-black text-emerald-600">{lastMonth.amount.toFixed(1)}tr</p>
+                                {prevMonth && lastMonth.growth !== null && (
+                                  <p className={`text-[10px] font-semibold ${lastMonth.growth >= 0 ? "text-emerald-500" : "text-red-400"}`}>
+                                    {lastMonth.growth >= 0 ? "↑" : "↓"} {Math.abs(lastMonth.growth)}% vs tháng trước
+                                  </p>
+                                )}
                               </div>
+                              <div className="text-center">
+                                <p className="text-[10px] text-gray-400">Trung bình/tháng</p>
+                                <p className="text-sm font-black text-blue-500">{avg.toFixed(1)}tr</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-[10px] text-gray-400">Cao nhất</p>
+                                <p className="text-sm font-black text-amber-500">{maxMonth.amount.toFixed(1)}tr</p>
+                                <p className="text-[10px] text-gray-400">{maxMonth.name}</p>
+                              </div>
+                            </div>
 
-                              <ResponsiveContainer width="100%" height={170}>
-                                <BarChart data={dayData} margin={{ top: 4, right: 24, left: -16, bottom: 0 }} barCategoryGap="25%">
-                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis
-                                    dataKey="day"
-                                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                                    axisLine={false}
-                                    tickLine={false}
-                                    interval={dayData.length > 20 ? 4 : dayData.length > 10 ? 2 : 0}
-                                  />
-                                  <YAxis
-                                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                                    tickFormatter={(v) => `${v}tr`}
-                                    axisLine={false}
-                                    tickLine={false}
-                                  />
-                                  <Tooltip
-                                    formatter={(v) => [`${v}tr`, "Doanh thu AEP"]}
-                                    labelFormatter={(l) => `Ngày ${l}/${dailyChartMonth.slice(5)}/${dailyChartMonth.slice(0, 4)}`}
-                                    contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                                    cursor={{ fill: "#f9fafb" }}
-                                  />
-                                  <ReferenceLine
-                                    y={avg}
-                                    stroke="#10b981"
-                                    strokeDasharray="5 3"
-                                    strokeWidth={1.5}
-                                    label={{ value: `TB ${avg}tr`, position: "right", fill: "#10b981", fontSize: 9 }}
-                                  />
-                                  <Bar dataKey="amount" name="Doanh thu AEP" fill="#34d399" radius={[3, 3, 0, 0]} />
-                                </BarChart>
-                              </ResponsiveContainer>
-                            </>
-                          );
-                        })()}
-                      </div>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <ComposedChart data={aepChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                                <Tooltip
+                                  formatter={(v: number, name: string) => [
+                                    name === "growth" ? `${v}%` : `${v}tr`,
+                                    name === "growth" ? "Tăng trưởng" : "Doanh thu AEP"
+                                  ]}
+                                  contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                                  cursor={{ fill: "#f9fafb" }}
+                                />
+                                <ReferenceLine
+                                  y={avg}
+                                  stroke="#10b981"
+                                  strokeDasharray="5 3"
+                                  strokeWidth={1.5}
+                                  label={{ value: `TB ${avg.toFixed(0)}tr`, position: "right", fill: "#10b981", fontSize: 9 }}
+                                />
+                                <Bar dataKey="amount" name="Doanh thu AEP" fill="#34d399" radius={[4, 4, 0, 0]} />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+                          </div>
+                        );
+                      })()}
 
                       {/* ── Kế hoạch kênh theo nhóm ── */}
                       <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
