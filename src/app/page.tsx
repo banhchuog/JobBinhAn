@@ -390,6 +390,8 @@ export default function Home() {
   const [aepFilterExpenseDateTo, setAepFilterExpenseDateTo] = useState("");
   const [aepFilterSalary, setAepFilterSalary] = useState("");
   const [aepFilterManual, setAepFilterManual] = useState("");
+  const [aepAiScanning, setAepAiScanning] = useState(false);
+  const [aepAiScanNotice, setAepAiScanNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
 
   // ── Social groups ─────────────────────────────────────
   const [socialGroups, setSocialGroups] = useState<SocialGroup[]>([]);
@@ -585,6 +587,77 @@ export default function Home() {
       .catch(() => setAepClassification(null));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aepMonth, financeView]);
+
+  const runAepExpenseAiScan = useCallback(async (transactions: ThuChiTransaction[]) => {
+    if (transactions.length === 0) {
+      setAepAiScanNotice({ tone: "info", text: "Tháng này chưa có khoản chi nào để quét." });
+      return;
+    }
+
+    setAepAiScanning(true);
+    setAepAiScanNotice({ tone: "info", text: "AI đang quét các khoản chi của tháng này..." });
+
+    try {
+      const res = await fetch("/api/ai/classify-expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions, jobs: [] }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Không thể quét chi phí AEP.");
+      }
+
+      const matchedIds = new Set(
+        Object.entries((data?.expenses ?? {}) as Record<string, boolean>)
+          .filter(([, isMatched]) => isMatched === true)
+          .map(([id]) => String(id))
+      );
+
+      let addedCount = 0;
+      setAepDraft((draft) => {
+        if (!draft) return draft;
+        const nextExpenses = { ...draft.expenses };
+
+        for (const transaction of transactions) {
+          const id = String(transaction.id);
+          if (!matchedIds.has(id) || nextExpenses[id]) continue;
+          nextExpenses[id] = true;
+          addedCount += 1;
+        }
+
+        return { ...draft, expenses: nextExpenses };
+      });
+
+      const detectedCount = matchedIds.size;
+      const usedHeuristicOnly = data?.source === "heuristic";
+      const sourceLabel = usedHeuristicOnly ? "Bộ lọc thông minh" : "AI";
+
+      if (detectedCount === 0) {
+        setAepAiScanNotice({
+          tone: "info",
+          text: usedHeuristicOnly
+            ? `${sourceLabel} chưa thấy khoản chi nào đủ giống chi phí sản xuất phim / streaming video.`
+            : `${sourceLabel} chưa thấy khoản chi nào phù hợp với AEP.`,
+        });
+        return;
+      }
+
+      setAepAiScanNotice({
+        tone: "success",
+        text:
+          addedCount > 0
+            ? `${sourceLabel} đã nhận diện ${detectedCount} khoản chi phù hợp và tick thêm ${addedCount} khoản.`
+            : `${sourceLabel} nhận diện ${detectedCount} khoản chi phù hợp, nhưng các khoản đó đã được tick sẵn.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể quét chi phí AEP.";
+      setAepAiScanNotice({ tone: "error", text: message });
+    } finally {
+      setAepAiScanning(false);
+    }
+  }, []);
 
 
 
@@ -3311,6 +3384,7 @@ export default function Home() {
                   // Khởi tạo draft khi vào tab Chốt
                   const initDraft = () => {
                     const base = aepClassification ?? { expenses: {}, salaryAssignments: {}, manualEntries: {} };
+                    setAepAiScanNotice(null);
                     setAepDraft({
                       expenses: Object.fromEntries(allChiMonth.map(t => [String(t.id), base.expenses[String(t.id)] ?? false])),
                       salaryAssignments: Object.fromEntries(allSalaryAssignmentsMonth.map(({assignment}) => [assignment.id, base.salaryAssignments?.[assignment.id] ?? false])),
@@ -3333,7 +3407,7 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
                         {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
+                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                             {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                           </button>
@@ -3518,16 +3592,24 @@ export default function Home() {
                               <div className="px-4 py-3 bg-red-50 border-b border-red-100">
                                 <div className="flex items-center justify-between mb-2">
                                   <p className="text-sm font-semibold text-red-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2Z"/><path d="M8 10h8M8 14h5"/></svg> Chi phí — {monthLabel(aepMonth)}</p>
-                                  <button
-                                    onClick={() => {
-                                      const ids = filteredChiMonth.map(t => String(t.id));
-                                      const allChecked = ids.every(id => aepDraft.expenses[id]);
-                                      setAepDraft(d => d ? { ...d, expenses: { ...d.expenses, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
-                                    }}
-                                    className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0">
-                                    {filteredChiMonth.every(t => aepDraft.expenses[String(t.id)]) ? "Bỏ chọn" : "Chọn tất cả"}
-                                    {hasExpenseFilter ? " (đang lọc)" : ""}
-                                  </button>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      onClick={() => runAepExpenseAiScan(allChiMonth)}
+                                      disabled={aepAiScanning || allChiMonth.length === 0}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-violet-600 border border-violet-200 hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                      {aepAiScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI quét
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const ids = filteredChiMonth.map(t => String(t.id));
+                                        const allChecked = ids.every(id => aepDraft.expenses[id]);
+                                        setAepDraft(d => d ? { ...d, expenses: { ...d.expenses, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                      }}
+                                      className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0">
+                                      {filteredChiMonth.every(t => aepDraft.expenses[String(t.id)]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                      {hasExpenseFilter ? " (đang lọc)" : ""}
+                                    </button>
+                                  </div>
                                 </div>
                                 {/* Filter chi phí */}
                                 <div className="space-y-1.5">
@@ -3571,6 +3653,12 @@ export default function Home() {
                                     <p className="text-[10px] text-red-400">
                                       Hiển thị {filteredChiMonth.length}/{allChiMonth.length} khoản · <button onClick={() => { setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); }} className="underline">Xoá bộ lọc</button>
                                     </p>
+                                  )}
+                                  {aepAiScanNotice && (
+                                    <div className={`flex items-start gap-1.5 text-[10px] rounded-lg px-2.5 py-2 ${aepAiScanNotice.tone === "success" ? "bg-violet-100 text-violet-700" : aepAiScanNotice.tone === "error" ? "bg-rose-100 text-rose-700" : "bg-white/80 text-violet-500 border border-violet-100"}`}>
+                                      {aepAiScanNotice.tone === "error" ? <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : aepAiScanNotice.tone === "success" ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
+                                      <span>{aepAiScanNotice.text}</span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
