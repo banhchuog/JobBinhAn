@@ -74,6 +74,9 @@ const SHOOT_EXPENSE_HINT_KEYWORDS = [
   "thiet ke", "trang phuc", "phuc trang", "dao cu", "boi canh", "chi phi quay", "ngay quay",
   "quay", "hoa trang", "make up", "am thanh", "anh sang", "ship", "van chuyen", "xang xe",
   "di lai", "an uong", "nuoc uong", "do an", "hien truong", "kyo",
+  "dien vien", "quan chung", "khach choi", "dan choi", "bao ve", "khach vip", "khach hang",
+  "vai phu", "casting", "bich phuong", "tony tam", "huynh cong khanh", "co gai tre", "nhan vien nu",
+  "ban trai", "ve si", "dai gia tau",
 ];
 
 const SHOOT_EXPENSE_EXCLUDED_KEYWORDS = [
@@ -140,10 +143,20 @@ function isLikelyShootExpense(transaction: ThuChiTransaction, shootDate: string)
   const normalized = normalizeLooseText(`${transaction.subject} ${transaction.note ?? ""}`);
   if (!normalized) return false;
   if (includesKeyword(normalized, SHOOT_EXPENSE_EXCLUDED_KEYWORDS)) return false;
+  if (transaction.type !== "Chi") return false;
+
+  const sameShootDate = transaction.date === shootDate;
+
   if (includesKeyword(normalized, SHOOT_EXPENSE_HINT_KEYWORDS)) return true;
   if (transactionMentionsDayMonth(transaction, shootDate) && (normalized.includes("chi phi") || normalized.includes("ship") || normalized.includes("quay"))) {
     return true;
   }
+
+  if (sameShootDate) {
+    if (normalized.includes("paypal") || normalized.includes("google cloud") || normalized.includes("bao hiem")) return false;
+    return true;
+  }
+
   return false;
 }
 
