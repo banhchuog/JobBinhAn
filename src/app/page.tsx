@@ -499,6 +499,10 @@ export default function Home() {
   const [aepFilterManual, setAepFilterManual] = useState("");
   const [aepAiScanning, setAepAiScanning] = useState(false);
   const [aepAiScanNotice, setAepAiScanNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
+  const [aepSalaryAiScanning, setAepSalaryAiScanning] = useState(false);
+  const [aepSalaryAiNotice, setAepSalaryAiNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
+  const [aepManualAiScanning, setAepManualAiScanning] = useState(false);
+  const [aepManualAiNotice, setAepManualAiNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [aepShootConfirmQueue, setAepShootConfirmQueue] = useState<AepShootConfirmCandidate[]>([]);
   const [aepShootDecisions, setAepShootDecisions] = useState<Record<string, boolean>>({});
 
@@ -863,6 +867,138 @@ export default function Home() {
       tone: "info",
       text: `Bỏ qua nhóm chi phí ngày quay ${candidate.label}${candidate.filmNames[0] ? ` — ${candidate.filmNames[0]}` : ""}.`,
     });
+  }, []);
+
+  const runAepSalaryAiScan = useCallback(async (
+    salaryRows: Array<{ job: Job; assignment: JobAssignment }>
+  ) => {
+    if (salaryRows.length === 0) {
+      setAepSalaryAiNotice({ tone: "info", text: "Tháng này chưa có khoản lương nào để quét." });
+      return;
+    }
+
+    setAepSalaryAiScanning(true);
+    setAepSalaryAiNotice({ tone: "info", text: "AI đang quét các khoản lương..." });
+
+    try {
+      const jobsToScan = Array.from(
+        new Map(salaryRows.map(({ job }) => [job.id, { id: job.id, title: job.title, description: job.description }])).values()
+      );
+
+      const res = await fetch("/api/ai/classify-expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions: [], jobs: jobsToScan, manualEntries: [] }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Không thể quét lương AEP.");
+      }
+
+      const matchedJobIds = new Set(
+        Object.entries((data?.salaryJobs ?? {}) as Record<string, boolean>)
+          .filter(([, isMatched]) => isMatched === true)
+          .map(([id]) => id)
+      );
+
+      let addedCount = 0;
+      setAepDraft((draft) => {
+        if (!draft) return draft;
+        const nextAssignments = { ...draft.salaryAssignments };
+        for (const { job, assignment } of salaryRows) {
+          if (!matchedJobIds.has(job.id) || nextAssignments[assignment.id]) continue;
+          nextAssignments[assignment.id] = true;
+          addedCount += 1;
+        }
+        return { ...draft, salaryAssignments: nextAssignments };
+      });
+
+      if (matchedJobIds.size === 0) {
+        setAepSalaryAiNotice({ tone: "info", text: "AI chưa thấy job lương nào phù hợp với AEP." });
+        return;
+      }
+
+      setAepSalaryAiNotice({
+        tone: "success",
+        text: addedCount > 0
+          ? `AI đã nhận diện ${matchedJobIds.size} job lương AEP và tick thêm ${addedCount} khoản.`
+          : `AI nhận diện ${matchedJobIds.size} job lương AEP, nhưng các khoản đó đã được tick sẵn.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể quét lương AEP.";
+      setAepSalaryAiNotice({ tone: "error", text: message });
+    } finally {
+      setAepSalaryAiScanning(false);
+    }
+  }, []);
+
+  const runAepManualAiScan = useCallback(async (
+    entries: ManualEntry[],
+    employeeMap: Map<string, string>
+  ) => {
+    if (entries.length === 0) {
+      setAepManualAiNotice({ tone: "info", text: "Tháng này chưa có lương thủ công nào để quét." });
+      return;
+    }
+
+    setAepManualAiScanning(true);
+    setAepManualAiNotice({ tone: "info", text: "AI đang quét lương thủ công..." });
+
+    try {
+      const manualToScan = entries.map((entry) => ({
+        id: entry.id,
+        title: entry.title,
+        note: entry.note,
+        employeeName: employeeMap.get(entry.empId) || entry.empId,
+      }));
+
+      const res = await fetch("/api/ai/classify-expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactions: [], jobs: [], manualEntries: manualToScan }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || "Không thể quét lương thủ công AEP.");
+      }
+
+      const matchedManualIds = new Set(
+        Object.entries((data?.manualEntries ?? {}) as Record<string, boolean>)
+          .filter(([, isMatched]) => isMatched === true)
+          .map(([id]) => id)
+      );
+
+      let addedCount = 0;
+      setAepDraft((draft) => {
+        if (!draft) return draft;
+        const nextManualEntries = { ...draft.manualEntries };
+        for (const entry of entries) {
+          if (!matchedManualIds.has(entry.id) || nextManualEntries[entry.id]) continue;
+          nextManualEntries[entry.id] = true;
+          addedCount += 1;
+        }
+        return { ...draft, manualEntries: nextManualEntries };
+      });
+
+      if (matchedManualIds.size === 0) {
+        setAepManualAiNotice({ tone: "info", text: "AI chưa thấy khoản lương thủ công nào phù hợp với AEP." });
+        return;
+      }
+
+      setAepManualAiNotice({
+        tone: "success",
+        text: addedCount > 0
+          ? `AI đã nhận diện ${matchedManualIds.size} khoản lương thủ công AEP và tick thêm ${addedCount} khoản.`
+          : `AI nhận diện ${matchedManualIds.size} khoản lương thủ công AEP, nhưng các khoản đó đã được tick sẵn.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể quét lương thủ công AEP.";
+      setAepManualAiNotice({ tone: "error", text: message });
+    } finally {
+      setAepManualAiScanning(false);
+    }
   }, []);
 
 
@@ -3593,6 +3729,8 @@ export default function Home() {
                   const initDraft = () => {
                     const base = aepClassification ?? { expenses: {}, salaryAssignments: {}, manualEntries: {} };
                     setAepAiScanNotice(null);
+                    setAepSalaryAiNotice(null);
+                    setAepManualAiNotice(null);
                     setAepShootConfirmQueue([]);
                     setAepShootDecisions({});
                     setAepDraft({
@@ -3617,7 +3755,7 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
                         {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
+                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                             {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                           </button>
@@ -3904,16 +4042,24 @@ export default function Home() {
                               <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
                                 <div className="flex items-center justify-between mb-2">
                                   <p className="text-sm font-semibold text-blue-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75M22 21v-2a4 4 0 0 0-3-3.87"/></svg> Lương — {monthLabel(aepMonth)}</p>
-                                  <button
-                                    onClick={() => {
-                                      const ids = filteredSalaryMonth.map(({assignment}) => assignment.id);
-                                      const allChecked = ids.every(id => aepDraft.salaryAssignments[id]);
-                                      setAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
-                                    }}
-                                    className="text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0">
-                                    {filteredSalaryMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]) ? "Bỏ chọn" : "Chọn tất cả"}
-                                    {hasSalaryFilter ? " (đang lọc)" : ""}
-                                  </button>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      onClick={() => runAepSalaryAiScan(allSalaryAssignmentsMonth)}
+                                      disabled={aepSalaryAiScanning || allSalaryAssignmentsMonth.length === 0}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-violet-600 border border-violet-200 hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                      {aepSalaryAiScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI quét
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const ids = filteredSalaryMonth.map(({assignment}) => assignment.id);
+                                        const allChecked = ids.every(id => aepDraft.salaryAssignments[id]);
+                                        setAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                      }}
+                                      className="text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0">
+                                      {filteredSalaryMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                      {hasSalaryFilter ? " (đang lọc)" : ""}
+                                    </button>
+                                  </div>
                                 </div>
                                 {/* Filter nhân viên */}
                                 <div className="relative">
@@ -3935,6 +4081,12 @@ export default function Home() {
                                   <p className="text-[10px] text-blue-400 mt-1">
                                     Hiển thị {filteredSalaryMonth.length}/{allSalaryAssignmentsMonth.length} khoản
                                   </p>
+                                )}
+                                {aepSalaryAiNotice && (
+                                  <div className={`mt-1 flex items-start gap-1.5 text-[10px] rounded-lg px-2.5 py-2 ${aepSalaryAiNotice.tone === "success" ? "bg-blue-100 text-blue-700" : aepSalaryAiNotice.tone === "error" ? "bg-rose-100 text-rose-700" : "bg-white/80 text-blue-500 border border-blue-100"}`}>
+                                    {aepSalaryAiNotice.tone === "error" ? <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : aepSalaryAiNotice.tone === "success" ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
+                                    <span>{aepSalaryAiNotice.text}</span>
+                                  </div>
                                 )}
                               </div>
                               {allSalaryAssignmentsMonth.length === 0 ? (
@@ -3969,16 +4121,24 @@ export default function Home() {
                                 <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100">
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-sm font-semibold text-emerald-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4.5"/></svg> Lương thủ công — {monthLabel(aepMonth)}</p>
-                                    <button
-                                      onClick={() => {
-                                        const ids = filteredManualMonth.map(e => e.id);
-                                        const allChecked = ids.every(id => aepDraft.manualEntries[id]);
-                                        setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
-                                      }}
-                                      className="text-xs text-emerald-500 hover:text-emerald-700 font-medium shrink-0">
-                                      {filteredManualMonth.every(e => aepDraft.manualEntries[e.id]) ? "Bỏ chọn" : "Chọn tất cả"}
-                                      {hasManualFilter ? " (đang lọc)" : ""}
-                                    </button>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button
+                                        onClick={() => runAepManualAiScan(allManualMonth, new Map(employees.map(emp => [emp.id, emp.profile?.hoTen || emp.name])))}
+                                        disabled={aepManualAiScanning || allManualMonth.length === 0}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-violet-600 border border-violet-200 hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                                        {aepManualAiScanning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} AI quét
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const ids = filteredManualMonth.map(e => e.id);
+                                          const allChecked = ids.every(id => aepDraft.manualEntries[id]);
+                                          setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                        }}
+                                        className="text-xs text-emerald-500 hover:text-emerald-700 font-medium shrink-0">
+                                        {filteredManualMonth.every(e => aepDraft.manualEntries[e.id]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                        {hasManualFilter ? " (đang lọc)" : ""}
+                                      </button>
+                                    </div>
                                   </div>
                                   {/* Filter nhân viên */}
                                   <div className="relative">
@@ -4000,6 +4160,12 @@ export default function Home() {
                                     <p className="text-[10px] text-emerald-400 mt-1">
                                       Hiển thị {filteredManualMonth.length}/{allManualMonth.length} khoản
                                     </p>
+                                  )}
+                                  {aepManualAiNotice && (
+                                    <div className={`mt-1 flex items-start gap-1.5 text-[10px] rounded-lg px-2.5 py-2 ${aepManualAiNotice.tone === "success" ? "bg-emerald-100 text-emerald-700" : aepManualAiNotice.tone === "error" ? "bg-rose-100 text-rose-700" : "bg-white/80 text-emerald-500 border border-emerald-100"}`}>
+                                      {aepManualAiNotice.tone === "error" ? <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : aepManualAiNotice.tone === "success" ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
+                                      <span>{aepManualAiNotice.text}</span>
+                                    </div>
                                   )}
                                 </div>
                                 {filteredManualMonth.length === 0 ? (

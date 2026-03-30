@@ -16,6 +16,13 @@ type JobInput = {
   description?: string;
 };
 
+type ManualEntryInput = {
+  id: string;
+  title?: string;
+  note?: string;
+  employeeName?: string;
+};
+
 const SYSTEM_PROMPT = `Bạn là chuyên gia phân tích tài chính cho dự án anhemphim.vn.
 
 Nhiệm vụ: Phân loại các khoản chi phí và tiêu đề công việc xem có thuộc anhemphim.vn không.
@@ -57,7 +64,8 @@ Nhiệm vụ: Phân loại các khoản chi phí và tiêu đề công việc xe
 Trả về JSON hợp lệ (không markdown), dạng:
 {
   "expenses": { "<id>": true/false, ... },
-  "salaryJobs": { "<jobId>": true/false, ... }
+  "salaryJobs": { "<jobId>": true/false, ... },
+  "manualEntries": { "<id>": true/false, ... }
 }`;
 
 const EXCLUDED_EXPENSE_KEYWORDS = [
@@ -89,6 +97,17 @@ const EXCLUDED_JOB_KEYWORDS = ["quang cao", "tvc", "sitcom", "shortclip", "short
 const AEP_JOB_KEYWORDS = [
   "dung phim", "hau ky phim", "quay phim", "dao dien", "anh sang", "thu am hien truong",
   "color grading", "motion graphics", "am nhac phim", "san xuat phim", "web drama", "phim truyen",
+];
+
+const EXCLUDED_MANUAL_KEYWORDS = [
+  "hanh chinh", "ke toan", "bao hiem", "bhxh", "bhyt", "tncn", "thuong le", "van phong",
+  "marketing", "quang cao", "tvc", "sitcom", "shortclip", "short clip",
+];
+
+const AEP_MANUAL_KEYWORDS = [
+  ...AEP_JOB_KEYWORDS,
+  "dien vien", "quan chung", "khach choi", "dan choi", "bao ve", "khach vip", "ve si",
+  "phuc trang", "trang phuc", "dao cu", "boi canh", "hoa trang", "make up", "hien truong",
 ];
 
 function normalizeText(value: string = "") {
@@ -136,6 +155,14 @@ function classifyJobHeuristically(job: JobInput): boolean | null {
   return null;
 }
 
+function classifyManualHeuristically(entry: ManualEntryInput): boolean | null {
+  const text = normalizeText(`${entry.title ?? ""} ${entry.note ?? ""} ${entry.employeeName ?? ""}`);
+  if (!text) return null;
+  if (includesAny(text, EXCLUDED_MANUAL_KEYWORDS)) return false;
+  if (includesAny(text, AEP_MANUAL_KEYWORDS)) return true;
+  return null;
+}
+
 function toBooleanMap<T extends { id: string | number }>(
   items: T[],
   heuristics: Record<string, boolean | null>,
@@ -153,27 +180,32 @@ function toBooleanMap<T extends { id: string | number }>(
   );
 }
 
-function buildHeuristicMaps(transactions: TransactionInput[], jobs: JobInput[]) {
+function buildHeuristicMaps(transactions: TransactionInput[], jobs: JobInput[], manualEntries: ManualEntryInput[]) {
   const expenseHeuristics = Object.fromEntries(
     transactions.map((transaction) => [String(transaction.id), classifyExpenseHeuristically(transaction)])
   );
   const salaryJobHeuristics = Object.fromEntries(
     jobs.map((job) => [String(job.id), classifyJobHeuristically(job)])
   );
+  const manualEntryHeuristics = Object.fromEntries(
+    manualEntries.map((entry) => [String(entry.id), classifyManualHeuristically(entry)])
+  );
 
-  return { expenseHeuristics, salaryJobHeuristics };
+  return { expenseHeuristics, salaryJobHeuristics, manualEntryHeuristics };
 }
 
 function buildResponse(
   transactions: TransactionInput[],
   jobs: JobInput[],
+  manualEntries: ManualEntryInput[],
   heuristics: ReturnType<typeof buildHeuristicMaps>,
-  aiParsed?: { expenses?: Record<string, unknown>; salaryJobs?: Record<string, unknown> },
+  aiParsed?: { expenses?: Record<string, unknown>; salaryJobs?: Record<string, unknown>; manualEntries?: Record<string, unknown> },
   warning?: string
 ) {
   return {
     expenses: toBooleanMap(transactions, heuristics.expenseHeuristics, aiParsed?.expenses),
     salaryJobs: toBooleanMap(jobs, heuristics.salaryJobHeuristics, aiParsed?.salaryJobs),
+    manualEntries: toBooleanMap(manualEntries, heuristics.manualEntryHeuristics, aiParsed?.manualEntries),
     source: aiParsed ? "hybrid" : "heuristic",
     ...(warning ? { warning } : {}),
   };
@@ -182,21 +214,23 @@ function buildResponse(
 export async function POST(req: Request) {
   let transactions: TransactionInput[] = [];
   let jobs: JobInput[] = [];
+  let manualEntries: ManualEntryInput[] = [];
 
   try {
     const body = await req.json();
     transactions = (Array.isArray(body?.transactions) ? body.transactions : []) as TransactionInput[];
     jobs = (Array.isArray(body?.jobs) ? body.jobs : []) as JobInput[];
-    const heuristics = buildHeuristicMaps(transactions, jobs);
+    manualEntries = (Array.isArray(body?.manualEntries) ? body.manualEntries : []) as ManualEntryInput[];
+    const heuristics = buildHeuristicMaps(transactions, jobs, manualEntries);
 
     if (!GEMINI_API_KEY) {
       return NextResponse.json(
-        buildResponse(transactions, jobs, heuristics, undefined, "Chưa cấu hình Gemini, dùng bộ lọc thông minh."),
+        buildResponse(transactions, jobs, manualEntries, heuristics, undefined, "Chưa cấu hình Gemini, dùng bộ lọc thông minh."),
       );
     }
 
-    if (transactions.length === 0 && jobs.length === 0) {
-      return NextResponse.json(buildResponse(transactions, jobs, heuristics));
+    if (transactions.length === 0 && jobs.length === 0 && manualEntries.length === 0) {
+      return NextResponse.json(buildResponse(transactions, jobs, manualEntries, heuristics));
     }
 
     const txList = transactions
@@ -207,7 +241,11 @@ export async function POST(req: Request) {
       .map((j) => `id=${j.id}: "${j.title}"${j.description ? ` — ${j.description}` : ""}`)
       .join("\n");
 
-    const userPrompt = `DANH SÁCH CHI PHÍ CẦN PHÂN LOẠI:\n${txList}\n\nDANH SÁCH JOB LƯƠNG CẦN PHÂN LOẠI:\n${jobList}`;
+    const manualList = manualEntries
+      .map((entry) => `id=${entry.id}: "${entry.title}"${entry.note ? ` (ghi chú: ${entry.note})` : ""}${entry.employeeName ? ` — nhân sự: ${entry.employeeName}` : ""}`)
+      .join("\n");
+
+    const userPrompt = `DANH SÁCH CHI PHÍ CẦN PHÂN LOẠI:\n${txList}\n\nDANH SÁCH JOB LƯƠNG CẦN PHÂN LOẠI:\n${jobList}\n\nDANH SÁCH LƯƠNG THỦ CÔNG CẦN PHÂN LOẠI:\n${manualList}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -229,7 +267,7 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       return NextResponse.json(
-        buildResponse(transactions, jobs, heuristics, undefined, `Gemini lỗi ${res.status}, dùng bộ lọc thông minh.`),
+        buildResponse(transactions, jobs, manualEntries, heuristics, undefined, `Gemini lỗi ${res.status}, dùng bộ lọc thông minh.`),
       );
     }
 
@@ -237,12 +275,12 @@ export async function POST(req: Request) {
     const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
     const clean = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
-    return NextResponse.json(buildResponse(transactions, jobs, heuristics, parsed));
+    return NextResponse.json(buildResponse(transactions, jobs, manualEntries, heuristics, parsed));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (transactions.length > 0 || jobs.length > 0) {
-      const heuristics = buildHeuristicMaps(transactions, jobs);
-      return NextResponse.json(buildResponse(transactions, jobs, heuristics, undefined, `AI lỗi: ${msg}. Dùng bộ lọc thông minh.`));
+    if (transactions.length > 0 || jobs.length > 0 || manualEntries.length > 0) {
+      const heuristics = buildHeuristicMaps(transactions, jobs, manualEntries);
+      return NextResponse.json(buildResponse(transactions, jobs, manualEntries, heuristics, undefined, `AI lỗi: ${msg}. Dùng bộ lọc thông minh.`));
     }
 
     return NextResponse.json({ error: msg }, { status: 500 });
