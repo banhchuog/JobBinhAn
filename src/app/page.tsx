@@ -2629,10 +2629,12 @@ export default function Home() {
                                 <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
                                 <Tooltip
-                                  formatter={(v: number, name: string) => [
-                                    name === "growth" ? `${v}%` : `${v}tr`,
+                                  formatter={(value, name) => {
+                                    const safeValue = typeof value === "number" ? value : 0;
+                                    return [
+                                    name === "growth" ? `${safeValue}%` : `${safeValue}tr`,
                                     name === "growth" ? "Tăng trưởng" : "Doanh thu AEP"
-                                  ]}
+                                  ];}}
                                   contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
                                   cursor={{ fill: "#f9fafb" }}
                                 />
