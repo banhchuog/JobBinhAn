@@ -53,6 +53,100 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+type AepShootDay = {
+  key: string;
+  date: string;
+  label: string;
+  filmNames: string[];
+  sourceLabels: string[];
+};
+
+type AepShootConfirmCandidate = {
+  key: string;
+  date: string;
+  label: string;
+  filmNames: string[];
+  sourceLabels: string[];
+  expenses: ThuChiTransaction[];
+};
+
+const SHOOT_EXPENSE_HINT_KEYWORDS = [
+  "thiet ke", "trang phuc", "phuc trang", "dao cu", "boi canh", "chi phi quay", "ngay quay",
+  "quay", "hoa trang", "make up", "am thanh", "anh sang", "ship", "van chuyen", "xang xe",
+  "di lai", "an uong", "nuoc uong", "do an", "hien truong", "kyo",
+];
+
+const SHOOT_EXPENSE_EXCLUDED_KEYWORDS = [
+  "bao hiem", "bhxh", "bhyt", "tncn", "paypal", "google cloud", "bandwidth", "stream",
+  "bunny", "cdn", "van phong", "luong", "marketing", "ads", "quang cao", "tvc",
+  "sitcom", "shortclip", "short clip",
+];
+
+function normalizeLooseText(value: string = "") {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9/\- ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractShootInfo(text: string): { filmName: string; day: number; month: number } | null {
+  const directMatch = text.match(/ngày\s+quay\s+(.+?)\s+(\d{1,2})\/(\d{1,2})/i);
+  if (directMatch) {
+    return {
+      filmName: directMatch[1].trim(),
+      day: Number(directMatch[2]),
+      month: Number(directMatch[3]),
+    };
+  }
+
+  const normalized = normalizeLooseText(text);
+  const normalizedMatch = normalized.match(/ngay\s+quay\s+(.+?)\s+(\d{1,2})\/(\d{1,2})/i);
+  if (!normalizedMatch) return null;
+
+  return {
+    filmName: normalizedMatch[1].trim(),
+    day: Number(normalizedMatch[2]),
+    month: Number(normalizedMatch[3]),
+  };
+}
+
+function formatShortDayMonth(date: string) {
+  if (!date) return "";
+  const [, month, day] = date.split("-");
+  return `${Number(day)}/${Number(month)}`;
+}
+
+function includesKeyword(text: string, keywords: string[]) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function transactionMentionsDayMonth(transaction: ThuChiTransaction, date: string) {
+  const normalized = normalizeLooseText(`${transaction.subject} ${transaction.note ?? ""}`);
+  const [, month, day] = date.split("-");
+  const variants = [
+    `${Number(day)}/${Number(month)}`,
+    `${String(Number(day)).padStart(2, "0")}/${String(Number(month)).padStart(2, "0")}`,
+    `${Number(day)}-${Number(month)}`,
+    `${String(Number(day)).padStart(2, "0")}-${String(Number(month)).padStart(2, "0")}`,
+  ];
+  return variants.some((variant) => normalized.includes(variant));
+}
+
+function isLikelyShootExpense(transaction: ThuChiTransaction, shootDate: string) {
+  const normalized = normalizeLooseText(`${transaction.subject} ${transaction.note ?? ""}`);
+  if (!normalized) return false;
+  if (includesKeyword(normalized, SHOOT_EXPENSE_EXCLUDED_KEYWORDS)) return false;
+  if (includesKeyword(normalized, SHOOT_EXPENSE_HINT_KEYWORDS)) return true;
+  if (transactionMentionsDayMonth(transaction, shootDate) && (normalized.includes("chi phi") || normalized.includes("ship") || normalized.includes("quay"))) {
+    return true;
+  }
+  return false;
+}
+
 /** Phân loại nguồn gửi doanh thu từ thu chi app */
 function classifyRevenueSender(subject: string): "metub" | "yeah1" | "mcv" | "other" {
   const s = (subject || "").toUpperCase();
@@ -392,6 +486,8 @@ export default function Home() {
   const [aepFilterManual, setAepFilterManual] = useState("");
   const [aepAiScanning, setAepAiScanning] = useState(false);
   const [aepAiScanNotice, setAepAiScanNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
+  const [aepShootConfirmQueue, setAepShootConfirmQueue] = useState<AepShootConfirmCandidate[]>([]);
+  const [aepShootDecisions, setAepShootDecisions] = useState<Record<string, boolean>>({});
 
   // ── Social groups ─────────────────────────────────────
   const [socialGroups, setSocialGroups] = useState<SocialGroup[]>([]);
@@ -588,6 +684,36 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aepMonth, financeView]);
 
+  const aepKnownShootDays = useMemo<AepShootDay[]>(() => {
+    const map = new Map<string, { date: string; filmNames: Set<string>; sourceLabels: Set<string> }>();
+    const targetMonth = Number(aepMonth.split("-")[1] ?? "0");
+
+    for (const job of jobs) {
+      if (job.month !== aepMonth) continue;
+      const sourceTexts = [job.groupName, job.description, job.title].filter(Boolean) as string[];
+      const info = sourceTexts.map((text) => extractShootInfo(text)).find(Boolean);
+      if (!info || info.month !== targetMonth) continue;
+
+      const date = `${aepMonth}-${String(info.day).padStart(2, "0")}`;
+      const existing = map.get(date) ?? { date, filmNames: new Set<string>(), sourceLabels: new Set<string>() };
+      existing.filmNames.add(info.filmName);
+      if (job.groupName) existing.sourceLabels.add(job.groupName);
+      else if (job.description) existing.sourceLabels.add(job.description);
+      else existing.sourceLabels.add(job.title);
+      map.set(date, existing);
+    }
+
+    return Array.from(map.values())
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .map((entry) => ({
+        key: entry.date,
+        date: entry.date,
+        label: formatShortDayMonth(entry.date),
+        filmNames: Array.from(entry.filmNames),
+        sourceLabels: Array.from(entry.sourceLabels),
+      }));
+  }, [aepMonth, jobs]);
+
   const runAepExpenseAiScan = useCallback(async (transactions: ThuChiTransaction[]) => {
     if (transactions.length === 0) {
       setAepAiScanNotice({ tone: "info", text: "Tháng này chưa có khoản chi nào để quét." });
@@ -615,6 +741,38 @@ export default function Home() {
           .map(([id]) => String(id))
       );
 
+      const pendingShootGroups = new Map<string, AepShootConfirmCandidate>();
+      const shootDayByDate = new Map(aepKnownShootDays.map((shootDay) => [shootDay.date, shootDay]));
+
+      for (const transaction of transactions) {
+        const id = String(transaction.id);
+        const textDayMatch = aepKnownShootDays.find((shootDay) => transactionMentionsDayMonth(transaction, shootDay.date));
+        const matchedShootDay = textDayMatch ?? shootDayByDate.get(transaction.date);
+        if (!matchedShootDay) continue;
+        if (!isLikelyShootExpense(transaction, matchedShootDay.date)) continue;
+
+        const decision = aepShootDecisions[matchedShootDay.key];
+        if (decision === true) {
+          matchedIds.add(id);
+          continue;
+        }
+        if (decision === false || matchedIds.has(id) || aepDraft?.expenses[id]) continue;
+
+        const existingGroup = pendingShootGroups.get(matchedShootDay.key);
+        if (existingGroup) {
+          existingGroup.expenses.push(transaction);
+        } else {
+          pendingShootGroups.set(matchedShootDay.key, {
+            key: matchedShootDay.key,
+            date: matchedShootDay.date,
+            label: matchedShootDay.label,
+            filmNames: matchedShootDay.filmNames,
+            sourceLabels: matchedShootDay.sourceLabels,
+            expenses: [transaction],
+          });
+        }
+      }
+
       let addedCount = 0;
       setAepDraft((draft) => {
         if (!draft) return draft;
@@ -630,11 +788,14 @@ export default function Home() {
         return { ...draft, expenses: nextExpenses };
       });
 
+      const modalCandidates = Array.from(pendingShootGroups.values()).filter((group) => group.expenses.length > 0);
+      setAepShootConfirmQueue(modalCandidates);
+
       const detectedCount = matchedIds.size;
       const usedHeuristicOnly = data?.source === "heuristic";
       const sourceLabel = usedHeuristicOnly ? "Bộ lọc thông minh" : "AI";
 
-      if (detectedCount === 0) {
+      if (detectedCount === 0 && modalCandidates.length === 0) {
         setAepAiScanNotice({
           tone: "info",
           text: usedHeuristicOnly
@@ -645,9 +806,10 @@ export default function Home() {
       }
 
       setAepAiScanNotice({
-        tone: "success",
-        text:
-          addedCount > 0
+        tone: modalCandidates.length > 0 ? "info" : "success",
+        text: modalCandidates.length > 0
+          ? `${sourceLabel} đã tick ${addedCount} khoản chắc chắn. Còn ${modalCandidates.length} nhóm chi phí ngày quay cần bạn xác nhận thêm.`
+          : addedCount > 0
             ? `${sourceLabel} đã nhận diện ${detectedCount} khoản chi phù hợp và tick thêm ${addedCount} khoản.`
             : `${sourceLabel} nhận diện ${detectedCount} khoản chi phù hợp, nhưng các khoản đó đã được tick sẵn.`,
       });
@@ -657,6 +819,37 @@ export default function Home() {
     } finally {
       setAepAiScanning(false);
     }
+  }, [aepDraft, aepKnownShootDays, aepShootDecisions]);
+
+  const confirmAepShootGroup = useCallback((candidate: AepShootConfirmCandidate) => {
+    const ids = candidate.expenses.map((expense) => String(expense.id));
+    const newlyChecked = ids.filter((id) => !aepDraft?.expenses[id]).length;
+
+    setAepDraft((draft) => {
+      if (!draft) return draft;
+      return {
+        ...draft,
+        expenses: {
+          ...draft.expenses,
+          ...Object.fromEntries(ids.map((id) => [id, true])),
+        },
+      };
+    });
+    setAepShootDecisions((prev) => ({ ...prev, [candidate.key]: true }));
+    setAepShootConfirmQueue((prev) => prev.slice(1));
+    setAepAiScanNotice({
+      tone: "success",
+      text: `Đã xác nhận ngày quay ${candidate.label}${candidate.filmNames[0] ? ` — ${candidate.filmNames[0]}` : ""} và chọn ${newlyChecked}/${ids.length} khoản chi.`,
+    });
+  }, [aepDraft]);
+
+  const rejectAepShootGroup = useCallback((candidate: AepShootConfirmCandidate) => {
+    setAepShootDecisions((prev) => ({ ...prev, [candidate.key]: false }));
+    setAepShootConfirmQueue((prev) => prev.slice(1));
+    setAepAiScanNotice({
+      tone: "info",
+      text: `Bỏ qua nhóm chi phí ngày quay ${candidate.label}${candidate.filmNames[0] ? ` — ${candidate.filmNames[0]}` : ""}.`,
+    });
   }, []);
 
 
@@ -3387,6 +3580,8 @@ export default function Home() {
                   const initDraft = () => {
                     const base = aepClassification ?? { expenses: {}, salaryAssignments: {}, manualEntries: {} };
                     setAepAiScanNotice(null);
+                    setAepShootConfirmQueue([]);
+                    setAepShootDecisions({});
                     setAepDraft({
                       expenses: Object.fromEntries(allChiMonth.map(t => [String(t.id), base.expenses[String(t.id)] ?? false])),
                       salaryAssignments: Object.fromEntries(allSalaryAssignmentsMonth.map(({assignment}) => [assignment.id, base.salaryAssignments?.[assignment.id] ?? false])),
@@ -3409,7 +3604,7 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
                         {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
+                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                             {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                           </button>
@@ -3849,6 +4044,72 @@ export default function Home() {
 
       {/* Modal thông tin cá nhân nhân viên */}
       {/* ── Modal sửa ngày tạo / ngày duyệt job ── */}
+      {aepShootConfirmQueue[0] && (() => {
+        const candidate = aepShootConfirmQueue[0];
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => rejectAepShootGroup(candidate)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-bold text-gray-900 flex items-center gap-2"><Sparkles className="w-4 h-4 text-violet-500" /> Xác nhận chi phí ngày quay</h2>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {candidate.label}{candidate.filmNames.length > 0 ? ` · ${candidate.filmNames.join(", ")}` : ""}
+                  </p>
+                </div>
+                <button onClick={() => rejectAepShootGroup(candidate)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-sm text-violet-700">
+                  AI thấy {candidate.expenses.length} khoản chi trùng với lịch ngày quay này và mang kiểu chi phí hiện trường. Nếu đúng là ngày quay của Anh Em Phim, bấm xác nhận để tick cả nhóm.
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nguồn đối chiếu ngày quay</p>
+                  <div className="space-y-1">
+                    {candidate.sourceLabels.slice(0, 3).map((label, index) => (
+                      <p key={`${candidate.key}-${index}`} className="text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2">{label}</p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Các khoản sẽ được chọn</p>
+                  <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100">
+                    {candidate.expenses.map((expense) => {
+                      const amount = expense.currency === "VND" ? Number(expense.amount) : Number(expense.amount) * 25000;
+                      return (
+                        <div key={expense.id} className="px-4 py-3 flex items-start gap-3 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-800">{expense.subject}</p>
+                            {expense.note && <p className="text-xs text-gray-400 mt-0.5">{expense.note}</p>}
+                            <p className="text-xs text-gray-400 mt-0.5">{expense.date}</p>
+                          </div>
+                          <span className="font-semibold text-red-500 shrink-0">{formatCurrency(amount)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 pb-5 flex gap-2">
+                <button
+                  onClick={() => confirmAepShootGroup(candidate)}
+                  className="flex-1 bg-violet-600 hover:bg-violet-700 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors">
+                  Đúng, chọn cả nhóm
+                </button>
+                <button
+                  onClick={() => rejectAepShootGroup(candidate)}
+                  className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">
+                  Bỏ qua
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {dateEditModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDateEditModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
