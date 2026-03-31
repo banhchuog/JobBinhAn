@@ -2589,7 +2589,7 @@ export default function Home() {
                                               empChunks.push({
                                                   emp: empOfRaw(c),
                                                   amount: chunkAmt,
-                                                  content: `${content} (Phần ${currentPart}/${partCount})`,
+                                                  content: content,
                                                   date: { dd: "01", mm: mmStr, yyyy: yyyyStr }
                                               });
                                               remaining -= chunkAmt;
