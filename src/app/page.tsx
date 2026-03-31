@@ -2618,7 +2618,6 @@ export default function Home() {
                                 ["{CCCD_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.cccd || "")],
                                 ["{NGAY_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.ngayCapCccd || "")],
                                 ["{NOI_CAP_CCCD_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.noiCapCccd || "")],
-                                ["", "", ...splitContracts.map(() => "")],
                                 ["{DIA_CHI_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.diaChi || "")],
                                 ["{MST_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.mst || "")],
                                 ["{DIEN_THOAI_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.dienThoai || "")],
