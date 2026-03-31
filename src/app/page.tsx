@@ -2317,6 +2317,68 @@ export default function Home() {
                       <Download className="w-5 h-5" />
                     </button>
                     <button onClick={() => {
+                      const header = "STT,Họ và tên,Lương cơ sở,Tổng thu nhập thực tế,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
+                      const luongCB = 5400000;
+                      const gtBanThan = 15500000;
+                      const gtNPT = 6200000;
+                      
+                      const csvRows = rows.map((r, i) => {
+                        const tongThuNhap = r.totalApproved;
+                        let bhxh = luongCB * 0.08;
+                        let bhyt = luongCB * 0.015;
+                        let bhtn = luongCB * 0.01;
+                        let tongBH = bhxh + bhyt + bhtn;
+                        
+                        // Nếu tổng thu nhập rất nhỏ, miễn trừ BH để tránh số âm
+                        if (tongThuNhap < luongCB) {
+                           bhxh = 0; bhyt = 0; bhtn = 0; tongBH = 0;
+                        }
+                        
+                        const soNPT = 0; // Giả định NPT = 0 (tương lai có thể cập nhật trong Profile)
+                        const tnMienThue = 0; 
+                        const tnChiuThue = tongThuNhap - tnMienThue;
+                        const tntt = Math.max(0, tnChiuThue - gtBanThan - (soNPT * gtNPT) - tongBH);
+                        
+                        let thue = 0;
+                        if (tntt > 80000000) thue = (tntt * 0.35) - 9850000;
+                        else if (tntt > 52000000) thue = (tntt * 0.30) - 5850000;
+                        else if (tntt > 32000000) thue = (tntt * 0.25) - 3250000;
+                        else if (tntt > 18000000) thue = (tntt * 0.20) - 1650000;
+                        else if (tntt > 10000000) thue = (tntt * 0.15) - 750000;
+                        else if (tntt > 5000000) thue = (tntt * 0.10) - 250000;
+                        else if (tntt > 0) thue = tntt * 0.05;
+                        thue = Math.max(0, Math.round(thue));
+                        
+                        const thucLinh = tongThuNhap - tongBH - thue;
+                        
+                        const cols = [
+                          i + 1,
+                          `"${r.emp.name}"`,
+                          tongThuNhap >= luongCB ? luongCB : 0,
+                          tongThuNhap,
+                          tnMienThue,
+                          tnChiuThue,
+                          bhxh, bhyt, bhtn, tongBH,
+                          gtBanThan,
+                          soNPT * gtNPT,
+                          tntt,
+                          thue,
+                          thucLinh
+                        ];
+                        // format số nguyên cho đẹp nếu cần hoặc xuất nguyên CSV cho Excel đọc
+                        return cols.join(",");
+                      });
+                      
+                      const csv = [header, ...csvRows].join("\n");
+                      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a"); a.href = url;
+                      a.download = `Bang-Luong-Chuan-2026-${directorMonth}.csv`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải Bảng Lương Chuẩn (Luật 2026 15.5tr/6.2tr)">
+                      <FileSpreadsheet className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => {
                       type ContractItem =
                         | { kind: "job"; emp: Employee; job: Job; assignment: JobAssignment }
                         | { kind: "manual"; emp: Employee; entry: ManualEntry };
