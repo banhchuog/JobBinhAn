@@ -520,6 +520,7 @@ export default function Home() {
   const [editChannelLabel, setEditChannelLabel] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
+  const [showSalaryPreview, setShowSalaryPreview] = useState(false);
 
   // ── Chia lợi nhuận ───────────────────────────────────
   type ProfitShare = { id: string; name: string; percent: number };
@@ -2264,6 +2265,83 @@ export default function Home() {
 
             return (
               <div className="space-y-5">
+                {showSalaryPreview && (() => {
+                  const luongCB = 5400000;
+                  const gtBanThan = 15500000;
+                  const gtNPT = 6200000;
+                  const tableRows = rows.map((r, i) => {
+                    const tongThuNhap = r.totalApproved;
+                    let bhxh = luongCB * 0.08;
+                    let bhyt = luongCB * 0.015;
+                    let bhtn = luongCB * 0.01;
+                    let tongBH = bhxh + bhyt + bhtn;
+                    if (tongThuNhap < luongCB) { bhxh = 0; bhyt = 0; bhtn = 0; tongBH = 0; }
+                    const tntt = Math.max(0, tongThuNhap - gtBanThan - tongBH);
+                    let thue = 0;
+                    if (tntt > 80000000) thue = (tntt * 0.35) - 9850000;
+                    else if (tntt > 52000000) thue = (tntt * 0.30) - 5850000;
+                    else if (tntt > 32000000) thue = (tntt * 0.25) - 3250000;
+                    else if (tntt > 18000000) thue = (tntt * 0.20) - 1650000;
+                    else if (tntt > 10000000) thue = (tntt * 0.15) - 750000;
+                    else if (tntt > 5000000) thue = (tntt * 0.10) - 250000;
+                    else if (tntt > 0) thue = tntt * 0.05;
+                    thue = Math.round(thue);
+                    const thucLinh = tongThuNhap - tongBH - thue;
+                    return { i, name: r.emp.name, lcs: tongThuNhap >= luongCB ? luongCB : 0, tongThuNhap, tongBH, gtBanThan, tntt, thue, thucLinh };
+                  });
+                  return (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
+                      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
+                          <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                            <FileSpreadsheet className="w-6 h-6 text-indigo-500" />
+                            Bảng Lương Chuẩn (Luật 2026) - {monthLabel(directorMonth)}
+                          </h3>
+                          <button onClick={() => setShowSalaryPreview(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors bg-white shadow-sm border border-gray-100">
+                            <X className="w-5 h-5 text-gray-500" />
+                          </button>
+                        </div>
+                        <div className="overflow-auto flex-1 p-6 bg-slate-50">
+                          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
+                            <table className="w-full text-sm text-left">
+                              <thead className="bg-slate-100 text-slate-600 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
+                                <tr>
+                                  <th className="px-4 py-4 border-b border-slate-200">STT</th>
+                                  <th className="px-4 py-4 border-b border-slate-200">Họ và tên</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Lương cơ sở</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-black">Tổng thu nhập</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Trừ BH (10.5%)</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Giảm trừ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-600">TN Tính thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-rose-600">Thuế TNCN</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-emerald-600 text-base">Thực lĩnh</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 text-slate-700">
+                                {tableRows.map((tr) => (
+                                  <tr key={tr.i} className="hover:bg-slate-50 transition-colors whitespace-nowrap group">
+                                    <td className="px-4 py-3.5 text-slate-400 font-medium">{tr.i + 1}</td>
+                                    <td className="px-4 py-3.5 font-bold text-slate-800">{tr.name}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.lcs)}</td>
+                                    <td className="px-4 py-3.5 text-right font-bold text-black border-x border-slate-50/50 bg-slate-50/30 group-hover:bg-white">{formatCurrency(tr.tongThuNhap)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.tongBH)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.gtBanThan)}</td>
+                                    <td className="px-4 py-3.5 text-right text-indigo-600 font-semibold bg-indigo-50/30 group-hover:bg-indigo-50 border-x border-indigo-50/50">{formatCurrency(tr.tntt)}</td>
+                                    <td className="px-4 py-3.5 text-right text-rose-600 font-bold bg-rose-50/30 group-hover:bg-rose-50 border-r border-rose-50/50">{formatCurrency(tr.thue)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600 font-black text-base bg-emerald-50/30 group-hover:bg-emerald-50">{formatCurrency(tr.thucLinh)}</td>
+                                  </tr>
+                                ))}
+                                {tableRows.length === 0 && (
+                                  <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* Chọn tháng */}
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
@@ -2377,6 +2455,9 @@ export default function Home() {
                       a.click(); URL.revokeObjectURL(url);
                     }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải Bảng Lương Chuẩn (Luật 2026 15.5tr/6.2tr)">
                       <FileSpreadsheet className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => setShowSalaryPreview(true)} className="p-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors" title="Xem trước Bảng Lương Chuẩn">
+                      <Search className="w-5 h-5" />
                     </button>
                     <button onClick={() => {
                       type ContractItem =
