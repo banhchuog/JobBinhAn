@@ -1,5 +1,5 @@
 import { Pool } from "pg";
-import { Job, Employee, ManualEntry } from "@/types";
+import { Job, Employee, ManualEntry, CassoTransactionRecord } from "@/types";
 
 let _pool: Pool | null = null;
 
@@ -42,6 +42,22 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS casso_transactions (
+      transaction_id TEXT PRIMARY KEY,
+      booking_date DATE NOT NULL,
+      amount DECIMAL NOT NULL DEFAULT 0,
+      is_incoming BOOLEAN NOT NULL DEFAULT FALSE,
+      is_aep BOOLEAN NOT NULL DEFAULT FALSE,
+      description TEXT NOT NULL DEFAULT '',
+      counter_account_name TEXT NOT NULL DEFAULT '',
+      raw JSONB NOT NULL DEFAULT '{}',
+      received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_booking_date ON casso_transactions (booking_date)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_is_aep ON casso_transactions (is_aep, is_incoming)`);
 }
 
 // ─── Settings ───────────────────────────────────────────
@@ -153,4 +169,62 @@ export async function createManualEntry(entry: ManualEntry): Promise<ManualEntry
 export async function deleteManualEntry(id: string): Promise<boolean> {
   const { rowCount } = await getPool().query(`DELETE FROM manual_salary WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
+}
+
+// ─── Casso Transactions ───────────────────────────────
+export async function upsertCassoTransactions(transactions: CassoTransactionRecord[]): Promise<number> {
+  if (transactions.length === 0) return 0;
+
+  const pool = getPool();
+  for (const transaction of transactions) {
+    await pool.query(
+      `INSERT INTO casso_transactions (
+        transaction_id,
+        booking_date,
+        amount,
+        is_incoming,
+        is_aep,
+        description,
+        counter_account_name,
+        raw,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      ON CONFLICT (transaction_id) DO UPDATE SET
+        booking_date = EXCLUDED.booking_date,
+        amount = EXCLUDED.amount,
+        is_incoming = EXCLUDED.is_incoming,
+        is_aep = EXCLUDED.is_aep,
+        description = EXCLUDED.description,
+        counter_account_name = EXCLUDED.counter_account_name,
+        raw = EXCLUDED.raw,
+        updated_at = NOW()`,
+      [
+        transaction.transactionId,
+        transaction.bookingDate,
+        transaction.amount,
+        transaction.isIncoming,
+        transaction.isAep,
+        transaction.description,
+        transaction.counterAccountName,
+        JSON.stringify(transaction.raw),
+      ]
+    );
+  }
+
+  return transactions.length;
+}
+
+export async function getDailyAepRevenue(): Promise<Record<string, number>> {
+  const { rows } = await getPool().query(
+    `SELECT booking_date::text AS date, CAST(SUM(amount) AS FLOAT) AS amount
+     FROM casso_transactions
+     WHERE is_incoming = TRUE AND is_aep = TRUE
+     GROUP BY booking_date
+     ORDER BY booking_date ASC`
+  );
+
+  return rows.reduce<Record<string, number>>((acc, row) => {
+    acc[row.date as string] = Number(row.amount) || 0;
+    return acc;
+  }, {});
 }

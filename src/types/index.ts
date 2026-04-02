@@ -67,3 +67,16 @@ export interface ManualEntry {
   amount: number;
   note: string;
 }
+
+export interface CassoTransactionRecord {
+  transactionId: string;
+  bookingDate: string;
+  amount: number;
+  isIncoming: boolean;
+  isAep: boolean;
+  description: string;
+  counterAccountName: string;
+  raw: Record<string, unknown>;
+  receivedAt?: string;
+  updatedAt?: string;
+}

@@ -484,6 +484,9 @@ export default function Home() {
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState<string | null>(null);
+  const [dailyAepRevenueData, setDailyAepRevenueData] = useState<Record<string, number> | null>(null);
+  const [dailyAepRevenueLoading, setDailyAepRevenueLoading] = useState(false);
+  const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
   // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool}, manualEntries: {id: bool} }
   const [aepClassification, setAepClassification] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null>(null);
   // Draft đang chỉnh trong tab Chốt số liệu
@@ -680,6 +683,7 @@ export default function Home() {
   useEffect(() => {
     fetchThuChi();
     fetchRevenue();
+    fetchDailyAepRevenue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1339,6 +1343,21 @@ export default function Home() {
       setRevenueError("Không lấy được dữ liệu doanh thu");
     } finally {
       setRevenueLoading(false);
+    }
+  };
+
+  const fetchDailyAepRevenue = async () => {
+    setDailyAepRevenueLoading(true);
+    setDailyAepRevenueError(null);
+    try {
+      const res = await fetch("/api/revenue/daily");
+      const data = await res.json();
+      if (!res.ok) { setDailyAepRevenueError(data.error || "Lỗi API doanh thu ngày"); return; }
+      setDailyAepRevenueData(data);
+    } catch {
+      setDailyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo ngày");
+    } finally {
+      setDailyAepRevenueLoading(false);
     }
   };
 
@@ -2991,6 +3010,12 @@ export default function Home() {
                     <button onClick={fetchRevenue} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
+                {dailyAepRevenueError && (
+                  <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso ngày: {dailyAepRevenueError}
+                    <button onClick={fetchDailyAepRevenue} className="underline ml-1">Thử lại</button>
+                  </p>
+                )}
 
                 {/* ── View: Tổng quan ── */}
                 {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "overview" && (() => {
@@ -3268,6 +3293,97 @@ export default function Home() {
                                 <Bar dataKey="amount" name="Doanh thu AEP" fill="#34d399" radius={[4, 4, 0, 0]} />
                               </ComposedChart>
                             </ResponsiveContainer>
+                          </div>
+                        );
+                      })()}
+
+                      {dailyAepRevenueData && (() => {
+                        const allDailyEntries = Object.entries(dailyAepRevenueData)
+                          .sort(([a], [b]) => a.localeCompare(b));
+
+                        if (allDailyEntries.length === 0) return null;
+
+                        const latestDailyMonth = allDailyEntries[allDailyEntries.length - 1][0]?.slice(0, 7) ?? null;
+                        const selectedDailyMonth = overviewFilter === "all" ? latestDailyMonth : overviewFilter;
+                        if (!selectedDailyMonth) return null;
+
+                        const dailyEntries = allDailyEntries.filter(([date]) => date.startsWith(selectedDailyMonth));
+                        if (dailyEntries.length === 0) return null;
+
+                        const dailyChartData = dailyEntries.map(([date, amount], index, arr) => {
+                          const prevAmount = index > 0 ? arr[index - 1][1] : null;
+                          const growth = prevAmount !== null && prevAmount > 0
+                            ? Math.round((amount - prevAmount) / prevAmount * 100)
+                            : null;
+
+                          return {
+                            date,
+                            day: date.slice(8, 10),
+                            amount: Math.round((amount / 1e6) * 10) / 10,
+                            growth,
+                          };
+                        });
+
+                        const total = dailyChartData.reduce((sum, item) => sum + item.amount, 0);
+                        const average = dailyChartData.length > 0 ? Math.round((total / dailyChartData.length) * 10) / 10 : 0;
+                        const bestDay = dailyChartData.reduce((best, item) => item.amount > best.amount ? item : best, dailyChartData[0]);
+                        const latestDay = dailyChartData[dailyChartData.length - 1];
+
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                              <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
+                              Doanh thu AEP theo ngày ({monthLabel(selectedDailyMonth)})
+                            </p>
+
+                            <div className="flex flex-wrap gap-4 mb-3">
+                              <div className="text-center">
+                                <p className="text-[10px] text-gray-400">Ngày mới nhất</p>
+                                <p className="text-sm font-black text-emerald-600">{latestDay.amount.toFixed(1)}tr</p>
+                                <p className="text-[10px] text-gray-400">Ngày {Number(latestDay.day)}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-[10px] text-gray-400">Trung bình/ngày</p>
+                                <p className="text-sm font-black text-blue-500">{average.toFixed(1)}tr</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-[10px] text-gray-400">Cao nhất</p>
+                                <p className="text-sm font-black text-amber-500">{bestDay.amount.toFixed(1)}tr</p>
+                                <p className="text-[10px] text-gray-400">Ngày {Number(bestDay.day)}</p>
+                              </div>
+                            </div>
+
+                            <ResponsiveContainer width="100%" height={180}>
+                              <ComposedChart data={dailyChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
+                                <Tooltip
+                                  formatter={(value, name) => {
+                                    const safeValue = typeof value === "number" ? value : 0;
+                                    return [
+                                      name === "growth" ? `${safeValue}%` : `${safeValue}tr`,
+                                      name === "growth" ? "Tăng trưởng" : "Doanh thu ngày"
+                                    ];
+                                  }}
+                                  labelFormatter={(label) => `Ngày ${label}/${selectedDailyMonth.slice(5, 7)}`}
+                                  contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
+                                  cursor={{ fill: "#f9fafb" }}
+                                />
+                                <ReferenceLine
+                                  y={average}
+                                  stroke="#f59e0b"
+                                  strokeDasharray="5 3"
+                                  strokeWidth={1.5}
+                                  label={{ value: `TB ${average.toFixed(1)}tr`, position: "right", fill: "#f59e0b", fontSize: 9 }}
+                                />
+                                <Bar dataKey="amount" name="Doanh thu ngày" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                              </ComposedChart>
+                            </ResponsiveContainer>
+
+                            {dailyAepRevenueLoading && (
+                              <p className="text-[10px] text-gray-400 mt-2">Đang cập nhật dữ liệu doanh thu ngày từ Casso...</p>
+                            )}
                           </div>
                         );
                       })()}
