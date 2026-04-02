@@ -53,6 +53,100 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+const PAYROLL_BASE_SALARY = 5400000;
+const PAYROLL_PERSONAL_DEDUCTION = 15500000;
+const PAYROLL_DEPENDENT_DEDUCTION = 6200000;
+const PAYROLL_BHXH_RATE = 0.08;
+const PAYROLL_BHYT_RATE = 0.015;
+const PAYROLL_BHTN_RATE = 0.01;
+
+function calcPersonalIncomeTax(taxableIncome: number) {
+  if (taxableIncome <= 0) return 0;
+  if (taxableIncome > 80000000) return (taxableIncome * 0.35) - 9850000;
+  if (taxableIncome > 52000000) return (taxableIncome * 0.30) - 5850000;
+  if (taxableIncome > 32000000) return (taxableIncome * 0.25) - 3250000;
+  if (taxableIncome > 18000000) return (taxableIncome * 0.20) - 1650000;
+  if (taxableIncome > 10000000) return (taxableIncome * 0.15) - 750000;
+  if (taxableIncome > 5000000) return (taxableIncome * 0.10) - 250000;
+  return taxableIncome * 0.05;
+}
+
+function calcPayrollFromGross(grossIncome: number, dependentCount = 0) {
+  let lcs = 0;
+  let thuongKPI = 0;
+  let bhxh = 0;
+  let bhyt = 0;
+  let bhtn = 0;
+  let tongBH = 0;
+
+  if (grossIncome >= PAYROLL_BASE_SALARY) {
+    lcs = PAYROLL_BASE_SALARY;
+    thuongKPI = grossIncome - PAYROLL_BASE_SALARY;
+    bhxh = PAYROLL_BASE_SALARY * PAYROLL_BHXH_RATE;
+    bhyt = PAYROLL_BASE_SALARY * PAYROLL_BHYT_RATE;
+    bhtn = PAYROLL_BASE_SALARY * PAYROLL_BHTN_RATE;
+    tongBH = bhxh + bhyt + bhtn;
+  } else {
+    lcs = grossIncome;
+  }
+
+  const tnMienThue = 0;
+  const tnChiuThue = grossIncome - tnMienThue;
+  const gtBanThan = PAYROLL_PERSONAL_DEDUCTION;
+  const gtNguoiPhuThuoc = dependentCount * PAYROLL_DEPENDENT_DEDUCTION;
+  const tntt = Math.max(0, tnChiuThue - gtBanThan - gtNguoiPhuThuoc - tongBH);
+  const thue = Math.max(0, Math.round(calcPersonalIncomeTax(tntt)));
+  const thucLinh = grossIncome - tongBH - thue;
+
+  return {
+    lcs,
+    thuongKPI,
+    tongThuNhap: grossIncome,
+    tnMienThue,
+    tnChiuThue,
+    bhxh,
+    bhyt,
+    bhtn,
+    tongBH,
+    gtBanThan,
+    gtNguoiPhuThuoc,
+    tntt,
+    thue,
+    thucLinh,
+  };
+}
+
+function calcPayrollFromNet(actualTakeHome: number, dependentCount = 0) {
+  if (actualTakeHome <= 0) {
+    return calcPayrollFromGross(0, dependentCount);
+  }
+
+  const minNetWithInsurance = PAYROLL_BASE_SALARY * (1 - PAYROLL_BHXH_RATE - PAYROLL_BHYT_RATE - PAYROLL_BHTN_RATE);
+  if (actualTakeHome < minNetWithInsurance) {
+    return calcPayrollFromGross(actualTakeHome, dependentCount);
+  }
+
+  let low = PAYROLL_BASE_SALARY;
+  let high = Math.max(actualTakeHome + 2000000, PAYROLL_BASE_SALARY);
+
+  while (calcPayrollFromGross(high, dependentCount).thucLinh < actualTakeHome) {
+    high += 5000000;
+  }
+
+  for (let i = 0; i < 60; i++) {
+    const mid = (low + high) / 2;
+    const simulatedNet = calcPayrollFromGross(mid, dependentCount).thucLinh;
+    if (simulatedNet < actualTakeHome) low = mid;
+    else high = mid;
+  }
+
+  const result = calcPayrollFromGross(Math.round(high), dependentCount);
+  return {
+    ...result,
+    thucLinh: actualTakeHome,
+  };
+}
+
 type AepShootDay = {
   key: string;
   date: string;
@@ -2287,43 +2381,20 @@ export default function Home() {
             return (
               <div className="space-y-5">
                 {showSalaryPreview && (() => {
-                  const luongCB = 5400000;
-                  const gtBanThan = 15500000;
-                  const gtNPT = 6200000;
                   const tableRows = rows.map((r, i) => {
-                    const tongThuNhap = r.totalApproved;
-                    let lcs = 0;
-                    let thuongKPI = 0;
-                    let bhxh = 0;
-                    let bhyt = 0;
-                    let bhtn = 0;
-                    let tongBH = 0;
-                    
-                    if (tongThuNhap >= luongCB) {
-                        lcs = luongCB;
-                        thuongKPI = tongThuNhap - luongCB;
-                        bhxh = luongCB * 0.08;
-                        bhyt = luongCB * 0.015;
-                        bhtn = luongCB * 0.01;
-                        tongBH = bhxh + bhyt + bhtn;
-                    } else {
-                        lcs = tongThuNhap;
-                        thuongKPI = 0;
-                        bhxh = 0; bhyt = 0; bhtn = 0; tongBH = 0;
-                    }
-
-                    const tntt = Math.max(0, tongThuNhap - gtBanThan - tongBH);
-                    let thue = 0;
-                    if (tntt > 80000000) thue = (tntt * 0.35) - 9850000;
-                    else if (tntt > 52000000) thue = (tntt * 0.30) - 5850000;
-                    else if (tntt > 32000000) thue = (tntt * 0.25) - 3250000;
-                    else if (tntt > 18000000) thue = (tntt * 0.20) - 1650000;
-                    else if (tntt > 10000000) thue = (tntt * 0.15) - 750000;
-                    else if (tntt > 5000000) thue = (tntt * 0.10) - 250000;
-                    else if (tntt > 0) thue = tntt * 0.05;
-                    thue = Math.round(thue);
-                    const thucLinh = tongThuNhap - tongBH - thue;
-                    return { i, name: r.emp.name, lcs, thuongKPI, tongThuNhap, tongBH, gtBanThan, tntt, thue, thucLinh };
+                    const payroll = calcPayrollFromNet(r.totalApproved);
+                    return {
+                      i,
+                      name: r.emp.name,
+                      lcs: payroll.lcs,
+                      thuongKPI: payroll.thuongKPI,
+                      tongThuNhap: payroll.tongThuNhap,
+                      tongBH: payroll.tongBH,
+                      gtBanThan: payroll.gtBanThan,
+                      tntt: payroll.tntt,
+                      thue: payroll.thue,
+                      thucLinh: payroll.thucLinh,
+                    };
                   });
                   return (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
@@ -2346,7 +2417,7 @@ export default function Home() {
                                   <th className="px-4 py-4 border-b border-slate-200 min-w-[150px]">Họ và tên</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-600" title="Phần dôi ra từ các Job hoàn thành (Không tính BHXH)">Thưởng KPI</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-black font-extrabold">Tổng thu nhập</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-black font-extrabold" title="Tổng thu nhập trước khấu trừ BH và thuế, được tính ngược từ thực lĩnh">Tổng thu nhập gộp</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right">Trừ BH (10.5%)</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức trừ cho bản thân và người phụ thuộc">Giảm trừ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-600" title="Căn cứ áp dụng thang thuế 7 bậc">TN Tính thuế</th>
@@ -2433,65 +2504,25 @@ export default function Home() {
                       <Download className="w-5 h-5" />
                     </button>
                     <button onClick={() => {
-                      const header = "STT,Họ và tên,Lương đóng BHXH,Thưởng KPIs/Năng suất,Tổng thu nhập thực tế,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
-                      const luongCB = 5400000;
-                      const gtBanThan = 15500000;
-                      const gtNPT = 6200000;
+                      const header = "STT,Họ và tên,Lương đóng BHXH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
                       
                       const csvRows = rows.map((r, i) => {
-                        const tongThuNhap = r.totalApproved;
-                        let lcs = 0;
-                        let thuongKPI = 0;
-                        let bhxh = 0;
-                        let bhyt = 0;
-                        let bhtn = 0;
-                        let tongBH = 0;
-
-                        if (tongThuNhap >= luongCB) {
-                            lcs = luongCB;
-                            thuongKPI = tongThuNhap - luongCB;
-                            bhxh = luongCB * 0.08;
-                            bhyt = luongCB * 0.015;
-                            bhtn = luongCB * 0.01;
-                            tongBH = bhxh + bhyt + bhtn;
-                        } else {
-                            lcs = tongThuNhap;
-                            thuongKPI = 0;
-                            // Nếu thu nhập không đủ mức đóng BHXH thì khoan trích để tránh âm tiền
-                            bhxh = 0; bhyt = 0; bhtn = 0; tongBH = 0;
-                        }
-                        
-                        const soNPT = 0; // Giả định NPT = 0 (tương lai có thể cập nhật trong Profile)
-                        const tnMienThue = 0; 
-                        const tnChiuThue = tongThuNhap - tnMienThue;
-                        const tntt = Math.max(0, tnChiuThue - gtBanThan - (soNPT * gtNPT) - tongBH);
-                        
-                        let thue = 0;
-                        if (tntt > 80000000) thue = (tntt * 0.35) - 9850000;
-                        else if (tntt > 52000000) thue = (tntt * 0.30) - 5850000;
-                        else if (tntt > 32000000) thue = (tntt * 0.25) - 3250000;
-                        else if (tntt > 18000000) thue = (tntt * 0.20) - 1650000;
-                        else if (tntt > 10000000) thue = (tntt * 0.15) - 750000;
-                        else if (tntt > 5000000) thue = (tntt * 0.10) - 250000;
-                        else if (tntt > 0) thue = tntt * 0.05;
-                        thue = Math.max(0, Math.round(thue));
-                        
-                        const thucLinh = tongThuNhap - tongBH - thue;
+                        const payroll = calcPayrollFromNet(r.totalApproved);
                         
                         const cols = [
                           i + 1,
                           `"${r.emp.name}"`,
-                          lcs,
-                          thuongKPI,
-                          tongThuNhap,
-                          tnMienThue,
-                          tnChiuThue,
-                          bhxh, bhyt, bhtn, tongBH,
-                          gtBanThan,
-                          soNPT * gtNPT,
-                          tntt,
-                          thue,
-                          thucLinh
+                          payroll.lcs,
+                          payroll.thuongKPI,
+                          payroll.tongThuNhap,
+                          payroll.tnMienThue,
+                          payroll.tnChiuThue,
+                          payroll.bhxh, payroll.bhyt, payroll.bhtn, payroll.tongBH,
+                          payroll.gtBanThan,
+                          payroll.gtNguoiPhuThuoc,
+                          payroll.tntt,
+                          payroll.thue,
+                          payroll.thucLinh
                         ];
                         // format số nguyên cho đẹp nếu cần hoặc xuất nguyên CSV cho Excel đọc
                         return cols.join(",");
