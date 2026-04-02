@@ -95,7 +95,7 @@ function collectProvidedSecrets(req: NextRequest, payload?: WebhookPayload): Arr
   const headerMatches = Array.from(req.headers.entries()).flatMap(([key, value]) => {
     const normalizedKey = key.toLowerCase();
     if (normalizedKey === "authorization") {
-      const auth = normalizeSecret(value.replace(/^Bearer\s+/i, ""));
+      const auth = normalizeSecret(value.replace(/^(Bearer|Apikey|API-KEY)\s+/i, ""));
       return auth ? [{ source: `header:${key}`, value: auth }] : [];
     }
     if (!/(secure|secret|token|api[_-]?key)/i.test(normalizedKey)) return [];
