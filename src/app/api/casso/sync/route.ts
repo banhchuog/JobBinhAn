@@ -16,12 +16,13 @@ export async function GET() {
       );
     }
 
-    // Lấy giao dịch trong vòng 14 ngày gần nhất để chắc chắn
+    // Lấy giao dịch trong vòng 30 ngày gần nhất
     const d = new Date();
-    d.setDate(d.getDate() - 14);
+    d.setDate(d.getDate() - 30);
     const fromDate = d.toISOString().slice(0, 10); 
 
-    const url = `https://oauth.casso.vn/v2/transactions?fromDate=${fromDate}&limit=100&sort=DESC`;
+    // Lấy tối đa 1000 record để đảm bảo không bị thiếu trong 30 ngày
+    const url = `https://oauth.casso.vn/v2/transactions?fromDate=${fromDate}&limit=1000&sort=DESC`;
     
     // Gọi API của Casso
     const res = await fetch(url, {

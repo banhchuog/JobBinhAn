@@ -218,7 +218,9 @@ export async function getDailyAepRevenue(): Promise<Record<string, number>> {
   const { rows } = await getPool().query(
     `SELECT booking_date::text AS date, CAST(SUM(amount) AS FLOAT) AS amount
      FROM casso_transactions
-     WHERE is_incoming = TRUE AND is_aep = TRUE
+     WHERE is_incoming = TRUE 
+       AND is_aep = TRUE
+       AND booking_date >= CURRENT_DATE - INTERVAL '30 days'
      GROUP BY booking_date
      ORDER BY booking_date ASC`
   );
