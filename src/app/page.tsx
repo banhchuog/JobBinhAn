@@ -2630,6 +2630,7 @@ export default function Home() {
                               }
 
                               const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+                              const asSpreadsheetText = (v: string) => v ? `="${v}"` : "";
 
                               const varRows: string[][] = [
                                 ["MÃ BIÊN (Dùng trong file Word) / (Không sửa cột này)", "DIỄN GIẢI (Hướng dẫn nhập liệu)", ...splitContracts.map(() => "")],
@@ -2640,7 +2641,7 @@ export default function Home() {
                                 ["{DIA_CHI_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.diaChi || "")],
                                 ["{MST_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.mst || "")],
                                 ["{DIEN_THOAI_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.dienThoai || "")],
-                                ["{STK_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.stk || "")],
+                                ["{STK_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => asSpreadsheetText(c.emp.profile?.stk || ""))],
                                 ["{NGAN_HANG_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.nganHang || "")],
                                 ["SO_TIEN_DOI_TAC_THUC_NHAN", "Số tiền thực nhận", ...splitContracts.map(c => String(c.amount))],
                                 ["NOI_DUNG_CONG_VIEC", "Nội dung công việc", ...splitContracts.map(c => c.content)],
