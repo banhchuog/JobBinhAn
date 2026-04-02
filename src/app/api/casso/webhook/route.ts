@@ -26,14 +26,31 @@ function normalizeSignature(value: string): string {
   return value.trim().replace(/^sha(1|256|512)=/i, "").trim();
 }
 
-function buildSignatureCandidates(rawBody: string, secret: string): string[] {
+function buildSignatureCandidates(rawBody: string, secret: string, providedSignatureValue?: string): string[] {
   const algorithms: Array<"sha1" | "sha256" | "sha512"> = ["sha256", "sha512", "sha1"];
+  
+  let timestamps: string[] = [];
+  if (providedSignatureValue) {
+    const tMatch = providedSignatureValue.match(/t=([^,]+)/);
+    if (tMatch) timestamps.push(tMatch[1]);
+  }
+  
+  const bases = [rawBody];
+  for (const t of timestamps) {
+    bases.push(`${t}.${rawBody}`);
+    bases.push(`${t}${rawBody}`);
+    bases.push(`${t}|${rawBody}`);
+    bases.push(`${rawBody}${t}`);
+  }
+
   const candidates = algorithms.flatMap((algorithm) => {
-    const hex = createHmac(algorithm, secret).update(rawBody).digest("hex");
-    const base64 = createHmac(algorithm, secret).update(rawBody).digest("base64");
-    return [hex, base64, `${algorithm}=${hex}`, `${algorithm}=${base64}`, `sha${algorithm.slice(3)}=${hex}`, `sha${algorithm.slice(3)}=${base64}`];
+    return bases.flatMap(base => {
+      const hex = createHmac(algorithm, secret).update(base).digest("hex");
+      const base64 = createHmac(algorithm, secret).update(base).digest("base64");
+      return [hex, base64];
+    });
   });
-  return Array.from(new Set(candidates.map((candidate) => candidate.trim())));
+  return Array.from(new Set(candidates.map((c) => c.trim())));
 }
 
 function getProvidedSignature(req: NextRequest): { source: string; value: string } | null {
@@ -122,9 +139,9 @@ export async function POST(req: NextRequest) {
     const providedSecrets = collectProvidedSecrets(req, payloadObject);
     const matchedSecret = providedSecrets.find((candidate) => candidate.value === expectedSecret);
     const providedSignature = getProvidedSignature(req);
-    const signatureCandidates = providedSignature ? buildSignatureCandidates(rawBody, expectedSecret) : [];
+    const signatureCandidates = providedSignature ? buildSignatureCandidates(rawBody, expectedSecret, providedSignature.value) : [];
     const matchedSignature = providedSignature
-      ? signatureCandidates.find((candidate) => safeEqual(normalizeSignature(candidate), normalizeSignature(providedSignature.value)))
+      ? signatureCandidates.find((candidate) => providedSignature.value.includes(candidate))
       : null;
 
     if (!matchedSecret && !matchedSignature) {
@@ -139,7 +156,7 @@ export async function POST(req: NextRequest) {
             signature: providedSignature
               ? {
                   source: providedSignature.source,
-                  value: maskSecret(providedSignature.value),
+                  value: providedSignature.value,
                   length: providedSignature.value.length,
                 }
               : null,
