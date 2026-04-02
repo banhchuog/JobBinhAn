@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { initSchema, upsertCassoTransactions } from "@/lib/db";
 import { getTransactions, normalizeCassoTransaction } from "@/lib/casso";
@@ -12,6 +13,43 @@ function maskSecret(value: string): string {
   if (!value) return "";
   if (value.length <= 6) return `${value.slice(0, 1)}***${value.slice(-1)}`;
   return `${value.slice(0, 3)}***${value.slice(-3)}`;
+}
+
+function safeEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function normalizeSignature(value: string): string {
+  return value.trim().replace(/^sha(1|256|512)=/i, "").trim();
+}
+
+function buildSignatureCandidates(rawBody: string, secret: string): string[] {
+  const algorithms: Array<"sha1" | "sha256" | "sha512"> = ["sha256", "sha512", "sha1"];
+  const candidates = algorithms.flatMap((algorithm) => {
+    const hex = createHmac(algorithm, secret).update(rawBody).digest("hex");
+    const base64 = createHmac(algorithm, secret).update(rawBody).digest("base64");
+    return [hex, base64, `${algorithm}=${hex}`, `${algorithm}=${base64}`, `sha${algorithm.slice(3)}=${hex}`, `sha${algorithm.slice(3)}=${base64}`];
+  });
+  return Array.from(new Set(candidates.map((candidate) => candidate.trim())));
+}
+
+function getProvidedSignature(req: NextRequest): { source: string; value: string } | null {
+  const headersToCheck = [
+    "x-casso-signature",
+    "x-signature",
+    "signature",
+    "x-webhook-signature",
+  ];
+
+  for (const headerName of headersToCheck) {
+    const value = req.headers.get(headerName);
+    if (value?.trim()) return { source: `header:${headerName}`, value: value.trim() };
+  }
+
+  return null;
 }
 
 function collectPayloadSecrets(value: unknown, path = "body", depth = 0): Array<{ source: string; value: string }> {
@@ -69,7 +107,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     await initSchema();
-    const payload = await req.json();
+    const rawBody = await req.text();
+    const payload = rawBody ? JSON.parse(rawBody) : {};
 
     const expectedSecret = process.env.CASSO_WEBHOOK_SECRET?.trim() ?? "";
     if (!expectedSecret) {
@@ -82,8 +121,13 @@ export async function POST(req: NextRequest) {
     const payloadObject = payload && typeof payload === "object" ? (payload as WebhookPayload) : undefined;
     const providedSecrets = collectProvidedSecrets(req, payloadObject);
     const matchedSecret = providedSecrets.find((candidate) => candidate.value === expectedSecret);
+    const providedSignature = getProvidedSignature(req);
+    const signatureCandidates = providedSignature ? buildSignatureCandidates(rawBody, expectedSecret) : [];
+    const matchedSignature = providedSignature
+      ? signatureCandidates.find((candidate) => safeEqual(normalizeSignature(candidate), normalizeSignature(providedSignature.value)))
+      : null;
 
-    if (!matchedSecret) {
+    if (!matchedSecret && !matchedSignature) {
       return NextResponse.json(
         {
           error: "Sai key bảo mật webhook",
@@ -92,6 +136,13 @@ export async function POST(req: NextRequest) {
               source: candidate.source,
               value: maskSecret(candidate.value),
             })),
+            signature: providedSignature
+              ? {
+                  source: providedSignature.source,
+                  value: maskSecret(providedSignature.value),
+                  length: providedSignature.value.length,
+                }
+              : null,
             headerNames: Array.from(req.headers.keys()),
           },
         },
