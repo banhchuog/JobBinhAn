@@ -2,8 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { initSchema, upsertCassoTransactions } from "@/lib/db";
 import { getTransactions, normalizeCassoTransaction } from "@/lib/casso";
 
-function getProvidedSecret(req: NextRequest): string {
+type WebhookPayload = Record<string, unknown>;
+
+function getProvidedSecret(req: NextRequest, payload?: WebhookPayload): string {
   const auth = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
+  const bodySecret = payload
+    ? String(
+        payload.secureToken ??
+        payload.secure_token ??
+        payload.webhookSecret ??
+        payload.webhook_secret ??
+        payload.secret ??
+        payload.token ??
+        payload.apiKey ??
+        payload.api_key ??
+        ""
+      ).trim()
+    : "";
+
   return (
     req.headers.get("x-casso-secure-token")?.trim() ??
     req.headers.get("secure-token")?.trim() ??
@@ -13,6 +29,7 @@ function getProvidedSecret(req: NextRequest): string {
     req.nextUrl.searchParams.get("key")?.trim() ??
     req.nextUrl.searchParams.get("token")?.trim() ??
     req.nextUrl.searchParams.get("secret")?.trim() ??
+    bodySecret ??
     auth
   );
 }
@@ -29,6 +46,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     await initSchema();
+    const payload = await req.json();
 
     const expectedSecret = process.env.CASSO_WEBHOOK_SECRET?.trim() ?? "";
     if (!expectedSecret) {
@@ -38,12 +56,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const providedSecret = getProvidedSecret(req);
+    const providedSecret = getProvidedSecret(
+      req,
+      payload && typeof payload === "object" ? (payload as WebhookPayload) : undefined
+    );
     if (!providedSecret || providedSecret !== expectedSecret) {
       return NextResponse.json({ error: "Sai key bảo mật webhook" }, { status: 401 });
     }
 
-    const payload = await req.json();
     const transactions = getTransactions(payload)
       .map(normalizeCassoTransaction)
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
