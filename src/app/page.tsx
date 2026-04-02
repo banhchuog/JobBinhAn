@@ -3297,18 +3297,35 @@ export default function Home() {
                         );
                       })()}
 
-                      {dailyAepRevenueData && (() => {
-                        const allDailyEntries = Object.entries(dailyAepRevenueData)
+                      {(() => {
+                        const allDailyEntries = Object.entries(dailyAepRevenueData ?? {})
                           .sort(([a], [b]) => a.localeCompare(b));
 
-                        if (allDailyEntries.length === 0) return null;
-
-                        const latestDailyMonth = allDailyEntries[allDailyEntries.length - 1][0]?.slice(0, 7) ?? null;
+                        const latestDailyMonth = allDailyEntries.length > 0
+                          ? allDailyEntries[allDailyEntries.length - 1][0]?.slice(0, 7) ?? null
+                          : null;
                         const selectedDailyMonth = overviewFilter === "all" ? latestDailyMonth : overviewFilter;
-                        if (!selectedDailyMonth) return null;
+                        const dailyEntries = selectedDailyMonth
+                          ? allDailyEntries.filter(([date]) => date.startsWith(selectedDailyMonth))
+                          : [];
 
-                        const dailyEntries = allDailyEntries.filter(([date]) => date.startsWith(selectedDailyMonth));
-                        if (dailyEntries.length === 0) return null;
+                        if (dailyEntries.length === 0) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
+                                Doanh thu AEP theo ngày{selectedDailyMonth ? ` (${monthLabel(selectedDailyMonth)})` : ""}
+                              </p>
+                              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
+                                <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu ngày từ Casso</p>
+                                <p className="text-xs text-gray-400 mt-1">Sau khi webhook nhận giao dịch khớp 65k / 165k / 270k / 420k, chart ngày sẽ hiện ở đây.</p>
+                                {dailyAepRevenueLoading && (
+                                  <p className="text-[10px] text-gray-400 mt-3">Đang cập nhật dữ liệu doanh thu ngày từ Casso...</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
 
                         const dailyChartData = dailyEntries.map(([date, amount], index, arr) => {
                           const prevAmount = index > 0 ? arr[index - 1][1] : null;
@@ -3333,7 +3350,7 @@ export default function Home() {
                           <div className="bg-white border border-gray-200 rounded-2xl p-4">
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                               <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
-                              Doanh thu AEP theo ngày ({monthLabel(selectedDailyMonth)})
+                              Doanh thu AEP theo ngày ({monthLabel(selectedDailyMonth!)})
                             </p>
 
                             <div className="flex flex-wrap gap-4 mb-3">
@@ -3366,7 +3383,7 @@ export default function Home() {
                                       name === "growth" ? "Tăng trưởng" : "Doanh thu ngày"
                                     ];
                                   }}
-                                  labelFormatter={(label) => `Ngày ${label}/${selectedDailyMonth.slice(5, 7)}`}
+                                  labelFormatter={(label) => `Ngày ${label}/${selectedDailyMonth!.slice(5, 7)}`}
                                   contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
                                   cursor={{ fill: "#f9fafb" }}
                                 />
