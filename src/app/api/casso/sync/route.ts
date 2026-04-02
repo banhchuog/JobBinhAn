@@ -6,11 +6,12 @@ export const dynamic = "force-dynamic"; // Không cache API này
 
 export async function GET() {
   try {
-    // Vì ta đang dùng Key của Casso chung với Webhook, ta sẽ lấy luôn biến này
-    const apiKey = process.env.CASSO_WEBHOOK_SECRET?.trim() ?? "";
-    if (!apiKey) {
+    // Vì Webhook Secret nãy ta tự bịa ra không có quyền gọi API Casso, 
+    // ta cần 1 API Key thật (lấy tại Thiết lập > API Keys trên giao diện Casso)
+    const apiKey = (process.env.CASSO_API_KEY?.trim() || process.env.CASSO_WEBHOOK_SECRET?.trim()) ?? "";
+    if (!apiKey || !apiKey.startsWith("AK_")) {
       return NextResponse.json(
-        { error: "Chưa cấu hình API Key (CASSO_WEBHOOK_SECRET) trên Railway" },
+        { error: "Vui lòng cấu hình CASSO_API_KEY (bắt đầu bằng AK_...) trên Railway để dùng tính năng đồng bộ API này" },
         { status: 503 }
       );
     }
