@@ -4,34 +4,57 @@ import { getTransactions, normalizeCassoTransaction } from "@/lib/casso";
 
 type WebhookPayload = Record<string, unknown>;
 
-function getProvidedSecret(req: NextRequest, payload?: WebhookPayload): string {
-  const auth = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
-  const bodySecret = payload
-    ? String(
-        payload.secureToken ??
-        payload.secure_token ??
-        payload.webhookSecret ??
-        payload.webhook_secret ??
-        payload.secret ??
-        payload.token ??
-        payload.apiKey ??
-        payload.api_key ??
-        ""
-      ).trim()
-    : "";
+function normalizeSecret(value: unknown): string {
+  return typeof value === "string" ? value.trim().replace(/^['"]|['"]$/g, "") : "";
+}
 
-  return (
-    req.headers.get("x-casso-secure-token")?.trim() ??
-    req.headers.get("secure-token")?.trim() ??
-    req.headers.get("x-webhook-secret")?.trim() ??
-    req.headers.get("x-api-key")?.trim() ??
-    req.headers.get("apikey")?.trim() ??
-    req.nextUrl.searchParams.get("key")?.trim() ??
-    req.nextUrl.searchParams.get("token")?.trim() ??
-    req.nextUrl.searchParams.get("secret")?.trim() ??
-    bodySecret ??
-    auth
-  );
+function maskSecret(value: string): string {
+  if (!value) return "";
+  if (value.length <= 6) return `${value.slice(0, 1)}***${value.slice(-1)}`;
+  return `${value.slice(0, 3)}***${value.slice(-3)}`;
+}
+
+function collectPayloadSecrets(value: unknown, path = "body", depth = 0): Array<{ source: string; value: string }> {
+  if (depth > 4 || value == null) return [];
+  if (typeof value === "string") return [];
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectPayloadSecrets(item, `${path}[${index}]`, depth + 1));
+  }
+
+  if (typeof value !== "object") return [];
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  const ownMatches = entries.flatMap(([key, entryValue]) => {
+    const normalizedKey = key.toLowerCase();
+    const normalizedValue = normalizeSecret(entryValue);
+    const isSecretLike = /(secure|secret|token|api[_-]?key|authorization)/i.test(normalizedKey);
+    return isSecretLike && normalizedValue ? [{ source: `${path}.${key}`, value: normalizedValue }] : [];
+  });
+
+  const nestedMatches = entries.flatMap(([key, entryValue]) => collectPayloadSecrets(entryValue, `${path}.${key}`, depth + 1));
+  return [...ownMatches, ...nestedMatches];
+}
+
+function collectProvidedSecrets(req: NextRequest, payload?: WebhookPayload): Array<{ source: string; value: string }> {
+  const headerMatches = Array.from(req.headers.entries()).flatMap(([key, value]) => {
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey === "authorization") {
+      const auth = normalizeSecret(value.replace(/^Bearer\s+/i, ""));
+      return auth ? [{ source: `header:${key}`, value: auth }] : [];
+    }
+    if (!/(secure|secret|token|api[_-]?key)/i.test(normalizedKey)) return [];
+    const normalizedValue = normalizeSecret(value);
+    return normalizedValue ? [{ source: `header:${key}`, value: normalizedValue }] : [];
+  });
+
+  const queryMatches = ["key", "token", "secret", "secureToken", "secure_token"].flatMap((key) => {
+    const value = normalizeSecret(req.nextUrl.searchParams.get(key));
+    return value ? [{ source: `query:${key}`, value }] : [];
+  });
+
+  const bodyMatches = payload ? collectPayloadSecrets(payload) : [];
+  return [...headerMatches, ...queryMatches, ...bodyMatches];
 }
 
 export async function GET() {
@@ -56,12 +79,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const providedSecret = getProvidedSecret(
-      req,
-      payload && typeof payload === "object" ? (payload as WebhookPayload) : undefined
-    );
-    if (!providedSecret || providedSecret !== expectedSecret) {
-      return NextResponse.json({ error: "Sai key bảo mật webhook" }, { status: 401 });
+    const payloadObject = payload && typeof payload === "object" ? (payload as WebhookPayload) : undefined;
+    const providedSecrets = collectProvidedSecrets(req, payloadObject);
+    const matchedSecret = providedSecrets.find((candidate) => candidate.value === expectedSecret);
+
+    if (!matchedSecret) {
+      return NextResponse.json(
+        {
+          error: "Sai key bảo mật webhook",
+          debug: {
+            sources: providedSecrets.map((candidate) => ({
+              source: candidate.source,
+              value: maskSecret(candidate.value),
+            })),
+            headerNames: Array.from(req.headers.keys()),
+          },
+        },
+        { status: 401 }
+      );
     }
 
     const transactions = getTransactions(payload)
