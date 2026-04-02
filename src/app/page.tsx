@@ -2549,7 +2549,7 @@ export default function Home() {
                            <button onClick={() => setShowContractModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors">
                              Hủy
                            </button>
-                           <button onClick={() => {
+                           <button onClick={async () => {
                               const filteredRows = rows.filter(r => selectedContractEmps.includes(r.emp.id));
                               type ContractItem =
                                 | { kind: "job"; emp: Employee; job: Job; assignment: JobAssignment }
@@ -2600,9 +2600,7 @@ export default function Home() {
                                               content: content,
                                               date: { dd: "01", mm: mmStr, yyyy: yyyyStr }
                                           });
-                                      } else {
-                                          const partCount = Math.ceil(remaining / maxAmount);
-                                          let currentPart = 1;
+                                        } else {
                                           while (remaining > 0) {
                                               const chunkAmt = Math.min(remaining, maxAmount);
                                               empChunks.push({
@@ -2612,7 +2610,6 @@ export default function Home() {
                                                   date: { dd: "01", mm: mmStr, yyyy: yyyyStr }
                                               });
                                               remaining -= chunkAmt;
-                                              currentPart++;
                                           }
                                       }
                                   }
@@ -2629,9 +2626,6 @@ export default function Home() {
                                   splitContracts = splitContracts.concat(empChunks);
                               }
 
-                              const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-                              const asSpreadsheetText = (v: string) => v ? `="${v}"` : "";
-
                               const varRows: string[][] = [
                                 ["MÃ BIÊN (Dùng trong file Word) / (Không sửa cột này)", "DIỄN GIẢI (Hướng dẫn nhập liệu)", ...splitContracts.map(() => "")],
                                 ["HO_TEN_BEN_B", "Họ và tên người ký (Bắt buộc)", ...splitContracts.map(c => c.emp.profile?.hoTen || c.emp.name)],
@@ -2641,7 +2635,7 @@ export default function Home() {
                                 ["{DIA_CHI_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.diaChi || "")],
                                 ["{MST_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.mst || "")],
                                 ["{DIEN_THOAI_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.dienThoai || "")],
-                                ["{STK_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => asSpreadsheetText(c.emp.profile?.stk || ""))],
+                                ["{STK_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.stk || "")],
                                 ["{NGAN_HANG_BEN_B}", "Nhập thông tin này", ...splitContracts.map(c => c.emp.profile?.nganHang || "")],
                                 ["SO_TIEN_DOI_TAC_THUC_NHAN", "Số tiền thực nhận", ...splitContracts.map(c => String(c.amount))],
                                 ["NOI_DUNG_CONG_VIEC", "Nội dung công việc", ...splitContracts.map(c => c.content)],
@@ -2649,12 +2643,28 @@ export default function Home() {
                                 ["THANG_KY_KET", "Tháng ký", ...splitContracts.map(c => c.date.mm)],
                                 ["NAM_KY_KET", "Năm ký", ...splitContracts.map(c => c.date.yyyy)],
                               ];
-                              const csv = varRows.map(row => row.map(esc).join(",")).join("\n");
-                              const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement("a"); a.href = url;
-                              a.download = `hop-dong-${directorMonth}.csv`;
-                              a.click(); URL.revokeObjectURL(url);
+                              const XLSX = await import("xlsx");
+                              const worksheet = XLSX.utils.aoa_to_sheet(varRows);
+                              const stkRowIndex = varRows.findIndex((row) => row[0] === "{STK_BEN_B}");
+                              if (stkRowIndex >= 0) {
+                                for (let colIndex = 2; colIndex < varRows[stkRowIndex].length; colIndex++) {
+                                  const cellAddress = XLSX.utils.encode_cell({ r: stkRowIndex, c: colIndex });
+                                  const cell = worksheet[cellAddress];
+                                  if (cell) {
+                                    cell.t = "s";
+                                    cell.v = splitContracts[colIndex - 2]?.emp.profile?.stk || "";
+                                    cell.z = "@";
+                                  }
+                                }
+                              }
+                              worksheet["!cols"] = [
+                                { wch: 42 },
+                                { wch: 28 },
+                                ...splitContracts.map(() => ({ wch: 20 })),
+                              ];
+                              const workbook = XLSX.utils.book_new();
+                              XLSX.utils.book_append_sheet(workbook, worksheet, "HopDong");
+                              XLSX.writeFile(workbook, `hop-dong-${directorMonth}.xlsx`);
                               setShowContractModal(false);
                            }} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors shadow-sm">
                              Xuất Hợp Đồng
