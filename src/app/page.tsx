@@ -254,12 +254,24 @@ function isLikelyShootExpense(transaction: ThuChiTransaction, shootDate: string)
   return false;
 }
 
+function normalizeRevenueText(value: string) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
 /** Phân loại nguồn gửi doanh thu từ thu chi app */
-function classifyRevenueSender(subject: string): "metub" | "yeah1" | "mcv" | "other" {
-  const s = (subject || "").toUpperCase();
-  if (s.includes("METUB")) return "metub";
-  if (s.includes("YEAH1")) return "yeah1";
-  if (s.includes("MCV")) return "mcv";
+function classifyRevenueSender(subject: string, note?: string): "metub" | "yeah1" | "mcv" | "other" {
+  const normalized = normalizeRevenueText(`${subject || ""} ${note || ""}`);
+
+  const hasAny = (keywords: string[]) => keywords.some((keyword) => normalized.includes(keyword));
+
+  if (hasAny(["METUB", "ME TUB", "METUB NETWORK", "CONG TY METUB"])) return "metub";
+  if (hasAny(["YEAH1", "YEAH 1", "CONG TY YEAH1", "Y1 NETWORK"])) return "yeah1";
+  if (hasAny(["MCV", "MCV NETWORK", "CONG TY MCV", "MCV GROUP"])) return "mcv";
   return "other";
 }
 
@@ -2871,9 +2883,9 @@ export default function Home() {
             const thuChiThu = thuChiMonth?.filter((t) => t.type === "Thu").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
             const thuChiChi = thuChiMonth?.filter((t) => t.type === "Chi").reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0) ?? 0;
             const _amtM = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
-            const thuMetubMonth = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject) === "metub").reduce((s, t) => s + _amtM(t), 0) ?? 0;
-            const thuYeah1Month = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject) === "yeah1").reduce((s, t) => s + _amtM(t), 0) ?? 0;
-            const thuMCVMonth   = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject) === "mcv").reduce((s, t) => s + _amtM(t), 0) ?? 0;
+            const thuMetubMonth = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject, t.note) === "metub").reduce((s, t) => s + _amtM(t), 0) ?? 0;
+            const thuYeah1Month = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject, t.note) === "yeah1").reduce((s, t) => s + _amtM(t), 0) ?? 0;
+            const thuMCVMonth   = thuChiMonth?.filter(t => t.type === "Thu" && classifyRevenueSender(t.subject, t.note) === "mcv").reduce((s, t) => s + _amtM(t), 0) ?? 0;
             const thuKhacMonth  = thuChiThu - thuMetubMonth - thuYeah1Month - thuMCVMonth;
 
             // Revenue (anhemphim.vn) cho tháng đang chọn
@@ -2897,9 +2909,9 @@ export default function Home() {
               const _amt = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
               const thuTxs = txs.filter((t) => t.type === "Thu");
               const thuChiThuYm = thuTxs.reduce((s, t) => s + _amt(t), 0);
-              const thuMetubYm  = thuTxs.filter(t => classifyRevenueSender(t.subject) === "metub").reduce((s, t) => s + _amt(t), 0);
-              const thuYeah1Ym  = thuTxs.filter(t => classifyRevenueSender(t.subject) === "yeah1").reduce((s, t) => s + _amt(t), 0);
-              const thuMCVYm    = thuTxs.filter(t => classifyRevenueSender(t.subject) === "mcv").reduce((s, t) => s + _amt(t), 0);
+              const thuMetubYm  = thuTxs.filter(t => classifyRevenueSender(t.subject, t.note) === "metub").reduce((s, t) => s + _amt(t), 0);
+              const thuYeah1Ym  = thuTxs.filter(t => classifyRevenueSender(t.subject, t.note) === "yeah1").reduce((s, t) => s + _amt(t), 0);
+              const thuMCVYm    = thuTxs.filter(t => classifyRevenueSender(t.subject, t.note) === "mcv").reduce((s, t) => s + _amt(t), 0);
               const thuKhacYm   = thuChiThuYm - thuMetubYm - thuYeah1Ym - thuMCVYm;
               const chiYm = txs.filter((t) => t.type === "Chi").reduce((s, t) => s + _amt(t), 0);
               const revYm = revenueData?.[ym] ?? 0;
