@@ -310,7 +310,7 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (transactions.length > 0 || jobs.length > 0 || manualEntries.length > 0) {
-      const heuristics = buildHeuristicMaps(transactions, jobs, manualEntries);
+      const heuristics = buildHeuristicMaps(transactions, jobs, manualEntries, shootDays);
       return NextResponse.json(buildResponse(transactions, jobs, manualEntries, heuristics, undefined, `AI lỗi: ${msg}. Dùng bộ lọc thông minh.`));
     }
 
