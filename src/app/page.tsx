@@ -958,15 +958,23 @@ export default function Home() {
       return;
     }
 
+    const currentState = aepDraft ?? aepClassification;
+    const pendingTransactions = transactions.filter((transaction) => !isCheckedExpense(currentState, transaction));
+
+    if (pendingTransactions.length === 0) {
+      setAepAiScanNotice({ tone: "info", text: "Các khoản chi tháng này đã được tick hết, AI không cần quét lại." });
+      return;
+    }
+
     setAepAiScanning(true);
-    setAepAiScanNotice({ tone: "info", text: "AI đang quét các khoản chi của tháng này..." });
+    setAepAiScanNotice({ tone: "info", text: `AI đang quét ${pendingTransactions.length}/${transactions.length} khoản chi chưa tick...` });
 
     try {
       const res = await fetch("/api/ai/classify-expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          transactions,
+          transactions: pendingTransactions,
           jobs: [],
           shootDays: aepKnownShootDays.map((shootDay) => ({
             date: shootDay.date,
@@ -991,7 +999,7 @@ export default function Home() {
       const pendingShootGroups = new Map<string, AepShootConfirmCandidate>();
       const shootDayByDate = new Map(aepKnownShootDays.map((shootDay) => [shootDay.date, shootDay]));
 
-      for (const transaction of transactions) {
+      for (const transaction of pendingTransactions) {
         const id = String(transaction.id);
         const textDayMatch = aepKnownShootDays.find((shootDay) => transactionMentionsDayMonth(transaction, shootDay.date));
         const matchedShootDay = textDayMatch ?? shootDayByDate.get(transaction.date);
@@ -1026,7 +1034,7 @@ export default function Home() {
         const nextExpenses = { ...draft.expenses };
         const nextExpenseKeys = { ...draft.expenseKeys };
 
-        for (const transaction of transactions) {
+        for (const transaction of pendingTransactions) {
           const id = String(transaction.id);
           const stableKey = getExpenseStableKey(transaction);
           if (!matchedIds.has(id) || nextExpenses[id]) continue;
@@ -1058,10 +1066,10 @@ export default function Home() {
       setAepAiScanNotice({
         tone: modalCandidates.length > 0 ? "info" : "success",
         text: modalCandidates.length > 0
-          ? `${sourceLabel} đã tick ${addedCount} khoản chắc chắn. Còn ${modalCandidates.length} nhóm chi phí ngày quay cần bạn xác nhận thêm.`
+          ? `${sourceLabel} đã quét ${pendingTransactions.length} khoản chưa tick, tự chọn ${addedCount} khoản chắc chắn. Còn ${modalCandidates.length} nhóm chi phí ngày quay cần bạn xác nhận thêm.`
           : addedCount > 0
-            ? `${sourceLabel} đã nhận diện ${detectedCount} khoản chi phù hợp và tick thêm ${addedCount} khoản.`
-            : `${sourceLabel} nhận diện ${detectedCount} khoản chi phù hợp, nhưng các khoản đó đã được tick sẵn.`,
+            ? `${sourceLabel} đã quét ${pendingTransactions.length} khoản chưa tick, nhận diện ${detectedCount} khoản phù hợp và tick thêm ${addedCount} khoản.`
+            : `${sourceLabel} đã quét ${pendingTransactions.length} khoản chưa tick nhưng chưa thấy khoản nào phù hợp thêm.`,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Không thể quét chi phí AEP.";
@@ -1069,7 +1077,7 @@ export default function Home() {
     } finally {
       setAepAiScanning(false);
     }
-  }, [aepDraft, aepKnownShootDays, aepShootDecisions]);
+  }, [aepClassification, aepDraft, aepKnownShootDays, aepShootDecisions]);
 
   const confirmAepShootGroup = useCallback((candidate: AepShootConfirmCandidate) => {
     const ids = candidate.expenses.map((expense) => String(expense.id));
