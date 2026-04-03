@@ -6,7 +6,7 @@ import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
-  Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown,
+  Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown, ChevronDown,
   Save, CheckCircle, Loader2, FileSpreadsheet, XCircle,
 } from "lucide-react";
 import {
@@ -247,6 +247,12 @@ function formatShortDayMonth(date: string) {
   if (!date) return "";
   const [, month, day] = date.split("-");
   return `${Number(day)}/${Number(month)}`;
+}
+
+function formatFullDate(date: string) {
+  if (!date) return "";
+  const [year, month, day] = date.split("-");
+  return `${Number(day)}/${Number(month)}/${year}`;
 }
 
 function includesKeyword(text: string, keywords: string[]) {
@@ -638,6 +644,7 @@ export default function Home() {
   const [aepFilterExpenseDateTo, setAepFilterExpenseDateTo] = useState("");
   const [aepFilterSalary, setAepFilterSalary] = useState("");
   const [aepFilterManual, setAepFilterManual] = useState("");
+  const [aepExpandedExpenseDays, setAepExpandedExpenseDays] = useState<Record<string, boolean>>({});
   const [aepAiScanning, setAepAiScanning] = useState(false);
   const [aepAiScanNotice, setAepAiScanNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [aepSalaryAiScanning, setAepSalaryAiScanning] = useState(false);
@@ -4328,6 +4335,7 @@ export default function Home() {
                     setAepAiScanNotice(null);
                     setAepSalaryAiNotice(null);
                     setAepManualAiNotice(null);
+                    setAepExpandedExpenseDays({});
                     setAepShootConfirmQueue([]);
                     setAepShootDecisions({});
                     setAepDraft({
@@ -4359,7 +4367,7 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
                         {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); }}
+                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); setAepExpandedExpenseDays({}); }}
                             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                             {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                           </button>
@@ -4509,6 +4517,32 @@ export default function Home() {
                           return empName.includes(kw) || e.title.toLowerCase().includes(kw);
                         });
 
+                        const groupedExpenseDays = filteredChiMonth.reduce<Array<{
+                          date: string;
+                          label: string;
+                          items: ThuChiTransaction[];
+                          total: number;
+                          checkedCount: number;
+                        }>>((groups, transaction) => {
+                          const amount = transaction.currency === "VND" ? Number(transaction.amount) : Number(transaction.amount) * 25000;
+                          const existing = groups.find((group) => group.date === transaction.date);
+                          if (existing) {
+                            existing.items.push(transaction);
+                            existing.total += amount;
+                            if (isCheckedExpense(aepDraft, transaction)) existing.checkedCount += 1;
+                            return groups;
+                          }
+
+                          groups.push({
+                            date: transaction.date,
+                            label: formatFullDate(transaction.date),
+                            items: [transaction],
+                            total: amount,
+                            checkedCount: isCheckedExpense(aepDraft, transaction) ? 1 : 0,
+                          });
+                          return groups;
+                        }, []);
+
                         const draftExpensesTotal = allChiMonth
                           .filter(t => aepDraft.expenses[String(t.id)])
                           .reduce((s,t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
@@ -4623,25 +4657,68 @@ export default function Home() {
                                 <p className="px-4 py-4 text-sm text-gray-400 text-center">Không có kết quả phù hợp</p>
                               ) : (
                                 <div className="divide-y divide-gray-50">
-                                  {filteredChiMonth.map(t => {
-                                    const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
-                                    const checked = isCheckedExpense(aepDraft, t);
+                                  {groupedExpenseDays.map((group) => {
+                                    const expanded = aepExpandedExpenseDays[group.date] === true;
+                                    const allCheckedInDay = group.items.length > 0 && group.items.every((item) => isCheckedExpense(aepDraft, item));
                                     return (
-                                      <label key={t.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-red-50/50" : "hover:bg-gray-50"}`}>
-                                        <input type="checkbox" checked={checked}
-                                          onChange={e => setAepDraft(d => d ? {
-                                            ...d,
-                                            expenses: { ...d.expenses, [String(t.id)]: e.target.checked },
-                                            expenseKeys: { ...d.expenseKeys, [getExpenseStableKey(t)]: e.target.checked },
-                                          } : d)}
-                                          className="w-4 h-4 accent-red-500 shrink-0 rounded" />
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-sm font-medium truncate text-gray-800">{t.subject}</p>
-                                          {t.note && <p className="text-xs text-gray-400 truncate">{t.note}</p>}
-                                          <p className="text-xs text-gray-400">{t.date}</p>
+                                      <div key={group.date} className="bg-white">
+                                        <div className="flex items-center gap-2 px-4 py-3 bg-red-50/60">
+                                          <button
+                                            type="button"
+                                            onClick={() => setAepExpandedExpenseDays((prev) => ({ ...prev, [group.date]: !expanded }))}
+                                            className="p-1 rounded-md text-red-500 hover:bg-red-100 transition-colors shrink-0"
+                                          >
+                                            <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                                          </button>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-red-700">{group.label}</p>
+                                            <p className="text-[11px] text-red-400">{group.checkedCount}/{group.items.length} khoản đã tick</p>
+                                          </div>
+                                          <span className="text-sm font-black text-red-600 shrink-0">{formatCurrency(group.total)}</span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setAepDraft((draft) => draft ? {
+                                              ...draft,
+                                              expenses: {
+                                                ...draft.expenses,
+                                                ...Object.fromEntries(group.items.map((item) => [String(item.id), !allCheckedInDay])),
+                                              },
+                                              expenseKeys: {
+                                                ...draft.expenseKeys,
+                                                ...Object.fromEntries(group.items.map((item) => [getExpenseStableKey(item), !allCheckedInDay])),
+                                              },
+                                            } : draft)}
+                                            className="text-[11px] font-semibold text-red-500 hover:text-red-700 shrink-0"
+                                          >
+                                            {allCheckedInDay ? "Bỏ tick ngày" : "Tick cả ngày"}
+                                          </button>
                                         </div>
-                                        <span className={`text-sm font-semibold shrink-0 ${checked ? "text-red-600" : "text-gray-400"}`}>{formatCurrency(amt)}</span>
-                                      </label>
+                                        {expanded && (
+                                          <div className="divide-y divide-gray-50">
+                                            {group.items.map((t) => {
+                                              const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
+                                              const checked = isCheckedExpense(aepDraft, t);
+                                              return (
+                                                <label key={t.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-red-50/50" : "hover:bg-gray-50"}`}>
+                                                  <input type="checkbox" checked={checked}
+                                                    onChange={e => setAepDraft(d => d ? {
+                                                      ...d,
+                                                      expenses: { ...d.expenses, [String(t.id)]: e.target.checked },
+                                                      expenseKeys: { ...d.expenseKeys, [getExpenseStableKey(t)]: e.target.checked },
+                                                    } : d)}
+                                                    className="w-4 h-4 accent-red-500 shrink-0 rounded" />
+                                                  <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium truncate text-gray-800">{t.subject}</p>
+                                                    {t.note && <p className="text-xs text-gray-400 truncate">{t.note}</p>}
+                                                    <p className="text-xs text-gray-400">{t.date}</p>
+                                                  </div>
+                                                  <span className={`text-sm font-semibold shrink-0 ${checked ? "text-red-600" : "text-gray-400"}`}>{formatCurrency(amt)}</span>
+                                                </label>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
                                     );
                                   })}
                                 </div>
