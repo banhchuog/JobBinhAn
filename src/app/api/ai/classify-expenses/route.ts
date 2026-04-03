@@ -4,10 +4,18 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 type TransactionInput = {
   id: number | string;
+  date?: string;
   subject?: string;
   note?: string;
   amount?: number;
   currency?: string;
+};
+
+type ShootDayInput = {
+  date?: string;
+  label?: string;
+  filmNames?: string[];
+  sourceLabels?: string[];
 };
 
 type JobInput = {
@@ -90,6 +98,13 @@ const FILM_PRODUCTION_KEYWORDS = [
   "am nhac phim", "ban quyen am thanh", "bien tap phim",
 ];
 
+const SHOOT_EXPENSE_KEYWORDS = [
+  "trang phuc", "phuc trang", "hoa trang", "make up", "dao cu", "boi canh", "hien truong",
+  "an uong", "com doan", "nuoc uong", "do an", "ship", "van chuyen", "di lai", "xang xe",
+  "gui xe", "grab", "taxi", "thu am", "anh sang", "dien vien", "quan chung", "khach choi",
+  "vai phu", "bao ve", "ve si", "casting", "thiet ke", "in an", "phu kien quay", "ngay quay",
+];
+
 const STREAM_CONTEXT_KEYWORDS = ["video", "stream", "streaming", "vod", "cdn", "bandwidth", "bang thong", "transcode"];
 const CLOUD_VENDOR_KEYWORDS = ["google cloud", "aws", "cloudflare", "digitalocean", "bunny", "cdn"];
 
@@ -124,7 +139,7 @@ function includesAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
 }
 
-function classifyExpenseHeuristically(transaction: TransactionInput): boolean | null {
+function classifyExpenseHeuristically(transaction: TransactionInput, shootDays: ShootDayInput[]): boolean | null {
   const text = normalizeText(`${transaction.subject ?? ""} ${transaction.note ?? ""}`);
   if (!text) return null;
 
@@ -142,6 +157,16 @@ function classifyExpenseHeuristically(transaction: TransactionInput): boolean | 
 
   if (includesAny(text, FILM_PRODUCTION_KEYWORDS)) {
     return true;
+  }
+
+  if (includesAny(text, SHOOT_EXPENSE_KEYWORDS)) {
+    return true;
+  }
+
+  if (transaction.date && shootDays.some((shootDay) => shootDay.date === transaction.date)) {
+    if (includesAny(text, ["chi phi", "quay", "hien truong", "xang", "ship", "an uong", "van chuyen", "dao cu", "boi canh"])) {
+      return true;
+    }
   }
 
   return null;
@@ -180,9 +205,9 @@ function toBooleanMap<T extends { id: string | number }>(
   );
 }
 
-function buildHeuristicMaps(transactions: TransactionInput[], jobs: JobInput[], manualEntries: ManualEntryInput[]) {
+function buildHeuristicMaps(transactions: TransactionInput[], jobs: JobInput[], manualEntries: ManualEntryInput[], shootDays: ShootDayInput[]) {
   const expenseHeuristics = Object.fromEntries(
-    transactions.map((transaction) => [String(transaction.id), classifyExpenseHeuristically(transaction)])
+    transactions.map((transaction) => [String(transaction.id), classifyExpenseHeuristically(transaction, shootDays)])
   );
   const salaryJobHeuristics = Object.fromEntries(
     jobs.map((job) => [String(job.id), classifyJobHeuristically(job)])
@@ -215,13 +240,15 @@ export async function POST(req: Request) {
   let transactions: TransactionInput[] = [];
   let jobs: JobInput[] = [];
   let manualEntries: ManualEntryInput[] = [];
+  let shootDays: ShootDayInput[] = [];
 
   try {
     const body = await req.json();
     transactions = (Array.isArray(body?.transactions) ? body.transactions : []) as TransactionInput[];
     jobs = (Array.isArray(body?.jobs) ? body.jobs : []) as JobInput[];
     manualEntries = (Array.isArray(body?.manualEntries) ? body.manualEntries : []) as ManualEntryInput[];
-    const heuristics = buildHeuristicMaps(transactions, jobs, manualEntries);
+    shootDays = (Array.isArray(body?.shootDays) ? body.shootDays : []) as ShootDayInput[];
+    const heuristics = buildHeuristicMaps(transactions, jobs, manualEntries, shootDays);
 
     if (!GEMINI_API_KEY) {
       return NextResponse.json(
@@ -245,7 +272,11 @@ export async function POST(req: Request) {
       .map((entry) => `id=${entry.id}: "${entry.title}"${entry.note ? ` (ghi chú: ${entry.note})` : ""}${entry.employeeName ? ` — nhân sự: ${entry.employeeName}` : ""}`)
       .join("\n");
 
-    const userPrompt = `DANH SÁCH CHI PHÍ CẦN PHÂN LOẠI:\n${txList}\n\nDANH SÁCH JOB LƯƠNG CẦN PHÂN LOẠI:\n${jobList}\n\nDANH SÁCH LƯƠNG THỦ CÔNG CẦN PHÂN LOẠI:\n${manualList}`;
+    const shootDayList = shootDays
+      .map((shootDay) => `${shootDay.date ?? "không rõ ngày"}: ${(shootDay.filmNames ?? []).join(", ") || shootDay.label || (shootDay.sourceLabels ?? []).join(", ") || "ngày quay AEP"}`)
+      .join("\n");
+
+    const userPrompt = `DANH SÁCH CHI PHÍ CẦN PHÂN LOẠI:\n${txList}\n\nCÁC NGÀY QUAY / NGỮ CẢNH AEP ĐÃ BIẾT:\n${shootDayList || "không có"}\n\nDANH SÁCH JOB LƯƠNG CẦN PHÂN LOẠI:\n${jobList}\n\nDANH SÁCH LƯƠNG THỦ CÔNG CẦN PHÂN LOẠI:\n${manualList}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);

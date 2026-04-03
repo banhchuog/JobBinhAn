@@ -27,7 +27,21 @@ interface ThuChiTransaction {
   created_by: string;
 }
 
+type AepClassificationState = {
+  expenses: Record<string, boolean>;
+  expenseKeys: Record<string, boolean>;
+  salaryAssignments: Record<string, boolean>;
+  manualEntries: Record<string, boolean>;
+};
+
 const DIRECTOR_PASS = "123";
+
+const EMPTY_AEP_CLASSIFICATION: AepClassificationState = {
+  expenses: {},
+  expenseKeys: {},
+  salaryAssignments: {},
+  manualEntries: {},
+};
 
 /** Trả về tháng lương (YYYY-MM) của 1 assignment.
  *  Nếu approvedAt <= ngày 5 tháng M+1 → tính vào tháng M (tháng của job).
@@ -188,6 +202,24 @@ function normalizeLooseText(value: string = "") {
     .replace(/[^a-z0-9/\- ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function getExpenseStableKey(transaction: ThuChiTransaction) {
+  const normalizedSubject = normalizeLooseText(transaction.subject);
+  const normalizedNote = normalizeLooseText(transaction.note ?? "");
+  return [
+    transaction.type,
+    transaction.date,
+    transaction.currency,
+    Number(transaction.amount) || 0,
+    normalizedSubject,
+    normalizedNote,
+  ].join("|");
+}
+
+function isCheckedExpense(state: AepClassificationState | null | undefined, transaction: ThuChiTransaction) {
+  if (!state) return false;
+  return state.expenses[String(transaction.id)] === true || state.expenseKeys[getExpenseStableKey(transaction)] === true;
 }
 
 function extractShootInfo(text: string): { filmName: string; day: number; month: number } | null {
@@ -594,9 +626,9 @@ export default function Home() {
   const [dailyAepRevenueLoading, setDailyAepRevenueLoading] = useState(false);
   const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
   // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool}, manualEntries: {id: bool} }
-  const [aepClassification, setAepClassification] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null>(null);
+  const [aepClassification, setAepClassification] = useState<AepClassificationState | null>(null);
   // Draft đang chỉnh trong tab Chốt số liệu
-  const [aepDraft, setAepDraft] = useState<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null>(null);
+  const [aepDraft, setAepDraft] = useState<AepClassificationState | null>(null);
   const [aepSubTab, setAepSubTab] = useState<"overview" | "chot">("overview");
   const [aepMonth, setAepMonth] = useState<string>("2026-02");
 
@@ -807,12 +839,88 @@ export default function Home() {
     fetch(`/api/aep/${aepMonth}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d) setAepClassification(d);
+        if (d) setAepClassification({
+          expenses: d.expenses ?? {},
+          expenseKeys: d.expenseKeys ?? {},
+          salaryAssignments: d.salaryAssignments ?? {},
+          manualEntries: d.manualEntries ?? {},
+        });
         else setAepClassification(null);
       })
       .catch(() => setAepClassification(null));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aepMonth, financeView]);
+
+  useEffect(() => {
+    if (financeView !== "anhemphim" || aepSubTab !== "chot" || !aepDraft) return;
+
+    const allChiMonth = thuChiData ? thuChiData.filter((t) => t.type === "Chi" && t.date?.startsWith(aepMonth)) : [];
+    const allSalaryAssignmentsMonth = jobs.flatMap((job) =>
+      job.assignments.filter((assignment) => {
+        if (assignment.status !== "APPROVED") return false;
+        const jobMonth = job.month || job.createdAt.slice(0, 7);
+        return getSalaryMonth(jobMonth, assignment.approvedAt) === aepMonth;
+      }).map((assignment) => ({ job, assignment }))
+    );
+    const allManualMonth = manualEntries[aepMonth] ?? [];
+    const base = aepClassification ?? EMPTY_AEP_CLASSIFICATION;
+
+    setAepDraft((draft) => {
+      if (!draft) return draft;
+
+      const nextExpenses = Object.fromEntries(
+        allChiMonth.map((transaction) => {
+          const id = String(transaction.id);
+          const stableKey = getExpenseStableKey(transaction);
+          const checked = draft.expenses[id] ?? draft.expenseKeys[stableKey] ?? base.expenses[id] ?? base.expenseKeys[stableKey] ?? false;
+          return [id, checked];
+        })
+      );
+
+      const nextExpenseKeys = Object.fromEntries(
+        allChiMonth.map((transaction) => {
+          const id = String(transaction.id);
+          const stableKey = getExpenseStableKey(transaction);
+          const checked = draft.expenseKeys[stableKey] ?? draft.expenses[id] ?? base.expenseKeys[stableKey] ?? base.expenses[id] ?? false;
+          return [stableKey, checked];
+        })
+      );
+
+      const nextSalaryAssignments = Object.fromEntries(
+        allSalaryAssignmentsMonth.map(({ assignment }) => [assignment.id, draft.salaryAssignments[assignment.id] ?? base.salaryAssignments[assignment.id] ?? false])
+      );
+
+      const nextManualEntries = Object.fromEntries(
+        allManualMonth.map((entry) => [entry.id, draft.manualEntries[entry.id] ?? base.manualEntries[entry.id] ?? false])
+      );
+
+      return {
+        expenses: nextExpenses,
+        expenseKeys: nextExpenseKeys,
+        salaryAssignments: nextSalaryAssignments,
+        manualEntries: nextManualEntries,
+      };
+    });
+  }, [aepClassification, aepMonth, aepSubTab, financeView, jobs, manualEntries, thuChiData]);
+
+  useEffect(() => {
+    if (financeView !== "anhemphim" || aepSubTab !== "chot" || !aepDraft) return;
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        await fetch(`/api/aep/${aepMonth}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(aepDraft),
+        });
+        setAepClassification(aepDraft);
+      } catch {
+        // ignore autosave errors, manual save vẫn là fallback
+      }
+    }, 600);
+
+    return () => window.clearTimeout(timeout);
+  }, [aepDraft, aepMonth, aepSubTab, financeView]);
 
   const aepKnownShootDays = useMemo<AepShootDay[]>(() => {
     const map = new Map<string, { date: string; filmNames: Set<string>; sourceLabels: Set<string> }>();
@@ -857,7 +965,16 @@ export default function Home() {
       const res = await fetch("/api/ai/classify-expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactions, jobs: [] }),
+        body: JSON.stringify({
+          transactions,
+          jobs: [],
+          shootDays: aepKnownShootDays.map((shootDay) => ({
+            date: shootDay.date,
+            label: shootDay.label,
+            filmNames: shootDay.filmNames,
+            sourceLabels: shootDay.sourceLabels,
+          })),
+        }),
       });
 
       const data = await res.json().catch(() => null);
@@ -907,15 +1024,18 @@ export default function Home() {
       setAepDraft((draft) => {
         if (!draft) return draft;
         const nextExpenses = { ...draft.expenses };
+        const nextExpenseKeys = { ...draft.expenseKeys };
 
         for (const transaction of transactions) {
           const id = String(transaction.id);
+          const stableKey = getExpenseStableKey(transaction);
           if (!matchedIds.has(id) || nextExpenses[id]) continue;
           nextExpenses[id] = true;
+          nextExpenseKeys[stableKey] = true;
           addedCount += 1;
         }
 
-        return { ...draft, expenses: nextExpenses };
+        return { ...draft, expenses: nextExpenses, expenseKeys: nextExpenseKeys };
       });
 
       const modalCandidates = Array.from(pendingShootGroups.values()).filter((group) => group.expenses.length > 0);
@@ -962,6 +1082,10 @@ export default function Home() {
         expenses: {
           ...draft.expenses,
           ...Object.fromEntries(ids.map((id) => [id, true])),
+        },
+        expenseKeys: {
+          ...draft.expenseKeys,
+          ...Object.fromEntries(candidate.expenses.map((expense) => [getExpenseStableKey(expense), true])),
         },
       };
     });
@@ -4154,7 +4278,7 @@ export default function Home() {
 
                   // Tính từ classification đã lưu
                   const aepExpenses = thuChiData
-                    ? thuChiData.filter(t => t.type === "Chi" && t.date?.startsWith(aepMonth) && aepClassification?.expenses[String(t.id)] === true)
+                    ? thuChiData.filter(t => t.type === "Chi" && t.date?.startsWith(aepMonth) && isCheckedExpense(aepClassification, t))
                     : [];
                   const aepExpensesTotal = aepExpenses.reduce((s,t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
 
@@ -4192,14 +4316,21 @@ export default function Home() {
 
                   // Khởi tạo draft khi vào tab Chốt
                   const initDraft = () => {
-                    const base = aepClassification ?? { expenses: {}, salaryAssignments: {}, manualEntries: {} };
+                    const base = aepClassification ?? EMPTY_AEP_CLASSIFICATION;
                     setAepAiScanNotice(null);
                     setAepSalaryAiNotice(null);
                     setAepManualAiNotice(null);
                     setAepShootConfirmQueue([]);
                     setAepShootDecisions({});
                     setAepDraft({
-                      expenses: Object.fromEntries(allChiMonth.map(t => [String(t.id), base.expenses[String(t.id)] ?? false])),
+                      expenses: Object.fromEntries(allChiMonth.map(t => {
+                        const stableKey = getExpenseStableKey(t);
+                        return [String(t.id), base.expenses[String(t.id)] ?? base.expenseKeys[stableKey] ?? false];
+                      })),
+                      expenseKeys: Object.fromEntries(allChiMonth.map(t => {
+                        const stableKey = getExpenseStableKey(t);
+                        return [stableKey, base.expenseKeys[stableKey] ?? base.expenses[String(t.id)] ?? false];
+                      })),
                       salaryAssignments: Object.fromEntries(allSalaryAssignmentsMonth.map(({assignment}) => [assignment.id, base.salaryAssignments?.[assignment.id] ?? false])),
                       manualEntries: Object.fromEntries(allManualMonth.map(e => [e.id, base.manualEntries?.[e.id] ?? false])),
                     });
@@ -4414,12 +4545,15 @@ export default function Home() {
                                     </button>
                                     <button
                                       onClick={() => {
-                                        const ids = filteredChiMonth.map(t => String(t.id));
-                                        const allChecked = ids.every(id => aepDraft.expenses[id]);
-                                        setAepDraft(d => d ? { ...d, expenses: { ...d.expenses, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                        const allChecked = filteredChiMonth.every(t => isCheckedExpense(aepDraft, t));
+                                        setAepDraft(d => d ? {
+                                          ...d,
+                                          expenses: { ...d.expenses, ...Object.fromEntries(filteredChiMonth.map(t => [String(t.id), !allChecked])) },
+                                          expenseKeys: { ...d.expenseKeys, ...Object.fromEntries(filteredChiMonth.map(t => [getExpenseStableKey(t), !allChecked])) },
+                                        } : d);
                                       }}
                                       className="text-xs text-red-500 hover:text-red-700 font-medium shrink-0">
-                                      {filteredChiMonth.every(t => aepDraft.expenses[String(t.id)]) ? "Bỏ chọn" : "Chọn tất cả"}
+                                      {filteredChiMonth.every(t => isCheckedExpense(aepDraft, t)) ? "Bỏ chọn" : "Chọn tất cả"}
                                       {hasExpenseFilter ? " (đang lọc)" : ""}
                                     </button>
                                   </div>
@@ -4483,11 +4617,15 @@ export default function Home() {
                                 <div className="divide-y divide-gray-50">
                                   {filteredChiMonth.map(t => {
                                     const amt = t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
-                                    const checked = !!aepDraft.expenses[String(t.id)];
+                                    const checked = isCheckedExpense(aepDraft, t);
                                     return (
                                       <label key={t.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-red-50/50" : "hover:bg-gray-50"}`}>
                                         <input type="checkbox" checked={checked}
-                                          onChange={e => setAepDraft(d => d ? { ...d, expenses: { ...d.expenses, [String(t.id)]: e.target.checked } } : d)}
+                                          onChange={e => setAepDraft(d => d ? {
+                                            ...d,
+                                            expenses: { ...d.expenses, [String(t.id)]: e.target.checked },
+                                            expenseKeys: { ...d.expenseKeys, [getExpenseStableKey(t)]: e.target.checked },
+                                          } : d)}
                                           className="w-4 h-4 accent-red-500 shrink-0 rounded" />
                                         <div className="flex-1 min-w-0">
                                           <p className="text-sm font-medium truncate text-gray-800">{t.subject}</p>
@@ -4661,7 +4799,12 @@ export default function Home() {
                             {/* Nút lưu */}
                             <button
                               onClick={async () => {
-                                const newClassification = { expenses: { ...aepDraft.expenses }, salaryAssignments: { ...aepDraft.salaryAssignments }, manualEntries: { ...aepDraft.manualEntries } };
+                                const newClassification = {
+                                  expenses: { ...aepDraft.expenses },
+                                  expenseKeys: { ...aepDraft.expenseKeys },
+                                  salaryAssignments: { ...aepDraft.salaryAssignments },
+                                  manualEntries: { ...aepDraft.manualEntries },
+                                };
                                 setAepClassification(newClassification);
                                 setAepSubTab("overview");
                                 try {

@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mon
   try {
     await ensureTable();
     const data = await getAepClassification(month);
-    return NextResponse.json(data ?? { expenses: {}, salaryAssignments: {}, manualEntries: {} });
+    return NextResponse.json(data ?? { expenses: {}, expenseKeys: {}, salaryAssignments: {}, manualEntries: {} });
   } catch (err: unknown) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ mont
     const body = await req.json();
     const data = {
       expenses: body.expenses ?? {},
+      expenseKeys: body.expenseKeys ?? {},
       salaryAssignments: body.salaryAssignments ?? {},
       manualEntries: body.manualEntries ?? {},
     };

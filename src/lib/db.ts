@@ -75,12 +75,26 @@ export async function upsertSetting(key: string, data: unknown): Promise<void> {
 }
 
 // ─── AEP Classifications ────────────────────────────────
-export async function getAepClassification(month: string): Promise<{ expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null> {
+export async function getAepClassification(month: string): Promise<{ expenses: Record<string, boolean>; expenseKeys: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null> {
   const { rows } = await getPool().query(`SELECT data FROM aep_classifications WHERE month = $1`, [month]);
-  return rows.length > 0 ? rows[0].data : null;
+  if (rows.length === 0) return null;
+
+  const raw = rows[0].data as {
+    expenses?: Record<string, boolean>;
+    expenseKeys?: Record<string, boolean>;
+    salaryAssignments?: Record<string, boolean>;
+    manualEntries?: Record<string, boolean>;
+  };
+
+  return {
+    expenses: raw.expenses ?? {},
+    expenseKeys: raw.expenseKeys ?? {},
+    salaryAssignments: raw.salaryAssignments ?? {},
+    manualEntries: raw.manualEntries ?? {},
+  };
 }
 
-export async function upsertAepClassification(month: string, data: { expenses: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> }): Promise<void> {
+export async function upsertAepClassification(month: string, data: { expenses: Record<string, boolean>; expenseKeys: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> }): Promise<void> {
   await getPool().query(
     `INSERT INTO aep_classifications (month, data, updated_at) VALUES ($1, $2, NOW())
      ON CONFLICT (month) DO UPDATE SET data = $2, updated_at = NOW()`,
