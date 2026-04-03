@@ -270,8 +270,8 @@ function classifyRevenueSender(subject: string, note?: string): "metub" | "yeah1
   const hasAny = (keywords: string[]) => keywords.some((keyword) => normalized.includes(keyword));
 
   if (hasAny(["METUB", "ME TUB", "METUB NETWORK", "CONG TY METUB"])) return "metub";
+  if (hasAny(["MCV", "MCVG", "MCV NETWORK", "CONG TY MCV", "MCV GROUP"])) return "mcv";
   if (hasAny(["YEAH1", "YEAH 1", "CONG TY YEAH1", "Y1 NETWORK"])) return "yeah1";
-  if (hasAny(["MCV", "MCV NETWORK", "CONG TY MCV", "MCV GROUP"])) return "mcv";
   return "other";
 }
 
