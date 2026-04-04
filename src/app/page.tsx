@@ -7,7 +7,7 @@ import {
   DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
   Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown, ChevronDown,
-  Save, CheckCircle, Loader2, FileSpreadsheet, XCircle,
+  Save, CheckCircle, Loader2, FileSpreadsheet, XCircle, History, RotateCcw,
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
@@ -34,6 +34,14 @@ type AepClassificationState = {
   manualEntries: Record<string, boolean>;
 };
 
+type AepHistoryEntry = {
+  id: number;
+  month: string;
+  source: string;
+  createdAt: string;
+  data: AepClassificationState;
+};
+
 const DIRECTOR_PASS = "123";
 
 const EMPTY_AEP_CLASSIFICATION: AepClassificationState = {
@@ -42,6 +50,27 @@ const EMPTY_AEP_CLASSIFICATION: AepClassificationState = {
   salaryAssignments: {},
   manualEntries: {},
 };
+
+function countCheckedEntries(values: Record<string, boolean>) {
+  return Object.values(values).filter(Boolean).length;
+}
+
+function formatHistoryTimestamp(value: string) {
+  if (!value) return "";
+  return new Date(value).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getAepHistorySourceLabel(source: string) {
+  if (source.startsWith("restore:")) return "Khôi phục";
+  if (source === "save") return "Lưu";
+  return source;
+}
 
 /** Trả về tháng lương (YYYY-MM) của 1 assignment.
  *  Nếu approvedAt <= ngày 5 tháng M+1 → tính vào tháng M (tháng của job).
@@ -633,8 +662,12 @@ export default function Home() {
   const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
   // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool}, manualEntries: {id: bool} }
   const [aepClassification, setAepClassification] = useState<AepClassificationState | null>(null);
+  const [aepHistory, setAepHistory] = useState<AepHistoryEntry[]>([]);
   // Draft đang chỉnh trong tab Chốt số liệu
   const [aepDraft, setAepDraft] = useState<AepClassificationState | null>(null);
+  const [aepDraftDirty, setAepDraftDirty] = useState(false);
+  const [aepRestoringSnapshotId, setAepRestoringSnapshotId] = useState<number | null>(null);
+  const [aepRestoreNotice, setAepRestoreNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [aepSubTab, setAepSubTab] = useState<"overview" | "chot">("overview");
   const [aepMonth, setAepMonth] = useState<string>("2026-02");
 
@@ -847,17 +880,72 @@ export default function Home() {
     fetch(`/api/aep/${aepMonth}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (d) setAepClassification({
-          expenses: d.expenses ?? {},
-          expenseKeys: d.expenseKeys ?? {},
-          salaryAssignments: d.salaryAssignments ?? {},
-          manualEntries: d.manualEntries ?? {},
-        });
-        else setAepClassification(null);
+        if (d) {
+          setAepClassification({
+            expenses: d.expenses ?? {},
+            expenseKeys: d.expenseKeys ?? {},
+            salaryAssignments: d.salaryAssignments ?? {},
+            manualEntries: d.manualEntries ?? {},
+          });
+          setAepHistory(Array.isArray(d.history) ? d.history : []);
+        } else {
+          setAepClassification(null);
+          setAepHistory([]);
+        }
+        setAepDraftDirty(false);
       })
-      .catch(() => setAepClassification(null));
+      .catch(() => {
+        setAepClassification(null);
+        setAepHistory([]);
+        setAepDraftDirty(false);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aepMonth, financeView]);
+
+  const updateAepDraft = useCallback((updater: (draft: AepClassificationState) => AepClassificationState) => {
+    setAepDraft((draft) => (draft ? updater(draft) : draft));
+    setAepDraftDirty(true);
+  }, []);
+
+  const restoreAepSnapshot = useCallback(async (snapshotId: number) => {
+    const confirmed = window.confirm("Khôi phục snapshot này? Toàn bộ tick AEP hiện tại của tháng sẽ quay về đúng thời điểm đã lưu.");
+    if (!confirmed) return;
+
+    setAepRestoringSnapshotId(snapshotId);
+    setAepRestoreNotice({ tone: "info", text: "Đang khôi phục snapshot AEP..." });
+
+    try {
+      const res = await fetch(`/api/aep/${aepMonth}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshotId }),
+      });
+      const payload = await res.json().catch(() => null);
+
+      if (!res.ok || !payload?.data) {
+        throw new Error(payload?.error || "Không thể khôi phục snapshot AEP.");
+      }
+
+      const restored = {
+        expenses: payload.data.expenses ?? {},
+        expenseKeys: payload.data.expenseKeys ?? {},
+        salaryAssignments: payload.data.salaryAssignments ?? {},
+        manualEntries: payload.data.manualEntries ?? {},
+      };
+
+      setAepClassification(restored);
+      setAepDraft(restored);
+      setAepDraftDirty(false);
+      setAepSubTab("overview");
+      if (Array.isArray(payload.history)) setAepHistory(payload.history);
+      setAepRestoreNotice({ tone: "success", text: "Đã khôi phục snapshot AEP thành công." });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể khôi phục snapshot AEP.";
+      setAepRestoreNotice({ tone: "error", text: message });
+    } finally {
+      setAepRestoringSnapshotId(null);
+    }
+  }, [aepMonth]);
 
   useEffect(() => {
     if (financeView !== "anhemphim" || aepSubTab !== "chot" || !aepDraft) return;
@@ -912,23 +1000,29 @@ export default function Home() {
   }, [aepClassification, aepMonth, aepSubTab, financeView, jobs, manualEntries, thuChiData]);
 
   useEffect(() => {
-    if (financeView !== "anhemphim" || aepSubTab !== "chot" || !aepDraft) return;
+    if (financeView !== "anhemphim" || aepSubTab !== "chot" || !aepDraft || !aepDraftDirty) return;
 
     const timeout = window.setTimeout(async () => {
       try {
-        await fetch(`/api/aep/${aepMonth}`, {
+        const res = await fetch(`/api/aep/${aepMonth}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(aepDraft),
         });
+        const payload = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(payload?.error || "Không thể lưu snapshot AEP.");
+        }
         setAepClassification(aepDraft);
+        if (Array.isArray(payload?.history)) setAepHistory(payload.history);
+        setAepDraftDirty(false);
       } catch {
         // ignore autosave errors, manual save vẫn là fallback
       }
     }, 600);
 
     return () => window.clearTimeout(timeout);
-  }, [aepDraft, aepMonth, aepSubTab, financeView]);
+  }, [aepDraft, aepDraftDirty, aepMonth, aepSubTab, financeView]);
 
   const aepKnownShootDays = useMemo<AepShootDay[]>(() => {
     const map = new Map<string, { date: string; filmNames: Set<string>; sourceLabels: Set<string> }>();
@@ -1037,7 +1131,7 @@ export default function Home() {
       }
 
       let addedCount = 0;
-      setAepDraft((draft) => {
+      updateAepDraft((draft) => {
         if (!draft) return draft;
         const nextExpenses = { ...draft.expenses };
         const nextExpenseKeys = { ...draft.expenseKeys };
@@ -1085,13 +1179,13 @@ export default function Home() {
     } finally {
       setAepAiScanning(false);
     }
-  }, [aepClassification, aepDraft, aepKnownShootDays, aepShootDecisions]);
+  }, [aepClassification, aepDraft, aepKnownShootDays, aepShootDecisions, updateAepDraft]);
 
   const confirmAepShootGroup = useCallback((candidate: AepShootConfirmCandidate) => {
     const ids = candidate.expenses.map((expense) => String(expense.id));
     const newlyChecked = ids.filter((id) => !aepDraft?.expenses[id]).length;
 
-    setAepDraft((draft) => {
+    updateAepDraft((draft) => {
       if (!draft) return draft;
       return {
         ...draft,
@@ -1111,7 +1205,7 @@ export default function Home() {
       tone: "success",
       text: `Đã xác nhận ngày quay ${candidate.label}${candidate.filmNames[0] ? ` — ${candidate.filmNames[0]}` : ""} và chọn ${newlyChecked}/${ids.length} khoản chi.`,
     });
-  }, [aepDraft]);
+  }, [aepDraft, updateAepDraft]);
 
   const rejectAepShootGroup = useCallback((candidate: AepShootConfirmCandidate) => {
     setAepShootDecisions((prev) => ({ ...prev, [candidate.key]: false }));
@@ -1156,7 +1250,7 @@ export default function Home() {
       );
 
       let addedCount = 0;
-      setAepDraft((draft) => {
+      updateAepDraft((draft) => {
         if (!draft) return draft;
         const nextAssignments = { ...draft.salaryAssignments };
         for (const { job, assignment } of salaryRows) {
@@ -1184,7 +1278,7 @@ export default function Home() {
     } finally {
       setAepSalaryAiScanning(false);
     }
-  }, []);
+  }, [updateAepDraft]);
 
   const runAepManualAiScan = useCallback(async (
     entries: ManualEntry[],
@@ -1224,7 +1318,7 @@ export default function Home() {
       );
 
       let addedCount = 0;
-      setAepDraft((draft) => {
+      updateAepDraft((draft) => {
         if (!draft) return draft;
         const nextManualEntries = { ...draft.manualEntries };
         for (const entry of entries) {
@@ -1252,7 +1346,7 @@ export default function Home() {
     } finally {
       setAepManualAiScanning(false);
     }
-  }, []);
+  }, [updateAepDraft]);
 
 
 
@@ -4336,9 +4430,11 @@ export default function Home() {
                     setAepAiScanNotice(null);
                     setAepSalaryAiNotice(null);
                     setAepManualAiNotice(null);
+                    setAepRestoreNotice(null);
                     setAepExpandedExpenseDays({});
                     setAepShootConfirmQueue([]);
                     setAepShootDecisions({});
+                    setAepDraftDirty(false);
                     setAepDraft({
                       expenses: Object.fromEntries(allChiMonth.map(t => {
                         const stableKey = getExpenseStableKey(t);
@@ -4369,7 +4465,7 @@ export default function Home() {
                       <div className="flex items-start gap-2">
                         <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5 flex-1">
                           {aepMonths.map(ym => (
-                            <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); setAepExpandedExpenseDays({}); }}
+                              <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepDraftDirty(false); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepRestoreNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); setAepExpandedExpenseDays({}); }}
                               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                               {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
                             </button>
@@ -4446,6 +4542,52 @@ export default function Home() {
                           Xuất XLSX
                         </button>
                       </div>
+
+                      {aepRestoreNotice && (
+                        <div className={`rounded-xl px-3 py-2 text-xs flex items-start gap-2 ${aepRestoreNotice.tone === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : aepRestoreNotice.tone === "error" ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-violet-50 text-violet-700 border border-violet-200"}`}>
+                          {aepRestoreNotice.tone === "error" ? <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : aepRestoreNotice.tone === "success" ? <CheckCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" /> : <Loader2 className="w-3.5 h-3.5 mt-0.5 shrink-0 animate-spin" />}
+                          <span>{aepRestoreNotice.text}</span>
+                        </div>
+                      )}
+
+                      {aepHistory.length > 0 && (
+                        <div className="bg-white rounded-2xl border border-violet-100 shadow-sm overflow-hidden">
+                          <div className="px-4 py-3 bg-violet-50 border-b border-violet-100 flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-violet-700 flex items-center gap-1.5"><History className="w-4 h-4" /> Lịch sử chốt AEP</p>
+                              <p className="text-[11px] text-violet-500">Mỗi lần lưu sẽ tạo snapshot để có thể khôi phục nếu tick bị reset.</p>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-white text-violet-500 border border-violet-200 shrink-0">{aepHistory.length} bản gần nhất</span>
+                          </div>
+                          <div className="divide-y divide-violet-50">
+                            {aepHistory.slice(0, 5).map((entry) => {
+                              const expenseCount = countCheckedEntries(entry.data.expenseKeys) || countCheckedEntries(entry.data.expenses);
+                              const salaryCount = countCheckedEntries(entry.data.salaryAssignments);
+                              const manualCount = countCheckedEntries(entry.data.manualEntries);
+                              return (
+                                <div key={entry.id} className="px-4 py-3 flex items-center gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs font-semibold text-gray-700">{formatHistoryTimestamp(entry.createdAt)}</span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">{getAepHistorySourceLabel(entry.source)}</span>
+                                    </div>
+                                    <p className="text-[11px] text-gray-500 mt-1">Chi phí: {expenseCount} · Lương job: {salaryCount} · Lương tay: {manualCount}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => restoreAepSnapshot(entry.id)}
+                                    disabled={aepRestoringSnapshotId === entry.id}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-violet-200 text-violet-600 bg-white hover:bg-violet-50 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                                  >
+                                    {aepRestoringSnapshotId === entry.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                                    Khôi phục
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Sub-tabs */}
                       <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
@@ -4668,7 +4810,7 @@ export default function Home() {
                                     <button
                                       onClick={() => {
                                         const allChecked = filteredChiMonth.every(t => isCheckedExpense(aepDraft, t));
-                                        setAepDraft(d => d ? {
+                                        updateAepDraft(d => d ? {
                                           ...d,
                                           expenses: { ...d.expenses, ...Object.fromEntries(filteredChiMonth.map(t => [String(t.id), !allChecked])) },
                                           expenseKeys: { ...d.expenseKeys, ...Object.fromEntries(filteredChiMonth.map(t => [getExpenseStableKey(t), !allChecked])) },
@@ -4758,7 +4900,7 @@ export default function Home() {
                                           <span className="text-sm font-black text-red-600 shrink-0">{formatCurrency(group.total)}</span>
                                           <button
                                             type="button"
-                                            onClick={() => setAepDraft((draft) => draft ? {
+                                            onClick={() => updateAepDraft((draft) => draft ? {
                                               ...draft,
                                               expenses: {
                                                 ...draft.expenses,
@@ -4782,7 +4924,7 @@ export default function Home() {
                                               return (
                                                 <label key={t.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-red-50/50" : "hover:bg-gray-50"}`}>
                                                   <input type="checkbox" checked={checked}
-                                                    onChange={e => setAepDraft(d => d ? {
+                                                    onChange={e => updateAepDraft(d => d ? {
                                                       ...d,
                                                       expenses: { ...d.expenses, [String(t.id)]: e.target.checked },
                                                       expenseKeys: { ...d.expenseKeys, [getExpenseStableKey(t)]: e.target.checked },
@@ -4822,7 +4964,7 @@ export default function Home() {
                                       onClick={() => {
                                         const ids = filteredSalaryMonth.map(({assignment}) => assignment.id);
                                         const allChecked = ids.every(id => aepDraft.salaryAssignments[id]);
-                                        setAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                        updateAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
                                       }}
                                       className="text-xs text-blue-500 hover:text-blue-700 font-medium shrink-0">
                                       {filteredSalaryMonth.every(({assignment}) => aepDraft.salaryAssignments[assignment.id]) ? "Bỏ chọn" : "Chọn tất cả"}
@@ -4870,7 +5012,7 @@ export default function Home() {
                                     return (
                                       <label key={assignment.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-blue-50/50" : "hover:bg-gray-50"}`}>
                                         <input type="checkbox" checked={checked}
-                                          onChange={e => setAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, [assignment.id]: e.target.checked } } : d)}
+                                          onChange={e => updateAepDraft(d => d ? { ...d, salaryAssignments: { ...d.salaryAssignments, [assignment.id]: e.target.checked } } : d)}
                                           className="w-4 h-4 accent-blue-500 shrink-0 rounded" />
                                         <div className="flex-1 min-w-0">
                                           <p className="text-sm font-medium truncate text-gray-800">{job.title}</p>
@@ -4901,7 +5043,7 @@ export default function Home() {
                                         onClick={() => {
                                           const ids = filteredManualMonth.map(e => e.id);
                                           const allChecked = ids.every(id => aepDraft.manualEntries[id]);
-                                          setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
+                                          updateAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, ...Object.fromEntries(ids.map(id => [id, !allChecked])) } } : d);
                                         }}
                                         className="text-xs text-emerald-500 hover:text-emerald-700 font-medium shrink-0">
                                         {filteredManualMonth.every(e => aepDraft.manualEntries[e.id]) ? "Bỏ chọn" : "Chọn tất cả"}
@@ -4947,7 +5089,7 @@ export default function Home() {
                                       return (
                                         <label key={e.id} className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? "bg-emerald-50/50" : "hover:bg-gray-50"}`}>
                                           <input type="checkbox" checked={checked}
-                                            onChange={ev => setAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, [e.id]: ev.target.checked } } : d)}
+                                            onChange={ev => updateAepDraft(d => d ? { ...d, manualEntries: { ...d.manualEntries, [e.id]: ev.target.checked } } : d)}
                                             className="w-4 h-4 accent-emerald-500 shrink-0 rounded" />
                                           <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium truncate text-gray-800">{e.title}</p>
@@ -4972,13 +5114,16 @@ export default function Home() {
                                   manualEntries: { ...aepDraft.manualEntries },
                                 };
                                 setAepClassification(newClassification);
+                                setAepDraftDirty(false);
                                 setAepSubTab("overview");
                                 try {
-                                  await fetch(`/api/aep/${aepMonth}`, {
+                                  const res = await fetch(`/api/aep/${aepMonth}`, {
                                     method: "PUT",
                                     headers: { "Content-Type": "application/json" },
                                     body: JSON.stringify(newClassification),
                                   });
+                                  const payload = await res.json().catch(() => null);
+                                  if (res.ok && Array.isArray(payload?.history)) setAepHistory(payload.history);
                                 } catch { /* ignore */ }
                               }}
                               className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm">

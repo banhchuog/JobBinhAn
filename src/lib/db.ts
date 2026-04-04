@@ -1,6 +1,35 @@
 import { Pool } from "pg";
 import { Job, Employee, ManualEntry, CassoTransactionRecord } from "@/types";
 
+type AepClassificationData = {
+  expenses: Record<string, boolean>;
+  expenseKeys: Record<string, boolean>;
+  salaryAssignments: Record<string, boolean>;
+  manualEntries: Record<string, boolean>;
+};
+
+export type AepClassificationSnapshot = {
+  id: number;
+  month: string;
+  data: AepClassificationData;
+  source: string;
+  createdAt: string;
+};
+
+function normalizeAepClassificationData(raw: {
+  expenses?: Record<string, boolean>;
+  expenseKeys?: Record<string, boolean>;
+  salaryAssignments?: Record<string, boolean>;
+  manualEntries?: Record<string, boolean>;
+} | null | undefined): AepClassificationData {
+  return {
+    expenses: raw?.expenses ?? {},
+    expenseKeys: raw?.expenseKeys ?? {},
+    salaryAssignments: raw?.salaryAssignments ?? {},
+    manualEntries: raw?.manualEntries ?? {},
+  };
+}
+
 let _pool: Pool | null = null;
 
 function getPool(): Pool {
@@ -35,6 +64,16 @@ export async function initSchema(): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS aep_classification_history (
+      id BIGSERIAL PRIMARY KEY,
+      month TEXT NOT NULL,
+      data JSONB NOT NULL DEFAULT '{"expenses":{},"expenseKeys":{},"salaryAssignments":{},"manualEntries":{}}',
+      source TEXT NOT NULL DEFAULT 'save',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_aep_classification_history_month_created_at ON aep_classification_history (month, created_at DESC)`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -75,31 +114,66 @@ export async function upsertSetting(key: string, data: unknown): Promise<void> {
 }
 
 // ─── AEP Classifications ────────────────────────────────
-export async function getAepClassification(month: string): Promise<{ expenses: Record<string, boolean>; expenseKeys: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> } | null> {
+export async function getAepClassification(month: string): Promise<AepClassificationData | null> {
   const { rows } = await getPool().query(`SELECT data FROM aep_classifications WHERE month = $1`, [month]);
   if (rows.length === 0) return null;
 
-  const raw = rows[0].data as {
+  return normalizeAepClassificationData(rows[0].data as {
     expenses?: Record<string, boolean>;
     expenseKeys?: Record<string, boolean>;
     salaryAssignments?: Record<string, boolean>;
     manualEntries?: Record<string, boolean>;
-  };
-
-  return {
-    expenses: raw.expenses ?? {},
-    expenseKeys: raw.expenseKeys ?? {},
-    salaryAssignments: raw.salaryAssignments ?? {},
-    manualEntries: raw.manualEntries ?? {},
-  };
+  });
 }
 
-export async function upsertAepClassification(month: string, data: { expenses: Record<string, boolean>; expenseKeys: Record<string, boolean>; salaryAssignments: Record<string, boolean>; manualEntries: Record<string, boolean> }): Promise<void> {
+export async function listAepClassificationSnapshots(month: string, limit = 10): Promise<AepClassificationSnapshot[]> {
+  const { rows } = await getPool().query(
+    `SELECT id, month, data, source, created_at
+     FROM aep_classification_history
+     WHERE month = $1
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [month, limit]
+  );
+
+  return rows.map((row) => ({
+    id: Number(row.id),
+    month: row.month as string,
+    data: normalizeAepClassificationData(row.data as AepClassificationData),
+    source: (row.source as string) || "save",
+    createdAt: new Date(row.created_at as string | Date).toISOString(),
+  }));
+}
+
+export async function createAepClassificationSnapshot(month: string, data: AepClassificationData, source = "save"): Promise<void> {
+  await getPool().query(
+    `INSERT INTO aep_classification_history (month, data, source, created_at)
+     VALUES ($1, $2, $3, NOW())`,
+    [month, JSON.stringify(normalizeAepClassificationData(data)), source]
+  );
+}
+
+export async function upsertAepClassification(month: string, data: AepClassificationData, source = "save"): Promise<void> {
+  const normalized = normalizeAepClassificationData(data);
   await getPool().query(
     `INSERT INTO aep_classifications (month, data, updated_at) VALUES ($1, $2, NOW())
      ON CONFLICT (month) DO UPDATE SET data = $2, updated_at = NOW()`,
-    [month, JSON.stringify(data)]
+    [month, JSON.stringify(normalized)]
   );
+
+  await createAepClassificationSnapshot(month, normalized, source);
+}
+
+export async function restoreAepClassificationSnapshot(month: string, snapshotId: number): Promise<AepClassificationData | null> {
+  const { rows } = await getPool().query(
+    `SELECT data FROM aep_classification_history WHERE id = $1 AND month = $2 LIMIT 1`,
+    [snapshotId, month]
+  );
+  if (rows.length === 0) return null;
+
+  const normalized = normalizeAepClassificationData(rows[0].data as AepClassificationData);
+  await upsertAepClassification(month, normalized, `restore:${snapshotId}`);
+  return normalized;
 }
 
 // ─── Jobs ──────────────────────────────────────────────
