@@ -4596,6 +4596,7 @@ export default function Home() {
                           items: ThuChiTransaction[];
                           total: number;
                           checkedCount: number;
+                          preview: string;
                         }>>((groups, transaction) => {
                           const amount = transaction.currency === "VND" ? Number(transaction.amount) : Number(transaction.amount) * 25000;
                           const existing = groups.find((group) => group.date === transaction.date);
@@ -4603,6 +4604,11 @@ export default function Home() {
                             existing.items.push(transaction);
                             existing.total += amount;
                             if (isCheckedExpense(aepDraft, transaction)) existing.checkedCount += 1;
+                            const previewParts = existing.items
+                              .slice(0, 3)
+                              .map((item) => item.note?.trim() || item.subject?.trim())
+                              .filter(Boolean);
+                            existing.preview = previewParts.join(" · ");
                             return groups;
                           }
 
@@ -4612,6 +4618,7 @@ export default function Home() {
                             items: [transaction],
                             total: amount,
                             checkedCount: isCheckedExpense(aepDraft, transaction) ? 1 : 0,
+                            preview: transaction.note?.trim() || transaction.subject?.trim() || "",
                           });
                           return groups;
                         }, []);
@@ -4746,6 +4753,7 @@ export default function Home() {
                                           <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold text-red-700">{group.label}</p>
                                             <p className="text-[11px] text-red-400">{group.checkedCount}/{group.items.length} khoản đã tick</p>
+                                            {!!group.preview && <p className="text-[11px] text-gray-500 truncate mt-0.5">{group.preview}{group.items.length > 3 ? " ..." : ""}</p>}
                                           </div>
                                           <span className="text-sm font-black text-red-600 shrink-0">{formatCurrency(group.total)}</span>
                                           <button
