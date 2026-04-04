@@ -645,6 +645,7 @@ export default function Home() {
   const [aepFilterSalary, setAepFilterSalary] = useState("");
   const [aepFilterManual, setAepFilterManual] = useState("");
   const [aepExpandedExpenseDays, setAepExpandedExpenseDays] = useState<Record<string, boolean>>({});
+  const [aepExporting, setAepExporting] = useState(false);
   const [aepAiScanning, setAepAiScanning] = useState(false);
   const [aepAiScanNotice, setAepAiScanNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [aepSalaryAiScanning, setAepSalaryAiScanning] = useState(false);
@@ -4365,13 +4366,85 @@ export default function Home() {
                       </div>
 
                       {/* Chọn tháng */}
-                      <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5">
-                        {aepMonths.map(ym => (
-                          <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); setAepExpandedExpenseDays({}); }}
-                            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
-                            {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
-                          </button>
-                        ))}
+                      <div className="flex items-start gap-2">
+                        <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5 flex-1">
+                          {aepMonths.map(ym => (
+                            <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); setAepExpandedExpenseDays({}); }}
+                              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
+                              {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={async () => {
+                            try {
+                              setAepExporting(true);
+                              const XLSX = await import("xlsx");
+
+                              const summaryRows = [
+                                ["Hạng mục", "Giá trị"],
+                                ["Tháng", monthLabel(aepMonth)],
+                                ["Doanh thu", aepRev],
+                                ["Chi phí vận hành", aepExpensesTotal],
+                                ["Lương sản xuất", aepSalaryTotal],
+                                ["Lương thủ công", aepManualTotal],
+                                ["Tổng chi phí", aepTotalChi],
+                                ["Lợi nhuận", aepProfit],
+                                ["Xuất lúc", new Date().toLocaleString("vi-VN")],
+                              ];
+
+                              const expenseRows = [
+                                ["Ngày", "Hạng mục", "Ghi chú", "Số tiền", "Tiền tệ", "Người tạo"],
+                                ...aepExpenses.map((expense) => [
+                                  expense.date,
+                                  expense.subject,
+                                  expense.note || "",
+                                  expense.currency === "VND" ? Number(expense.amount) : Number(expense.amount) * 25000,
+                                  expense.currency,
+                                  expense.created_by || "",
+                                ]),
+                              ];
+
+                              const salaryRows = [
+                                ["Nhân sự", "Job", "Ngày duyệt", "Lương"],
+                                ...aepSalaryRows.flatMap(({ emp, approved }) =>
+                                  approved.map(({ job, assignment }) => [
+                                    emp.profile?.hoTen || emp.name,
+                                    job.title,
+                                    assignment.approvedAt ? assignment.approvedAt.slice(0, 10) : "",
+                                    assignment.salaryEarned,
+                                  ])
+                                ),
+                              ];
+
+                              const manualRows = [
+                                ["Nhân sự", "Tiêu đề", "Ghi chú", "Số tiền"],
+                                ...aepManualEntries.map((entry) => [
+                                  employees.find((emp) => emp.id === entry.empId)?.profile?.hoTen || employees.find((emp) => emp.id === entry.empId)?.name || entry.empId,
+                                  entry.title,
+                                  entry.note || "",
+                                  entry.amount,
+                                ]),
+                              ];
+
+                              const workbook = XLSX.utils.book_new();
+                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "TongQuan");
+                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(expenseRows), "ChiPhi");
+                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(salaryRows), "LuongJob");
+                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(manualRows), "LuongThuCong");
+                              XLSX.writeFile(workbook, `AEP-${aepMonth}.xlsx`);
+                            } catch {
+                              alert("Không thể xuất file XLSX cho tháng này.");
+                            } finally {
+                              setAepExporting(false);
+                            }
+                          }}
+                          disabled={aepExporting}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-200 bg-white text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {aepExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                          Xuất XLSX
+                        </button>
                       </div>
 
                       {/* Sub-tabs */}
