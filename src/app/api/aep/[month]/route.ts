@@ -5,6 +5,7 @@ import {
   initSchema,
   listAepClassificationSnapshots,
   restoreAepClassificationSnapshot,
+  createAepClassificationSnapshot,
 } from "@/lib/db";
 
 async function ensureTable() {
@@ -19,9 +20,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ mon
       getAepClassification(month),
       listAepClassificationSnapshots(month),
     ]);
+
+    let nextHistory = history;
+    if (data && history.length === 0) {
+      await createAepClassificationSnapshot(month, data, "bootstrap");
+      nextHistory = await listAepClassificationSnapshots(month);
+    }
+
     return NextResponse.json({
       ...(data ?? { expenses: {}, expenseKeys: {}, salaryAssignments: {}, manualEntries: {} }),
-      history,
+      history: nextHistory,
     });
   } catch (err: unknown) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

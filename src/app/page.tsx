@@ -68,6 +68,7 @@ function formatHistoryTimestamp(value: string) {
 
 function getAepHistorySourceLabel(source: string) {
   if (source.startsWith("restore:")) return "Khôi phục";
+  if (source === "bootstrap") return "Ảnh hiện tại";
   if (source === "save") return "Lưu";
   return source;
 }
@@ -4550,15 +4551,20 @@ export default function Home() {
                         </div>
                       )}
 
-                      {aepHistory.length > 0 && (
-                        <div className="bg-white rounded-2xl border border-violet-100 shadow-sm overflow-hidden">
-                          <div className="px-4 py-3 bg-violet-50 border-b border-violet-100 flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-violet-700 flex items-center gap-1.5"><History className="w-4 h-4" /> Lịch sử chốt AEP</p>
-                              <p className="text-[11px] text-violet-500">Mỗi lần lưu sẽ tạo snapshot để có thể khôi phục nếu tick bị reset.</p>
-                            </div>
-                            <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-white text-violet-500 border border-violet-200 shrink-0">{aepHistory.length} bản gần nhất</span>
+                      <div className="bg-white rounded-2xl border border-violet-100 shadow-sm overflow-hidden">
+                        <div className="px-4 py-3 bg-violet-50 border-b border-violet-100 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-violet-700 flex items-center gap-1.5"><History className="w-4 h-4" /> Lịch sử chốt AEP</p>
+                            <p className="text-[11px] text-violet-500">Dùng nút khôi phục để lấy lại bảng tick từ các mốc đã lưu.</p>
                           </div>
+                          <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-white text-violet-500 border border-violet-200 shrink-0">{aepHistory.length} bản gần nhất</span>
+                        </div>
+                        {aepHistory.length === 0 ? (
+                          <div className="px-4 py-4 text-xs text-gray-500 space-y-1">
+                            <p>Chưa có snapshot nào cho tháng này.</p>
+                            <p>Sau bản vá này, mỗi lần lưu AEP sẽ tự tạo snapshot để bạn khôi phục về sau.</p>
+                          </div>
+                        ) : (
                           <div className="divide-y divide-violet-50">
                             {aepHistory.slice(0, 5).map((entry) => {
                               const expenseCount = countCheckedEntries(entry.data.expenseKeys) || countCheckedEntries(entry.data.expenses);
@@ -4586,8 +4592,8 @@ export default function Home() {
                               );
                             })}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
 
                       {/* Sub-tabs */}
                       <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
