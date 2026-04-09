@@ -285,6 +285,29 @@ function formatFullDate(date: string) {
   return `${Number(day)}/${Number(month)}/${year}`;
 }
 
+const WEEKDAY_LABELS = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+
+function shiftIsoDate(date: string, days: number) {
+  if (!date) return "";
+  const value = new Date(`${date}T00:00:00`);
+  value.setDate(value.getDate() + days);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekdayLabel(date: string) {
+  if (!date) return "";
+  return WEEKDAY_LABELS[new Date(`${date}T00:00:00`).getDay()] ?? "";
+}
+
+function formatTrendSigned(value: number) {
+  if (value > 0) return `+${value.toFixed(1)}`;
+  if (value < 0) return `${value.toFixed(1)}`;
+  return "0.0";
+}
+
 function includesKeyword(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
 }
@@ -3589,6 +3612,7 @@ export default function Home() {
                       {(() => {
                         const allDailyEntries = Object.entries(dailyAepRevenueData ?? {})
                           .sort(([a], [b]) => a.localeCompare(b));
+                        const amountByDate = new Map(allDailyEntries);
 
                         const latestDailyMonth = allDailyEntries.length > 0
                           ? allDailyEntries[allDailyEntries.length - 1][0]?.slice(0, 7) ?? null
@@ -3618,15 +3642,30 @@ export default function Home() {
 
                         const dailyChartData = dailyEntries.map(([date, amount], index, arr) => {
                           const prevAmount = index > 0 ? arr[index - 1][1] : null;
+                          const prevWeekDate = shiftIsoDate(date, -7);
+                          const prevWeekAmountRaw = amountByDate.get(prevWeekDate);
+                          const prevWeekAmount = typeof prevWeekAmountRaw === "number" ? prevWeekAmountRaw : null;
                           const growth = prevAmount !== null && prevAmount > 0
                             ? Math.round((amount - prevAmount) / prevAmount * 100)
                             : null;
+                          const weekdayDelta = prevWeekAmount !== null
+                            ? Math.round(((amount - prevWeekAmount) / 1e6) * 10) / 10
+                            : null;
+                          const weekdayDeltaPct = prevWeekAmount !== null && prevWeekAmount > 0
+                            ? Math.round(((amount - prevWeekAmount) / prevWeekAmount) * 100)
+                            : null;
+                          const weekdayLabel = getWeekdayLabel(date);
 
                           return {
                             date,
                             day: date.slice(8, 10),
                             amount: Math.round((amount / 1e6) * 10) / 10,
                             growth,
+                            weekdayLabel,
+                            prevWeekDate,
+                            prevWeekAmount: prevWeekAmount !== null ? Math.round((prevWeekAmount / 1e6) * 10) / 10 : null,
+                            weekdayDelta,
+                            weekdayDeltaPct,
                           };
                         });
 
@@ -3634,6 +3673,9 @@ export default function Home() {
                         const average = dailyChartData.length > 0 ? Math.round((total / dailyChartData.length) * 10) / 10 : 0;
                         const bestDay = dailyChartData.reduce((best, item) => item.amount > best.amount ? item : best, dailyChartData[0]);
                         const latestDay = dailyChartData[dailyChartData.length - 1];
+                        const latestWeekdayComparisonText = latestDay.prevWeekAmount !== null
+                          ? `${latestDay.weekdayLabel} này ${latestDay.weekdayDelta === null ? "đi ngang" : latestDay.weekdayDelta > 0 ? `tăng ${Math.abs(latestDay.weekdayDelta).toFixed(1)}tr` : latestDay.weekdayDelta < 0 ? `giảm ${Math.abs(latestDay.weekdayDelta).toFixed(1)}tr` : "đi ngang"}${latestDay.weekdayDeltaPct !== null ? ` (${latestDay.weekdayDeltaPct > 0 ? "+" : ""}${latestDay.weekdayDeltaPct}%)` : ""} so với ${latestDay.weekdayLabel.toLowerCase()} tuần trước${latestDay.prevWeekDate ? ` (${formatFullDate(latestDay.prevWeekDate)})` : ""}`
+                          : `Chưa có dữ liệu ${latestDay.weekdayLabel.toLowerCase()} tuần trước để so sánh.`;
 
                         return (
                           <div className="bg-white border border-gray-200 rounded-2xl p-4">
@@ -3647,6 +3689,7 @@ export default function Home() {
                                 <p className="text-[10px] text-gray-400">Ngày mới nhất</p>
                                 <p className="text-sm font-black text-emerald-600">{latestDay.amount.toFixed(1)}tr</p>
                                 <p className="text-[10px] text-gray-400">Ngày {Number(latestDay.day)}</p>
+                                <p className={`text-[10px] mt-1 max-w-[140px] ${latestDay.weekdayDelta === null ? "text-gray-400" : latestDay.weekdayDelta > 0 ? "text-emerald-500" : latestDay.weekdayDelta < 0 ? "text-rose-500" : "text-amber-500"}`}>{latestDay.weekdayDelta === null ? "Chưa có mốc tuần trước" : `${latestDay.weekdayLabel}: ${formatTrendSigned(latestDay.weekdayDelta)}tr${latestDay.weekdayDeltaPct !== null ? ` (${latestDay.weekdayDeltaPct > 0 ? "+" : ""}${latestDay.weekdayDeltaPct}%)` : ""}`}</p>
                               </div>
                               <div className="text-center">
                                 <p className="text-[10px] text-gray-400">Trung bình/ngày</p>
@@ -3659,20 +3702,44 @@ export default function Home() {
                               </div>
                             </div>
 
+                            <div className={`mb-3 rounded-xl border px-3 py-2 text-[11px] ${latestDay.weekdayDelta === null ? "border-gray-200 bg-gray-50 text-gray-500" : latestDay.weekdayDelta > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : latestDay.weekdayDelta < 0 ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                              {latestWeekdayComparisonText}
+                            </div>
+
                             <ResponsiveContainer width="100%" height={180}>
                               <ComposedChart data={dailyChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
                                 <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
                                 <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
                                 <Tooltip
-                                  formatter={(value, name) => {
-                                    const safeValue = typeof value === "number" ? value : 0;
-                                    return [
-                                      name === "growth" ? `${safeValue}%` : `${safeValue}tr`,
-                                      name === "growth" ? "Tăng trưởng" : "Doanh thu ngày"
-                                    ];
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload || payload.length === 0) return null;
+                                    const point = payload[0]?.payload as {
+                                      day: string;
+                                      amount: number;
+                                      weekdayLabel: string;
+                                      prevWeekDate: string;
+                                      prevWeekAmount: number | null;
+                                      weekdayDelta: number | null;
+                                      weekdayDeltaPct: number | null;
+                                    };
+                                    if (!point) return null;
+
+                                    return (
+                                      <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm">
+                                        <p className="font-semibold text-gray-700">Ngày {point.day}/{selectedDailyMonth!.slice(5, 7)}</p>
+                                        <p className="mt-1 text-indigo-600">Doanh thu ngày: {point.amount.toFixed(1)}tr</p>
+                                        <p className={`mt-1 ${point.weekdayDelta === null ? "text-gray-400" : point.weekdayDelta > 0 ? "text-emerald-600" : point.weekdayDelta < 0 ? "text-rose-500" : "text-amber-600"}`}>
+                                          {point.weekdayDelta === null
+                                            ? `Chưa có ${point.weekdayLabel.toLowerCase()} tuần trước để so sánh`
+                                            : `${point.weekdayLabel} này ${point.weekdayDelta > 0 ? "tăng" : point.weekdayDelta < 0 ? "giảm" : "đi ngang"} ${Math.abs(point.weekdayDelta).toFixed(1)}tr${point.weekdayDeltaPct !== null ? ` (${point.weekdayDeltaPct > 0 ? "+" : ""}${point.weekdayDeltaPct}%)` : ""} so với ${formatFullDate(point.prevWeekDate)}`}
+                                        </p>
+                                        {point.prevWeekAmount !== null && (
+                                          <p className="mt-1 text-[11px] text-gray-400">{point.weekdayLabel} tuần trước: {point.prevWeekAmount.toFixed(1)}tr</p>
+                                        )}
+                                      </div>
+                                    );
                                   }}
-                                  labelFormatter={(label) => `Ngày ${label}/${selectedDailyMonth!.slice(5, 7)}`}
                                   contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
                                   cursor={{ fill: "#f9fafb" }}
                                 />
