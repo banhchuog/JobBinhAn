@@ -97,6 +97,11 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function currentISODate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
 const PAYROLL_BASE_SALARY = 5400000;
 const PAYROLL_PERSONAL_DEDUCTION = 15500000;
 const PAYROLL_DEPENDENT_DEDUCTION = 6200000;
@@ -3673,9 +3678,13 @@ export default function Home() {
                         const average = dailyChartData.length > 0 ? Math.round((total / dailyChartData.length) * 10) / 10 : 0;
                         const bestDay = dailyChartData.reduce((best, item) => item.amount > best.amount ? item : best, dailyChartData[0]);
                         const latestDay = dailyChartData[dailyChartData.length - 1];
-                        const latestWeekdayComparisonText = latestDay.prevWeekAmount !== null
-                          ? `${latestDay.weekdayLabel} này ${latestDay.weekdayDelta === null ? "đi ngang" : latestDay.weekdayDelta > 0 ? `tăng ${Math.abs(latestDay.weekdayDelta).toFixed(1)}tr` : latestDay.weekdayDelta < 0 ? `giảm ${Math.abs(latestDay.weekdayDelta).toFixed(1)}tr` : "đi ngang"}${latestDay.weekdayDeltaPct !== null ? ` (${latestDay.weekdayDeltaPct > 0 ? "+" : ""}${latestDay.weekdayDeltaPct}%)` : ""} so với ${latestDay.weekdayLabel.toLowerCase()} tuần trước${latestDay.prevWeekDate ? ` (${formatFullDate(latestDay.prevWeekDate)})` : ""}`
-                          : `Chưa có dữ liệu ${latestDay.weekdayLabel.toLowerCase()} tuần trước để so sánh.`;
+                        const comparisonDay = latestDay.date === currentISODate() && dailyChartData.length > 1
+                          ? dailyChartData[dailyChartData.length - 2]
+                          : latestDay;
+                        const isUsingCompletedPreviousDay = comparisonDay.date !== latestDay.date;
+                        const latestWeekdayComparisonText = comparisonDay.prevWeekAmount !== null
+                          ? `${comparisonDay.weekdayLabel} ${isUsingCompletedPreviousDay ? `(${formatFullDate(comparisonDay.date)}) ` : ""}${comparisonDay.weekdayDelta === null ? "đi ngang" : comparisonDay.weekdayDelta > 0 ? `tăng ${Math.abs(comparisonDay.weekdayDelta).toFixed(1)}tr` : comparisonDay.weekdayDelta < 0 ? `giảm ${Math.abs(comparisonDay.weekdayDelta).toFixed(1)}tr` : "đi ngang"}${comparisonDay.weekdayDeltaPct !== null ? ` (${comparisonDay.weekdayDeltaPct > 0 ? "+" : ""}${comparisonDay.weekdayDeltaPct}%)` : ""} so với ${comparisonDay.weekdayLabel.toLowerCase()} tuần trước${comparisonDay.prevWeekDate ? ` (${formatFullDate(comparisonDay.prevWeekDate)})` : ""}`
+                          : `Chưa có dữ liệu ${comparisonDay.weekdayLabel.toLowerCase()} tuần trước để so sánh${isUsingCompletedPreviousDay ? ` cho ngày ${formatFullDate(comparisonDay.date)}` : ""}.`;
 
                         return (
                           <div className="bg-white border border-gray-200 rounded-2xl p-4">
@@ -3689,7 +3698,7 @@ export default function Home() {
                                 <p className="text-[10px] text-gray-400">Ngày mới nhất</p>
                                 <p className="text-sm font-black text-emerald-600">{latestDay.amount.toFixed(1)}tr</p>
                                 <p className="text-[10px] text-gray-400">Ngày {Number(latestDay.day)}</p>
-                                <p className={`text-[10px] mt-1 max-w-[140px] ${latestDay.weekdayDelta === null ? "text-gray-400" : latestDay.weekdayDelta > 0 ? "text-emerald-500" : latestDay.weekdayDelta < 0 ? "text-rose-500" : "text-amber-500"}`}>{latestDay.weekdayDelta === null ? "Chưa có mốc tuần trước" : `${latestDay.weekdayLabel}: ${formatTrendSigned(latestDay.weekdayDelta)}tr${latestDay.weekdayDeltaPct !== null ? ` (${latestDay.weekdayDeltaPct > 0 ? "+" : ""}${latestDay.weekdayDeltaPct}%)` : ""}`}</p>
+                                <p className={`text-[10px] mt-1 max-w-[180px] ${comparisonDay.weekdayDelta === null ? "text-gray-400" : comparisonDay.weekdayDelta > 0 ? "text-emerald-500" : comparisonDay.weekdayDelta < 0 ? "text-rose-500" : "text-amber-500"}`}>{comparisonDay.weekdayDelta === null ? "Chưa có mốc tuần trước" : `${comparisonDay.weekdayLabel}${isUsingCompletedPreviousDay ? ` ${Number(comparisonDay.day)}` : ""}: ${formatTrendSigned(comparisonDay.weekdayDelta)}tr${comparisonDay.weekdayDeltaPct !== null ? ` (${comparisonDay.weekdayDeltaPct > 0 ? "+" : ""}${comparisonDay.weekdayDeltaPct}%)` : ""}`}</p>
                               </div>
                               <div className="text-center">
                                 <p className="text-[10px] text-gray-400">Trung bình/ngày</p>
