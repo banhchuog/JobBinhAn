@@ -387,6 +387,201 @@ const DEFAULT_SHOOT_POSITIONS: ShootPosition[] = [
 
 const DEFAULT_EDIT_SALARY = 3_000_000; // per episode
 
+const JOB_CATEGORY_OPTIONS = [
+  "Hậu kỳ",
+  "Kịch bản",
+  "Đạo diễn",
+  "Quay phim",
+  "Ánh sáng",
+  "Thu âm",
+  "Thiết kế",
+  "VFX",
+  "Khác",
+] as const;
+
+type StandardWorkUnit = "episode" | "day";
+
+function getWorkUnitLabel(unit: StandardWorkUnit | undefined, count?: number) {
+  const normalizedUnit = unit ?? "episode";
+  if (normalizedUnit === "day") return count === 1 ? "ngày" : "ngày";
+  return count === 1 ? "tập" : "tập";
+}
+
+function getWorkUnitRateLabel(unit: StandardWorkUnit | undefined) {
+  return unit === "day" ? "ngày" : "tập";
+}
+
+function parseEpisodeLabelInput(value: string) {
+  const normalized = value
+    .replace(/[\n,;]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return { normalized: "", count: 0, items: [] as string[] };
+
+  const compact = normalized.replace(/^tập\s*/i, "");
+  const parts = compact
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return {
+    normalized,
+    count: parts.length,
+    items: parts,
+  };
+}
+
+function parseDayLabelInput(value: string) {
+  const normalized = value
+    .replace(/[\n,;]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return { normalized: "", count: 0, items: [] as string[] };
+
+  const compact = normalized.replace(/^ngày\s*/i, "");
+  const parts = compact
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return {
+    normalized,
+    count: parts.length,
+    items: parts,
+  };
+}
+
+function buildStandardJobTitle(category: string, projectName: string, episodeLabel?: string) {
+  const normalizedCategory = category.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedEpisodeLabel = episodeLabel?.trim();
+  return [
+    [normalizedCategory, normalizedProject].filter(Boolean).join(" "),
+    normalizedEpisodeLabel ? `Tập ${normalizedEpisodeLabel.replace(/^tập\s*/i, "")}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function getJobCategoryLabel(job: Job) {
+  if (job.jobType === "mini") return "Mini";
+  return job.jobCategory?.trim() || "Chưa phân loại";
+}
+
+function getJobCategoryBadgeClass(label: string) {
+  const normalized = label.trim().toLowerCase();
+
+  if (normalized === "mini") return "bg-purple-100 text-purple-700 border border-purple-200";
+  if (normalized.includes("hậu kỳ")) return "bg-blue-100 text-blue-700 border border-blue-200";
+  if (normalized.includes("đạo diễn")) return "bg-amber-100 text-amber-700 border border-amber-200";
+  if (normalized.includes("kịch bản")) return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+  if (normalized.includes("quay phim")) return "bg-cyan-100 text-cyan-700 border border-cyan-200";
+  if (normalized.includes("ánh sáng")) return "bg-yellow-100 text-yellow-700 border border-yellow-200";
+  if (normalized.includes("thu âm")) return "bg-pink-100 text-pink-700 border border-pink-200";
+  if (normalized.includes("thiết kế")) return "bg-rose-100 text-rose-700 border border-rose-200";
+  if (normalized.includes("vfx")) return "bg-indigo-100 text-indigo-700 border border-indigo-200";
+  return "bg-slate-100 text-slate-700 border border-slate-200";
+}
+
+function getJobCategorySurfaceClass(label: string) {
+  const normalized = label.trim().toLowerCase();
+
+  if (normalized === "mini") {
+    return {
+      cardBg: "bg-violet-50 border border-violet-200",
+      accentText: "text-violet-700",
+      barBg: "bg-violet-200",
+      barFill: "bg-violet-400",
+      btnClass: "bg-violet-500 hover:bg-violet-600 text-white",
+    };
+  }
+  if (normalized.includes("hậu kỳ")) {
+    return {
+      cardBg: "bg-blue-50 border border-blue-200",
+      accentText: "text-blue-700",
+      barBg: "bg-blue-200",
+      barFill: "bg-blue-500",
+      btnClass: "bg-blue-600 hover:bg-blue-700 text-white",
+    };
+  }
+  if (normalized.includes("đạo diễn")) {
+    return {
+      cardBg: "bg-amber-50 border border-amber-200",
+      accentText: "text-amber-700",
+      barBg: "bg-amber-200",
+      barFill: "bg-amber-400",
+      btnClass: "bg-amber-500 hover:bg-amber-600 text-white",
+    };
+  }
+  if (normalized.includes("kịch bản")) {
+    return {
+      cardBg: "bg-emerald-50 border border-emerald-200",
+      accentText: "text-emerald-700",
+      barBg: "bg-emerald-200",
+      barFill: "bg-emerald-500",
+      btnClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
+    };
+  }
+  if (normalized.includes("quay phim")) {
+    return {
+      cardBg: "bg-cyan-50 border border-cyan-200",
+      accentText: "text-cyan-700",
+      barBg: "bg-cyan-200",
+      barFill: "bg-cyan-500",
+      btnClass: "bg-cyan-600 hover:bg-cyan-700 text-white",
+    };
+  }
+  if (normalized.includes("ánh sáng")) {
+    return {
+      cardBg: "bg-yellow-50 border border-yellow-200",
+      accentText: "text-yellow-700",
+      barBg: "bg-yellow-200",
+      barFill: "bg-yellow-400",
+      btnClass: "bg-yellow-500 hover:bg-yellow-600 text-white",
+    };
+  }
+  if (normalized.includes("thu âm")) {
+    return {
+      cardBg: "bg-pink-50 border border-pink-200",
+      accentText: "text-pink-700",
+      barBg: "bg-pink-200",
+      barFill: "bg-pink-400",
+      btnClass: "bg-pink-500 hover:bg-pink-600 text-white",
+    };
+  }
+  if (normalized.includes("thiết kế")) {
+    return {
+      cardBg: "bg-rose-50 border border-rose-200",
+      accentText: "text-rose-700",
+      barBg: "bg-rose-200",
+      barFill: "bg-rose-400",
+      btnClass: "bg-rose-500 hover:bg-rose-600 text-white",
+    };
+  }
+  if (normalized.includes("vfx")) {
+    return {
+      cardBg: "bg-indigo-50 border border-indigo-200",
+      accentText: "text-indigo-700",
+      barBg: "bg-indigo-200",
+      barFill: "bg-indigo-500",
+      btnClass: "bg-indigo-600 hover:bg-indigo-700 text-white",
+    };
+  }
+  return {
+    cardBg: "bg-slate-50 border border-slate-200",
+    accentText: "text-slate-700",
+    barBg: "bg-slate-200",
+    barFill: "bg-slate-500",
+    btnClass: "bg-slate-600 hover:bg-slate-700 text-white",
+  };
+}
+
+function toEndOfDayIso(dateValue: string) {
+  if (!dateValue) return undefined;
+  const date = new Date(`${dateValue}T23:59:59`);
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+}
+
 // ── AI Job Group Parser ─────────────────────────────────
 interface PreviewJob {
   title: string;
@@ -396,9 +591,33 @@ interface PreviewJob {
   expiresAt?: string;
   isOnSite: boolean;
   jobType?: "standard" | "mini";
+  jobCategory?: string;
+  projectName?: string;
+  workUnit?: StandardWorkUnit;
+  workUnits?: number;
+  ratePerUnit?: number;
   unitPrice?: number;
   totalUnits?: number;
 }
+
+type JobEditModalState = {
+  id: string;
+  jobType: "standard" | "mini";
+  title: string;
+  description: string;
+  month: string;
+  jobCategory: string;
+  projectName: string;
+  workUnit: StandardWorkUnit;
+  episodeLabel: string;
+  dayLabel: string;
+  workUnits: string;
+  ratePerUnit: string;
+  unitPrice: string;
+  totalUnits: string;
+  expiresAt: string;
+  hasExpiry: boolean;
+};
 
 function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] } {
   const now = new Date();
@@ -601,9 +820,16 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false);
 
   // ── Director State ───────────────────────────────────
-  const [newJobTitle, setNewJobTitle] = useState("");
+  const [newJobCategory, setNewJobCategory] = useState<string>(JOB_CATEGORY_OPTIONS[0]);
+  const [newJobProject, setNewJobProject] = useState("");
   const [newJobDesc, setNewJobDesc] = useState("");
-  const [newJobSalary, setNewJobSalary] = useState("");
+  const [newJobRate, setNewJobRate] = useState("");
+  const [newJobWorkUnit, setNewJobWorkUnit] = useState<StandardWorkUnit>("episode");
+  const [newJobEpisodeLabel, setNewJobEpisodeLabel] = useState("");
+  const [newJobDayLabel, setNewJobDayLabel] = useState("");
+  const [newJobWorkUnits, setNewJobWorkUnits] = useState("1");
+  const [newJobExpiresAt, setNewJobExpiresAt] = useState("");
+  const [newJobHasExpiry, setNewJobHasExpiry] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [directorTab, setDirectorTab] = useState<"jobs" | "employees" | "approvals" | "salary" | "finance">("finance");
 
@@ -634,13 +860,14 @@ export default function Home() {
   const [jobSearch, setJobSearch] = useState("");
   const [jobSort, setJobSort] = useState<"newest" | "oldest">("newest");
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [jobProjectFilter, setJobProjectFilter] = useState("all");
+  const [jobCategoryFilter, setJobCategoryFilter] = useState("all");
   const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod" | "mini">("all");
 
   // ── Create mode: "none" | "postprod" | "mini" | "shooting" ──
   const [createMode, setCreateMode] = useState<"none" | "postprod" | "mini" | "shooting">("none");
 
   // mini (hậu kỳ mini)
-  const [newJobType, setNewJobType] = useState<"standard" | "mini">("standard");
   const [newJobUnitPrice, setNewJobUnitPrice] = useState("");
   const [newJobTotalUnits, setNewJobTotalUnits] = useState("");
   const [miniTitle, setMiniTitle] = useState("");
@@ -762,6 +989,7 @@ export default function Home() {
     job: Job; assignment: JobAssignment;
     createdAt: string; approvedAt: string;
   } | null>(null);
+  const [jobEditModal, setJobEditModal] = useState<JobEditModalState | null>(null);
 
   // ── Dark mode (auto based on system preference) ─────
   const [isDark, setIsDark] = useState(false);
@@ -780,6 +1008,70 @@ export default function Home() {
   const [previewGroupName, setPreviewGroupName] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [jobAiReclassifying, setJobAiReclassifying] = useState(false);
+  const [jobAiReclassifyNotice, setJobAiReclassifyNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
+
+  const projectSuggestions = useMemo(
+    () => Array.from(new Set(
+      jobs
+        .map((job) => job.projectName?.trim())
+        .filter((value): value is string => !!value)
+    )).sort((left, right) => left.localeCompare(right, "vi")),
+    [jobs]
+  );
+
+  const jobCategoryOptions = useMemo(
+    () => Array.from(new Set(jobs.map((job) => getJobCategoryLabel(job)))).sort((left, right) => left.localeCompare(right, "vi")),
+    [jobs]
+  );
+
+  const uncategorizedStandardJobs = useMemo(
+    () => jobs.filter((job) => job.jobType !== "mini" && !job.jobCategory?.trim()),
+    [jobs]
+  );
+
+  const parsedNewJobEpisodes = useMemo(
+    () => parseEpisodeLabelInput(newJobEpisodeLabel),
+    [newJobEpisodeLabel]
+  );
+
+  const parsedNewJobDays = useMemo(
+    () => parseDayLabelInput(newJobDayLabel),
+    [newJobDayLabel]
+  );
+
+  const standardJobTitlePreview = useMemo(
+    () => buildStandardJobTitle(
+      newJobCategory,
+      newJobProject,
+      newJobWorkUnit === "episode"
+        ? (parsedNewJobEpisodes.count === 1 ? parsedNewJobEpisodes.items[0] : "")
+        : ""
+    ),
+    [newJobCategory, newJobProject, newJobWorkUnit, parsedNewJobEpisodes]
+  );
+
+  const standardJobTotalPreview = useMemo(
+    () => (Number(newJobRate) || 0) * (
+      newJobWorkUnit === "episode"
+        ? (parsedNewJobEpisodes.count > 0 ? parsedNewJobEpisodes.count : (Number(newJobWorkUnits) || 0))
+        : (parsedNewJobDays.count > 0 ? parsedNewJobDays.count : (Number(newJobWorkUnits) || 0))
+    ),
+    [newJobRate, newJobWorkUnits, newJobWorkUnit, parsedNewJobDays, parsedNewJobEpisodes]
+  );
+
+  const editJobTotalPreview = useMemo(() => {
+    if (!jobEditModal) return 0;
+    if (jobEditModal.jobType === "mini") {
+      return (Number(jobEditModal.unitPrice) || 0) * (Number(jobEditModal.totalUnits) || 0);
+    }
+    const parsedEpisodes = parseEpisodeLabelInput(jobEditModal.episodeLabel);
+    const parsedDays = parseDayLabelInput(jobEditModal.dayLabel);
+    const effectiveWorkUnits = jobEditModal.workUnit === "episode"
+      ? (parsedEpisodes.count > 0 ? parsedEpisodes.count : (Number(jobEditModal.workUnits) || 0))
+      : (parsedDays.count > 0 ? parsedDays.count : (Number(jobEditModal.workUnits) || 0));
+    return (Number(jobEditModal.ratePerUnit) || 0) * effectiveWorkUnits;
+  }, [jobEditModal]);
 
   // ─────────────────────────────────────────────────────
   const fetchAll = useCallback(async (autoLoginCheck = false) => {
@@ -1408,18 +1700,71 @@ export default function Home() {
     localStorage.removeItem("director_session");
   };
 
-  // ─── Director: Create Job (postprod lẻ) ─────────────
+  // ─── Director: Create Job ───────────────────────────
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newJobTitle || !newJobSalary) return;
+    const projectName = newJobProject.trim();
+    const workUnits = newJobWorkUnit === "episode"
+      ? (parsedNewJobEpisodes.count > 0 ? parsedNewJobEpisodes.count : Number(newJobWorkUnits))
+      : (parsedNewJobDays.count > 0 ? parsedNewJobDays.count : Number(newJobWorkUnits));
+    const ratePerUnit = Number(newJobRate);
+    if (!newJobCategory || !projectName || !Number.isFinite(workUnits) || workUnits <= 0 || !Number.isFinite(ratePerUnit) || ratePerUnit <= 0) return;
+
+    const title = standardJobTitlePreview || buildStandardJobTitle(newJobCategory, projectName, newJobWorkUnit === "episode" ? parsedNewJobEpisodes.normalized : "");
+    const expiresAt = newJobHasExpiry ? toEndOfDayIso(newJobExpiresAt) : undefined;
     setSubmitting(true);
     try {
-      await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newJobTitle, description: newJobDesc, totalSalary: Number(newJobSalary) }),
-      });
-      setNewJobTitle(""); setNewJobDesc(""); setNewJobSalary("");
+      if (newJobWorkUnit === "episode" && parsedNewJobEpisodes.count > 1) {
+        await fetch("/api/jobs/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobs: parsedNewJobEpisodes.items.map((episode) => ({
+              title: buildStandardJobTitle(newJobCategory, projectName, episode),
+              description: newJobDesc.trim(),
+              totalSalary: ratePerUnit,
+              month: currentYM(),
+              jobType: "standard",
+              jobCategory: newJobCategory,
+              projectName,
+              workUnit: "episode",
+              episodeLabel: episode,
+              workUnits: 1,
+              ratePerUnit,
+              ...(expiresAt ? { expiresAt } : {}),
+            })),
+          }),
+        });
+      } else {
+        await fetch("/api/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            description: newJobDesc.trim(),
+            totalSalary: workUnits * ratePerUnit,
+            jobType: "standard",
+            jobCategory: newJobCategory,
+            projectName,
+            workUnit: newJobWorkUnit,
+            ...(newJobWorkUnit === "episode" && parsedNewJobEpisodes.normalized ? { episodeLabel: parsedNewJobEpisodes.normalized } : {}),
+            ...(newJobWorkUnit === "day" && parsedNewJobDays.normalized ? { dayLabel: parsedNewJobDays.normalized } : {}),
+            workUnits,
+            ratePerUnit,
+            ...(expiresAt ? { expiresAt } : {}),
+          }),
+        });
+      }
+      setNewJobCategory(JOB_CATEGORY_OPTIONS[0]);
+      setNewJobProject("");
+      setNewJobDesc("");
+      setNewJobRate("");
+      setNewJobWorkUnit("episode");
+      setNewJobEpisodeLabel("");
+      setNewJobDayLabel("");
+      setNewJobWorkUnits("1");
+      setNewJobExpiresAt("");
+      setNewJobHasExpiry(false);
       setCreateMode("none");
       await fetchAll();
     } finally {
@@ -1615,6 +1960,90 @@ export default function Home() {
     }
   };
 
+  const openJobEditModal = (job: Job) => {
+    setJobEditModal({
+      id: job.id,
+      jobType: job.jobType === "mini" ? "mini" : "standard",
+      title: job.title,
+      description: job.description || "",
+      month: job.month || job.createdAt.slice(0, 7),
+      jobCategory: job.jobCategory || (job.jobType === "mini" ? "Mini" : JOB_CATEGORY_OPTIONS[0]),
+      projectName: job.projectName || "",
+      workUnit: job.workUnit === "day" ? "day" : "episode",
+      episodeLabel: job.episodeLabel || "",
+      dayLabel: job.dayLabel || "",
+      workUnits: String(job.workUnits ?? 1),
+      ratePerUnit: String(job.ratePerUnit ?? (job.workUnits ? Math.round(job.totalSalary / job.workUnits) : job.totalSalary ?? 0)),
+      unitPrice: String(job.unitPrice ?? 0),
+      totalUnits: String(job.totalUnits ?? 1),
+      expiresAt: job.expiresAt ? new Date(job.expiresAt).toISOString().slice(0, 10) : "",
+      hasExpiry: !!job.expiresAt,
+    });
+  };
+
+  const handleSaveJobEdit = async () => {
+    if (!jobEditModal) return;
+
+    const expiresAt = jobEditModal.hasExpiry ? toEndOfDayIso(jobEditModal.expiresAt) : undefined;
+    const parsedEditEpisodes = parseEpisodeLabelInput(jobEditModal.episodeLabel);
+    const parsedEditDays = parseDayLabelInput(jobEditModal.dayLabel);
+    const body = jobEditModal.jobType === "mini"
+      ? {
+          title: jobEditModal.title.trim(),
+          description: jobEditModal.description,
+          month: jobEditModal.month,
+          projectName: jobEditModal.projectName.trim() || null,
+          jobCategory: jobEditModal.jobCategory.trim() || null,
+          totalUnits: Number(jobEditModal.totalUnits),
+          unitPrice: Number(jobEditModal.unitPrice),
+          totalSalary: (Number(jobEditModal.totalUnits) || 0) * (Number(jobEditModal.unitPrice) || 0),
+          expiresAt: expiresAt ?? null,
+        }
+      : {
+          title: jobEditModal.title.trim(),
+          description: jobEditModal.description,
+          month: jobEditModal.month,
+          jobCategory: jobEditModal.jobCategory.trim() || null,
+          projectName: jobEditModal.projectName.trim() || null,
+          workUnit: jobEditModal.workUnit,
+          ...(jobEditModal.workUnit === "episode" && parsedEditEpisodes.normalized
+            ? { episodeLabel: parsedEditEpisodes.normalized }
+            : { episodeLabel: null }),
+          ...(jobEditModal.workUnit === "day" && parsedEditDays.normalized
+            ? { dayLabel: parsedEditDays.normalized }
+            : { dayLabel: null }),
+          workUnits: jobEditModal.workUnit === "episode"
+            ? (parsedEditEpisodes.count > 0 ? parsedEditEpisodes.count : Number(jobEditModal.workUnits))
+            : (parsedEditDays.count > 0 ? parsedEditDays.count : Number(jobEditModal.workUnits)),
+          ratePerUnit: Number(jobEditModal.ratePerUnit),
+          totalSalary: (
+            jobEditModal.workUnit === "episode"
+              ? (parsedEditEpisodes.count > 0 ? parsedEditEpisodes.count : (Number(jobEditModal.workUnits) || 0))
+              : (parsedEditDays.count > 0 ? parsedEditDays.count : (Number(jobEditModal.workUnits) || 0))
+          ) * (Number(jobEditModal.ratePerUnit) || 0),
+          expiresAt: expiresAt ?? null,
+        };
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/jobs/${jobEditModal.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(payload?.error || "Không thể cập nhật job.");
+      }
+      setJobEditModal(null);
+      await fetchAll();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Không thể cập nhật job.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ─── Director: Bulk Delete Jobs ──────────────────────
   const handleBulkDeleteJobs = async () => {
     if (selectedJobIds.size === 0) return;
@@ -1628,6 +2057,52 @@ export default function Home() {
       setSubmitting(false);
     }
   };
+
+  const handleAiReclassifyLegacyJobs = useCallback(async () => {
+    if (uncategorizedStandardJobs.length === 0) {
+      setJobAiReclassifyNotice({ tone: "info", text: "Không có job cũ nào chưa phân loại." });
+      return;
+    }
+
+    setJobAiReclassifying(true);
+    setJobAiReclassifyNotice({
+      tone: "info",
+      text: `AI đang phân loại lại ${uncategorizedStandardJobs.length} job cũ chưa phân loại...`,
+    });
+
+    try {
+      const res = await fetch("/api/jobs/reclassify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobIds: uncategorizedStandardJobs.map((job) => job.id) }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Không thể AI phân loại lại job cũ.");
+      }
+
+      await fetchAll();
+
+      const updated = Number(data?.updated) || 0;
+      const remaining = Number(data?.remaining) || 0;
+      const warning = data?.warning ? ` ${data.warning}` : "";
+
+      setJobAiReclassifyNotice({
+        tone: updated > 0 ? "success" : "info",
+        text: updated > 0
+          ? `AI đã phân loại lại ${updated} job cũ.${remaining > 0 ? ` Còn ${remaining} job chưa chắc để bạn xem tay.` : ""}${warning}`
+          : `AI chưa đủ chắc để phân loại thêm job nào.${warning}`,
+      });
+    } catch (error) {
+      setJobAiReclassifyNotice({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Không thể AI phân loại lại job cũ.",
+      });
+    } finally {
+      setJobAiReclassifying(false);
+    }
+  }, [fetchAll, uncategorizedStandardJobs]);
 
   // ─── Director: Delete / Rename Employee ─────────────
   const handleDeleteEmployee = async (empId: string) => {
@@ -1880,7 +2355,6 @@ export default function Home() {
             </form>
           </div>
 
-          {/* Employee Login */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
               <Users className="w-5 h-5 text-green-500" />
@@ -1961,8 +2435,8 @@ export default function Home() {
                       onClick={() => setCreateMode("postprod")}
                       className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all">
                       <span className="text-3xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg></span>
-                      <span className="font-bold text-blue-700 text-sm text-center leading-snug">Hậu kỳ lẻ</span>
-                      <span className="text-xs text-blue-500 text-center">Tạo 1 job dựng / edit đơn lẻ</span>
+                      <span className="font-bold text-blue-700 text-sm text-center leading-snug">Thêm job</span>
+                      <span className="text-xs text-blue-500 text-center">Loại job, dự án, tập/ngày, hạn chót</span>
                     </button>
                     <button
                       onClick={() => setCreateMode("mini")}
@@ -1981,30 +2455,149 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* ── Form: Hậu kỳ lẻ ── */}
+                {/* ── Form: Thêm job ── */}
                 {createMode === "postprod" && (
                   <form onSubmit={handleCreateJob} className="space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg></span>
-                      <span className="font-bold text-blue-700">Hậu kỳ lẻ</span>
+                      <span className="font-bold text-blue-700">Thêm job</span>
                       <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tên công việc</label>
-                        <input type="text" required value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                          placeholder="VD: Dựng tập 3 phim ngắn..." />
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Loại job</label>
+                        <select value={newJobCategory} onChange={(e) => setNewJobCategory(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                          {JOB_CATEGORY_OPTIONS.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Ngân sách (VNĐ)</label>
-                        <input type="number" inputMode="numeric" required value={newJobSalary} onChange={(e) => setNewJobSalary(e.target.value)}
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Dự án</label>
+                        <input type="text" list="project-name-options" required value={newJobProject} onChange={(e) => setNewJobProject(e.target.value)}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                          placeholder="VD: 3000000" />
+                          placeholder="VD: Mẹ Biển, Sitcom tháng 5..." />
+                        <datalist id="project-name-options">
+                          {projectSuggestions.map((project) => (
+                            <option key={project} value={project} />
+                          ))}
+                        </datalist>
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Đơn vị tính</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { value: "episode", label: "Theo tập" },
+                            { value: "day", label: "Theo ngày" },
+                          ] as const).map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => setNewJobWorkUnit(option.value)}
+                              className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                                newJobWorkUnit === option.value
+                                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                                  : "border-gray-300 text-gray-600 hover:border-blue-300"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {newJobWorkUnit === "episode" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Tên / số tập</label>
+                          <input type="text" value={newJobEpisodeLabel} onChange={(e) => setNewJobEpisodeLabel(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder="VD: 14 15 16 17 18" />
+                          <p className="text-[11px] text-gray-400 mt-1">Nhập cách nhau bằng dấu cách hoặc dấu phẩy. Hệ thống sẽ tự đếm số tập.</p>
+                        </div>
+                      )}
+                      {newJobWorkUnit === "day" && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Những ngày trong tháng</label>
+                          <input type="text" value={newJobDayLabel} onChange={(e) => setNewJobDayLabel(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder="VD: 14 15 16" />
+                          <p className="text-[11px] text-gray-400 mt-1">Nhập các ngày quay cách nhau bằng dấu cách hoặc dấu phẩy. Hệ thống sẽ tự đếm số ngày.</p>
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Số {getWorkUnitLabel(newJobWorkUnit)}</label>
+                        <input type="number" inputMode="numeric" min="1" required value={newJobWorkUnit === "episode" ? (parsedNewJobEpisodes.count > 0 ? String(parsedNewJobEpisodes.count) : newJobWorkUnits) : (parsedNewJobDays.count > 0 ? String(parsedNewJobDays.count) : newJobWorkUnits)} onChange={(e) => setNewJobWorkUnits(e.target.value)}
+                          readOnly={(newJobWorkUnit === "episode" && parsedNewJobEpisodes.count > 0) || (newJobWorkUnit === "day" && parsedNewJobDays.count > 0)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder={newJobWorkUnit === "day" ? "VD: 3" : "VD: 8"} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tiền / {getWorkUnitRateLabel(newJobWorkUnit)} (VNĐ)</label>
+                        <input type="number" inputMode="numeric" min="1000" required value={newJobRate} onChange={(e) => setNewJobRate(e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder={newJobWorkUnit === "day" ? "VD: 3000000" : "VD: 1500000"} />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Ngày hết hạn</label>
+                          <label className="inline-flex items-center gap-2 text-xs text-gray-500">
+                            <input
+                              type="checkbox"
+                              checked={newJobHasExpiry}
+                              onChange={(e) => {
+                                setNewJobHasExpiry(e.target.checked);
+                                if (!e.target.checked) setNewJobExpiresAt("");
+                              }}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            Có hạn chót
+                          </label>
+                        </div>
+                        <input type="date" value={newJobExpiresAt} onChange={(e) => setNewJobExpiresAt(e.target.value)}
+                          disabled={!newJobHasExpiry}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed" />
+                        <p className="text-[11px] text-gray-400 mt-1">Mặc định là không hết hạn. Chỉ bật khi job cần tự đóng.</p>
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 space-y-1.5">
+                      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Xem trước</p>
+                      <p className="font-semibold text-gray-900">{standardJobTitlePreview || "Chưa nhập đủ thông tin"}</p>
+                      {newJobWorkUnit === "episode" && parsedNewJobEpisodes.count > 1 && (
+                        <p className="text-sm font-semibold text-blue-700">Sẽ tạo {parsedNewJobEpisodes.count} job riêng, mỗi tập 1 job.</p>
+                      )}
+                      <p className="text-sm text-blue-700">
+                        {(newJobWorkUnit === "episode"
+                          ? (parsedNewJobEpisodes.count > 0 ? parsedNewJobEpisodes.count : Number(newJobWorkUnits))
+                          : (parsedNewJobDays.count > 0 ? parsedNewJobDays.count : Number(newJobWorkUnits))) > 0 && Number(newJobRate) > 0
+                          ? `${newJobWorkUnit === "episode"
+                            ? (parsedNewJobEpisodes.count > 0 ? parsedNewJobEpisodes.count : Number(newJobWorkUnits))
+                            : (parsedNewJobDays.count > 0 ? parsedNewJobDays.count : Number(newJobWorkUnits))} ${getWorkUnitLabel(newJobWorkUnit, newJobWorkUnit === "episode"
+                            ? (parsedNewJobEpisodes.count > 0 ? parsedNewJobEpisodes.count : Number(newJobWorkUnits))
+                            : (parsedNewJobDays.count > 0 ? parsedNewJobDays.count : Number(newJobWorkUnits)))} × ${formatCurrency(Number(newJobRate))}/${getWorkUnitRateLabel(newJobWorkUnit)}`
+                          : `Nhập số ${getWorkUnitLabel(newJobWorkUnit)} và đơn giá để tính tổng`}
+                      </p>
+                      {newJobWorkUnit === "episode" && parsedNewJobEpisodes.normalized && (
+                        <p className="text-xs text-blue-600">Danh sách tập: {parsedNewJobEpisodes.normalized}</p>
+                      )}
+                      {newJobWorkUnit === "day" && parsedNewJobDays.normalized && (
+                        <p className="text-xs text-blue-600">Danh sách ngày: {parsedNewJobDays.normalized}</p>
+                      )}
+                      {newJobWorkUnit === "episode" && parsedNewJobEpisodes.count > 1 && (
+                        <div className="text-xs text-blue-700 space-y-1">
+                          {parsedNewJobEpisodes.items.slice(0, 6).map((episode) => (
+                            <p key={episode}>• {buildStandardJobTitle(newJobCategory, newJobProject, episode)} — {formatCurrency(Number(newJobRate) || 0)}</p>
+                          ))}
+                          {parsedNewJobEpisodes.items.length > 6 && <p>… và {parsedNewJobEpisodes.items.length - 6} job nữa</p>}
+                        </div>
+                      )}
+                      <p className="text-base font-black text-blue-800">{formatCurrency(standardJobTotalPreview)}</p>
+                    </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả chi tiết (tuỳ chọn)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú / mô tả (tuỳ chọn)</label>
                       <textarea value={newJobDesc} onChange={(e) => setNewJobDesc(e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-16 resize-none"
                         placeholder="Ghi chú thêm..." />
@@ -2012,7 +2605,7 @@ export default function Home() {
                     <div className="flex gap-2">
                       <button type="button" onClick={() => setCreateMode("none")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
                       <button type="submit" disabled={submitting} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                        {submitting ? "Đang đăng..." : "Đăng Job"}
+                        {submitting ? "Đang tạo..." : "Tạo job"}
                       </button>
                     </div>
                   </form>
@@ -2290,7 +2883,56 @@ export default function Home() {
                     <ArrowUpDown className="w-3.5 h-3.5" />
                     {jobSort === "newest" ? "Mới nhất" : "Cũ nhất"}
                   </button>
+                  <select
+                    value={jobProjectFilter}
+                    onChange={(e) => setJobProjectFilter(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 shrink-0"
+                  >
+                    <option value="all">Tất cả dự án</option>
+                    {projectSuggestions.map((project) => (
+                      <option key={project} value={project}>{project}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={jobCategoryFilter}
+                    onChange={(e) => setJobCategoryFilter(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 shrink-0"
+                  >
+                    <option value="all">Tất cả loại job</option>
+                    {jobCategoryOptions.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                  {(jobProjectFilter !== "all" || jobCategoryFilter !== "all") && (
+                    <button
+                      onClick={() => { setJobProjectFilter("all"); setJobCategoryFilter("all"); }}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 shrink-0"
+                    >
+                      Xoá lọc
+                    </button>
+                  )}
+                  <button
+                    onClick={handleAiReclassifyLegacyJobs}
+                    disabled={jobAiReclassifying || uncategorizedStandardJobs.length === 0}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-200 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {jobAiReclassifying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    AI phân loại job cũ
+                    <span className="px-1.5 py-0.5 rounded-full bg-white/80 text-[10px] border border-blue-200">{uncategorizedStandardJobs.length}</span>
+                  </button>
                 </div>
+
+                {jobAiReclassifyNotice && (
+                  <div className={`mb-3 px-3 py-2 rounded-xl border text-sm ${
+                    jobAiReclassifyNotice.tone === "success"
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                      : jobAiReclassifyNotice.tone === "error"
+                        ? "bg-red-50 border-red-200 text-red-700"
+                        : "bg-blue-50 border-blue-200 text-blue-700"
+                  }`}>
+                    {jobAiReclassifyNotice.text}
+                  </div>
+                )}
 
                 {/* ── Bulk-delete bar ── */}
                 {selectedJobIds.size > 0 && (
@@ -2309,8 +2951,18 @@ export default function Home() {
                 )}
 
                 {loading ? <LoadingBlock /> : jobs.length === 0 ? <EmptyBlock text="Chưa có job nào." /> : (() => {
+                  const normalizedSearch = jobSearch.trim().toLowerCase();
                   const filtered = jobs
-                    .filter((j) => j.title.toLowerCase().includes(jobSearch.toLowerCase()) || j.description?.toLowerCase().includes(jobSearch.toLowerCase()))
+                    .filter((j) => {
+                      const haystack = [j.title, j.description, j.projectName, j.jobCategory, j.groupName, j.episodeLabel, j.dayLabel]
+                        .filter(Boolean)
+                        .join(" ")
+                        .toLowerCase();
+                      if (normalizedSearch && !haystack.includes(normalizedSearch)) return false;
+                      if (jobProjectFilter !== "all" && (j.projectName || "") !== jobProjectFilter) return false;
+                      if (jobCategoryFilter !== "all" && getJobCategoryLabel(j) !== jobCategoryFilter) return false;
+                      return true;
+                    })
                     .sort((a, b) => {
                       const ta = new Date(a.createdAt).getTime();
                       const tb = new Date(b.createdAt).getTime();
@@ -2318,11 +2970,11 @@ export default function Home() {
                     });
                   const allFilteredIds = filtered.map(j => j.id);
                   const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedJobIds.has(id));
-                  if (filtered.length === 0) return <EmptyBlock text={`Không tìm thấy job nào cho "${jobSearch}".`} />;
+                  if (filtered.length === 0) return <EmptyBlock text={normalizedSearch ? `Không tìm thấy job nào cho "${jobSearch}".` : "Không có job nào khớp bộ lọc hiện tại."} />;
                   return (
-                    <div className="grid gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
                       {/* ── Select-all row ── */}
-                      <div className="flex items-center gap-2 px-1">
+                      <div className="flex items-center gap-2 px-1 md:col-span-2 xl:col-span-3">
                         <input type="checkbox" id="selectAllJobs" checked={allSelected}
                           onChange={() => {
                             if (allSelected) {
@@ -2338,13 +2990,30 @@ export default function Home() {
                       </div>
                       {filtered.map((job) => {
                         const isMini = job.jobType === "mini";
+                        const categoryLabel = getJobCategoryLabel(job);
+                        const categoryBadgeClass = getJobCategoryBadgeClass(categoryLabel);
+                        const categorySurfaceClass = getJobCategorySurfaceClass(categoryLabel);
+                        const standardMeta = !isMini
+                          ? [
+                              job.projectName,
+                              job.episodeLabel ? `Tập ${job.episodeLabel.replace(/^tập\s*/i, "")}` : null,
+                              job.dayLabel ? `Ngày ${job.dayLabel.replace(/^ngày\s*/i, "")}` : null,
+                              job.workUnits ? `${job.workUnits} ${getWorkUnitLabel(job.workUnit as StandardWorkUnit | undefined, job.workUnits)}` : null,
+                              job.ratePerUnit ? `${formatCurrency(job.ratePerUnit)}/${getWorkUnitRateLabel(job.workUnit as StandardWorkUnit | undefined)}` : null,
+                            ].filter(Boolean).join(" · ")
+                          : [job.projectName, job.totalUnits ? `${job.totalUnits} clip` : null].filter(Boolean).join(" · ");
                         const pct = isMini
                           ? (job.assignments.reduce((s, a) => s + (a.units ?? 1), 0) / (job.totalUnits ?? 1)) * 100
                           : job.assignments.reduce((a, b) => a + b.percentage, 0);
                         const isSelected = selectedJobIds.has(job.id);
+                        const remainingLabel = isMini
+                          ? `Còn ${(job.totalUnits ?? 0) - job.assignments.reduce((sum, assignment) => sum + (assignment.units ?? 1), 0)} clip`
+                          : `Còn ${Math.max(0, 100 - job.assignments.reduce((sum, assignment) => sum + assignment.percentage, 0))}%`;
+                        const { cardBg, accentText, barBg, barFill } = categorySurfaceClass;
                         return (
-                          <div key={job.id} className={`bg-white p-4 sm:p-5 rounded-xl shadow-sm border transition-colors ${isSelected ? "border-red-300 bg-red-50/30" : "border-gray-100"}`}>
-                            <div className="flex justify-between items-start mb-3 gap-2">
+                          <div key={job.id} className={`relative overflow-hidden rounded-2xl p-3.5 shadow-sm transition-all ${cardBg} ${isSelected ? "ring-2 ring-red-300 ring-offset-2" : ""}`}>
+                            <div className={`absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-20 ${barFill}`} />
+                            <div className="flex justify-between items-start mb-2 gap-2 relative z-10">
                               <div className="flex items-start gap-2.5 flex-1 min-w-0">
                                 <input type="checkbox" checked={isSelected}
                                   onChange={() => setSelectedJobIds(prev => {
@@ -2354,39 +3023,65 @@ export default function Home() {
                                   })}
                                   className="mt-1 w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h3 className="font-semibold text-base leading-snug">{job.title}</h3>
-                                  {isMini && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Mini · {job.assignments.reduce((s, a) => s + (a.units ?? 1), 0)}/{job.totalUnits} clip</span>}
-                                  {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
-                                  {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full shrink-0">{job.groupName}</span>}
-                                </div>
-                                {job.description && <p className="text-gray-500 text-sm mt-0.5 line-clamp-1">{job.description}</p>}
-                                <p className="text-xs text-gray-400 mt-0.5">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                  <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <span className={`text-sm leading-none ${accentText}`}>
+                                      {isMini
+                                        ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg>
+                                        : job.expiresAt
+                                          ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                          : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>}
+                                    </span>
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-white/70 text-orange-600 border border-white/60">
+                                      {remainingLabel}
+                                    </span>
+                                  </div>
+                                  <h3 className="font-bold text-gray-900 text-[15px] leading-snug line-clamp-2">{job.title}</h3>
+                                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${categoryBadgeClass}`}>
+                                      {categoryLabel}
+                                    </span>
+                                    {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0 border border-purple-200">{job.groupName}</span>}
+                                    {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 border border-orange-200"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
+                                  </div>
+                                  {standardMeta && <p className="text-[11px] text-gray-500 mt-1.5 line-clamp-2">{standardMeta}</p>}
+                                  {job.description && <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">{job.description}</p>}
+                                  <p className="text-[10px] text-gray-400 mt-1">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="bg-green-100 text-green-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center gap-1">
-                                  <DollarSign className="w-3.5 h-3.5" />{isMini ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}/clip` : formatCurrency(job.totalSalary)}
-                                </span>
+                              <div className="flex items-center gap-1.5 shrink-0 relative z-10">
+                                <button onClick={() => openJobEditModal(job)} disabled={submitting}
+                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Sửa job">
+                                  <Pencil className="w-4 h-4" />
+                                </button>
                                 <button onClick={() => handleDeleteJob(job.id)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá job">
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Xoá job">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
-                              <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                            <div className="relative z-10 flex items-center justify-between gap-2 mt-2 mb-2">
+                              <p className={`font-extrabold text-lg leading-none ${accentText}`}>
+                                {isMini
+                                  ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
+                                  : formatCurrency(job.totalSalary)}
+                              </p>
+                              <p className="text-[10px] text-gray-500 shrink-0">
+                                {job.assignments.length} người nhận
+                              </p>
+                            </div>
+                            <div className={`w-full rounded-full h-1.5 mt-2 mb-2.5 relative z-10 ${barBg}`}>
+                              <div className={`h-1.5 rounded-full transition-all ${barFill}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                             </div>
                             {job.assignments.length > 0 && (
-                              <div className="space-y-1.5">
+                              <div className="space-y-1.5 relative z-10 max-h-28 overflow-y-auto pr-1">
                                 {job.assignments.map((a) => (
-                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-gray-50 px-3 py-2 rounded-lg">
-                                    <span className="font-medium">{a.employeeName}</span>
+                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-white/70 border border-white/80 px-2.5 py-2 rounded-xl backdrop-blur-[1px]">
+                                    <span className="font-medium text-gray-800">{a.employeeName}</span>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {isMini
-                                        ? <span className="text-purple-600">{a.units ?? 1} clip</span>
-                                        : <span className="text-blue-600">{a.percentage}%</span>}
-                                      <span className="text-green-600 font-medium">{formatCurrency(a.salaryEarned)}</span>
+                                        ? <span className="text-purple-600 font-medium">{a.units ?? 1} clip</span>
+                                        : <span className={`font-medium ${accentText}`}>{a.percentage}%</span>}
+                                      <span className={`font-semibold ${accentText}`}>{formatCurrency(a.salaryEarned)}</span>
                                       <StatusBadge status={a.status} />
                                       {a.note && <span className="text-gray-400 text-xs italic" title={a.note}><MessageSquare className="w-3 h-3 inline" /></span>}
                                     </div>
@@ -5346,6 +6041,233 @@ export default function Home() {
         </div>
       )}
 
+      {jobEditModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setJobEditModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-900 flex items-center gap-2"><Pencil className="w-4 h-4 text-blue-600" /> Sửa job</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Cập nhật thông tin sau khi tạo</p>
+              </div>
+              <button onClick={() => setJobEditModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Tên job</label>
+                  <input
+                    type="text"
+                    value={jobEditModal.title}
+                    onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, title: e.target.value } : prev)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Tháng tính lương</label>
+                  <input
+                    type="month"
+                    value={jobEditModal.month}
+                    onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, month: e.target.value } : prev)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Loại job</label>
+                  <select
+                    value={jobEditModal.jobCategory}
+                    onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, jobCategory: e.target.value } : prev)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                  >
+                    {Array.from(new Set([...JOB_CATEGORY_OPTIONS, jobEditModal.jobCategory || "Khác"]))
+                      .filter(Boolean)
+                      .map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Dự án</label>
+                  <input
+                    type="text"
+                    list="project-name-options"
+                    value={jobEditModal.projectName}
+                    onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, projectName: e.target.value } : prev)}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="Tên dự án / phim"
+                  />
+                </div>
+              </div>
+
+              {jobEditModal.jobType === "mini" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Giá / clip</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={jobEditModal.unitPrice}
+                      onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, unitPrice: e.target.value } : prev)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Tổng clip</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={jobEditModal.totalUnits}
+                      onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, totalUnits: e.target.value } : prev)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1">Ngày hết hạn</label>
+                    <input
+                      type="date"
+                      value={jobEditModal.expiresAt}
+                      onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, expiresAt: e.target.value } : prev)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Đơn vị tính</label>
+                      <select
+                        value={jobEditModal.workUnit}
+                        onChange={(e) => setJobEditModal((prev) => prev ? {
+                          ...prev,
+                          workUnit: e.target.value as StandardWorkUnit,
+                          ...(e.target.value === "episode" ? { dayLabel: "" } : { episodeLabel: "" }),
+                        } : prev)}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                      >
+                        <option value="episode">Theo tập</option>
+                        <option value="day">Theo ngày</option>
+                      </select>
+                    </div>
+                    {jobEditModal.workUnit === "episode" && (
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">Tên / số tập</label>
+                        <input
+                          type="text"
+                          value={jobEditModal.episodeLabel}
+                          onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, episodeLabel: e.target.value } : prev)}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="VD: 14 15 16 17 18"
+                        />
+                      </div>
+                    )}
+                    {jobEditModal.workUnit === "day" && (
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1">Những ngày trong tháng</label>
+                        <input
+                          type="text"
+                          value={jobEditModal.dayLabel}
+                          onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, dayLabel: e.target.value } : prev)}
+                          className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                          placeholder="VD: 14 15 16"
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Số {getWorkUnitLabel(jobEditModal.workUnit)}</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={jobEditModal.workUnit === "episode"
+                          ? (parseEpisodeLabelInput(jobEditModal.episodeLabel).count > 0 ? String(parseEpisodeLabelInput(jobEditModal.episodeLabel).count) : jobEditModal.workUnits)
+                          : (parseDayLabelInput(jobEditModal.dayLabel).count > 0 ? String(parseDayLabelInput(jobEditModal.dayLabel).count) : jobEditModal.workUnits)}
+                        onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, workUnits: e.target.value } : prev)}
+                        readOnly={(jobEditModal.workUnit === "episode" && parseEpisodeLabelInput(jobEditModal.episodeLabel).count > 0)
+                          || (jobEditModal.workUnit === "day" && parseDayLabelInput(jobEditModal.dayLabel).count > 0)}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Tiền / {getWorkUnitRateLabel(jobEditModal.workUnit)}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={jobEditModal.ratePerUnit}
+                        onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, ratePerUnit: e.target.value } : prev)}
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <label className="block text-xs font-semibold text-gray-500">Ngày hết hạn</label>
+                      <label className="inline-flex items-center gap-2 text-[11px] text-gray-500">
+                        <input
+                          type="checkbox"
+                          checked={jobEditModal.hasExpiry}
+                          onChange={(e) => setJobEditModal((prev) => prev ? {
+                            ...prev,
+                            hasExpiry: e.target.checked,
+                            expiresAt: e.target.checked ? prev.expiresAt : "",
+                          } : prev)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        Có hạn chót
+                      </label>
+                    </div>
+                    <input
+                      type="date"
+                      value={jobEditModal.expiresAt}
+                      onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, expiresAt: e.target.value } : prev)}
+                      disabled={!jobEditModal.hasExpiry}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1">Tắt mục này nếu job không có hạn chót.</p>
+                  </div>
+                </>
+              )}
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex justify-between items-center text-sm">
+                <div>
+                  <span className="text-blue-700">Tổng tiền sau chỉnh sửa</span>
+                  {jobEditModal.workUnit === "episode" && jobEditModal.episodeLabel && (
+                    <p className="text-xs text-blue-600 mt-1">Danh sách tập: {parseEpisodeLabelInput(jobEditModal.episodeLabel).normalized}</p>
+                  )}
+                  {jobEditModal.workUnit === "day" && jobEditModal.dayLabel && (
+                    <p className="text-xs text-blue-600 mt-1">Danh sách ngày: {parseDayLabelInput(jobEditModal.dayLabel).normalized}</p>
+                  )}
+                </div>
+                <span className="font-black text-blue-800">{formatCurrency(editJobTotalPreview)}</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">Mô tả / ghi chú</label>
+                <textarea
+                  value={jobEditModal.description}
+                  onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, description: e.target.value } : prev)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 pb-5 flex gap-2">
+              <button
+                onClick={handleSaveJobEdit}
+                disabled={submitting}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors"
+              >
+                {submitting ? "Đang lưu..." : "Lưu thay đổi"}
+              </button>
+              <button onClick={() => setJobEditModal(null)} className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {profileModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setProfileModal(null)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -6104,6 +7026,9 @@ export default function Home() {
 
           const JobCard = ({ job, theme }: { job: Job; theme: "amber" | "blue" | "green" }) => {
             const isMini = job.jobType === "mini";
+            const categoryLabel = getJobCategoryLabel(job);
+            const categoryBadgeClass = getJobCategoryBadgeClass(categoryLabel);
+            const categorySurfaceClass = getJobCategorySurfaceClass(categoryLabel);
             const totalClaimed = isMini
               ? job.assignments.reduce((s, a) => s + (a.units ?? 1), 0)
               : job.assignments.reduce((a, b) => a + b.percentage, 0);
@@ -6122,30 +7047,7 @@ export default function Home() {
               ? myApprovedAssignments.reduce((s, a) => s + (a.units ?? 1), 0)
               : myApprovedAssignments.reduce((s, a) => s + a.percentage, 0);
 
-            // Pastel palette per theme
-            const cardBg = theme === "amber"
-              ? isMini ? "bg-violet-50 border border-violet-200" : "bg-orange-50 border border-orange-200"
-              : theme === "blue"
-              ? isMini ? "bg-violet-50 border border-violet-200" : "bg-sky-50 border border-sky-200"
-              : isMini ? "bg-violet-50 border border-violet-200" : "bg-emerald-50 border border-emerald-200";
-
-            const accentText = theme === "amber"
-              ? isMini ? "text-violet-700" : "text-orange-600"
-              : theme === "blue"
-              ? isMini ? "text-violet-700" : "text-sky-700"
-              : isMini ? "text-violet-700" : "text-emerald-700";
-
-            const barBg = theme === "amber"
-              ? isMini ? "bg-violet-200" : "bg-orange-200"
-              : theme === "blue"
-              ? isMini ? "bg-violet-200" : "bg-sky-200"
-              : isMini ? "bg-violet-200" : "bg-emerald-200";
-
-            const barFill = theme === "amber"
-              ? isMini ? "bg-violet-400" : "bg-orange-400"
-              : theme === "blue"
-              ? isMini ? "bg-violet-400" : "bg-sky-500"
-              : isMini ? "bg-violet-400" : "bg-emerald-500";
+            const { cardBg, accentText, barBg, barFill, btnClass } = categorySurfaceClass;
 
             const badgeBg = theme === "amber"
               ? isMini ? "bg-violet-100 text-violet-700" : "bg-orange-100 text-orange-700"
@@ -6153,17 +7055,20 @@ export default function Home() {
               ? isMini ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"
               : isMini ? "bg-violet-100 text-violet-700" : "bg-emerald-100 text-emerald-700";
 
-            const btnClass = theme === "amber"
-              ? isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-orange-500 hover:bg-orange-600 text-white"
-              : theme === "blue"
-              ? isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-sky-600 hover:bg-sky-700 text-white"
-              : isMini ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white";
-
             const badgeLabel: React.ReactNode = theme === "green"
               ? <><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Xong</>
               : theme === "blue"
                 ? isMini ? `${myTotalUnits} clip` : `${myAssignment?.percentage ?? 0}%`
                 : isMini ? `Còn ${(job.totalUnits ?? 0) - totalClaimed}` : `Còn ${100 - totalClaimed}%`;
+
+            const jobMeta = !isMini
+              ? [
+                  job.projectName,
+                  job.episodeLabel ? `Tập ${job.episodeLabel.replace(/^tập\s*/i, "")}` : null,
+                  job.dayLabel ? `Ngày ${job.dayLabel.replace(/^ngày\s*/i, "")}` : null,
+                  job.workUnits ? `${job.workUnits} ${getWorkUnitLabel(job.workUnit as StandardWorkUnit | undefined, job.workUnits)}` : null,
+                ].filter(Boolean).join(" · ")
+              : [job.projectName, job.totalUnits ? `${job.totalUnits} clip` : null].filter(Boolean).join(" · ");
 
             return (
               <div className={`relative flex flex-col rounded-2xl p-4 min-h-[160px] overflow-hidden ${cardBg}`}>
@@ -6182,6 +7087,13 @@ export default function Home() {
                 <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 relative z-10 flex-1">
                   {job.title}
                 </h3>
+
+                <div className="relative z-10 mt-2 flex items-center gap-1.5 flex-wrap">
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${categoryBadgeClass}`}>
+                    {categoryLabel}
+                  </span>
+                  {jobMeta && <span className="text-[11px] text-gray-500 line-clamp-1">{jobMeta}</span>}
+                </div>
 
                 {/* Date for onsite */}
                 {theme === "amber" && job.expiresAt && (
@@ -6696,17 +7608,33 @@ export default function Home() {
 function EmployeeList({ onLogin, onMounted }: { onLogin: (emp: Employee) => void; onMounted: () => void }) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/employees")
-      .then((r) => r.json())
-      .then(setEmployees)
+      .then(async (r) => {
+        const payload = await r.json().catch(() => null);
+        if (!r.ok) {
+          throw new Error(payload?.error || "Không tải được danh sách nhân viên.");
+        }
+        return Array.isArray(payload) ? payload : [];
+      })
+      .then((list) => {
+        setEmployees(list);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        setEmployees([]);
+        setLoadError(error instanceof Error ? error.message : "Không tải được danh sách nhân viên.");
+      })
       .finally(() => setLoading(false));
     onMounted();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) return <LoadingBlock />;
+  if (loadError)
+    return <p className="text-sm text-red-500 italic">{loadError}</p>;
   if (employees.length === 0)
     return <p className="text-sm text-gray-400 italic">Chưa có nhân viên nào. Giám đốc hãy thêm trước.</p>;
 

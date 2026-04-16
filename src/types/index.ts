@@ -37,6 +37,20 @@ export interface Job {
   groupName?: string;
   /** Loại job: "standard" (mặc định) hoặc "mini" (theo đơn vị clip) */
   jobType?: 'standard' | 'mini';
+  /** Nhóm nghiệp vụ của job: hậu kỳ, kịch bản, đạo diễn... */
+  jobCategory?: string;
+  /** Tên dự án / phim / campaign */
+  projectName?: string;
+  /** Loại đơn vị tính công */
+  workUnit?: 'episode' | 'day';
+  /** Danh sách tên/số tập, ví dụ: "14 15 16 17 18" */
+  episodeLabel?: string;
+  /** Danh sách ngày trong tháng, ví dụ: "14 15 16" */
+  dayLabel?: string;
+  /** Số tập / số ngày */
+  workUnits?: number;
+  /** Đơn giá trên mỗi tập / ngày */
+  ratePerUnit?: number;
   /** [mini] Thù lao mỗi clip/đơn vị */
   unitPrice?: number;
   /** [mini] Tổng số clip/đơn vị */

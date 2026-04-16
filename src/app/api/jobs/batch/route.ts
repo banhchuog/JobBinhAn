@@ -13,6 +13,16 @@ export async function POST(req: Request) {
       expiresAt?: string;
       groupId?: string;
       groupName?: string;
+      jobType?: "standard" | "mini";
+      jobCategory?: string;
+      projectName?: string;
+      workUnit?: "episode" | "day";
+      episodeLabel?: string;
+      dayLabel?: string;
+      workUnits?: number;
+      ratePerUnit?: number;
+      unitPrice?: number;
+      totalUnits?: number;
     }> = body.jobs;
 
     if (!Array.isArray(jobsInput) || jobsInput.length === 0) {
@@ -34,8 +44,18 @@ export async function POST(req: Request) {
         month: item.month,
         assignments: [],
         groupId: item.groupId || groupId,
+        jobType: item.jobType === "mini" ? "mini" : "standard",
         ...(item.groupName ? { groupName: item.groupName } : {}),
+        ...(item.jobCategory ? { jobCategory: item.jobCategory } : {}),
+        ...(item.projectName ? { projectName: item.projectName } : {}),
+        ...(item.workUnit ? { workUnit: item.workUnit } : {}),
+        ...(item.episodeLabel ? { episodeLabel: item.episodeLabel } : {}),
+        ...(item.dayLabel ? { dayLabel: item.dayLabel } : {}),
+        ...(item.workUnits !== undefined ? { workUnits: Number(item.workUnits) } : {}),
+        ...(item.ratePerUnit !== undefined ? { ratePerUnit: Number(item.ratePerUnit) } : {}),
         ...(item.expiresAt ? { expiresAt: item.expiresAt } : {}),
+        ...(item.unitPrice !== undefined ? { unitPrice: Number(item.unitPrice) } : {}),
+        ...(item.totalUnits !== undefined ? { totalUnits: Number(item.totalUnits) } : {}),
       };
       await createJob(job);
       created.push(job);

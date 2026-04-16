@@ -1,3 +1,5 @@
+import { readFile, writeFile } from "fs/promises";
+import path from "path";
 import { Pool } from "pg";
 import { Job, Employee, ManualEntry, CassoTransactionRecord } from "@/types";
 
@@ -32,7 +34,55 @@ function normalizeAepClassificationData(raw: {
 
 let _pool: Pool | null = null;
 
+type LocalDbShape = {
+  employees: Employee[];
+  jobs: Job[];
+  manualEntries: ManualEntry[];
+  settings: Record<string, unknown>;
+};
+
+const LOCAL_DB_PATH = path.join(process.cwd(), "data", "db.json");
+
+function hasDatabaseUrl() {
+  return Boolean(process.env.DATABASE_URL?.trim());
+}
+
+function getEmptyLocalDb(): LocalDbShape {
+  return {
+    employees: [],
+    jobs: [],
+    manualEntries: [],
+    settings: {},
+  };
+}
+
+async function readLocalDb(): Promise<LocalDbShape> {
+  try {
+    const raw = await readFile(LOCAL_DB_PATH, "utf8");
+    const parsed = JSON.parse(raw) as Partial<LocalDbShape> & { manual_salary?: ManualEntry[] };
+    return {
+      employees: Array.isArray(parsed.employees) ? parsed.employees : [],
+      jobs: Array.isArray(parsed.jobs) ? parsed.jobs : [],
+      manualEntries: Array.isArray(parsed.manualEntries)
+        ? parsed.manualEntries
+        : Array.isArray(parsed.manual_salary)
+          ? parsed.manual_salary
+          : [],
+      settings: parsed.settings && typeof parsed.settings === "object" ? parsed.settings as Record<string, unknown> : {},
+    };
+  } catch {
+    return getEmptyLocalDb();
+  }
+}
+
+async function writeLocalDb(data: LocalDbShape): Promise<void> {
+  await writeFile(LOCAL_DB_PATH, JSON.stringify(data, null, 2), "utf8");
+}
+
 function getPool(): Pool {
+  if (!hasDatabaseUrl()) {
+    throw new Error("DATABASE_URL is not configured");
+  }
   if (!_pool) {
     _pool = new Pool({
       connectionString: process.env.DATABASE_URL,
@@ -44,6 +94,7 @@ function getPool(): Pool {
 
 // ─── Schema init ───────────────────────────────────────
 export async function initSchema(): Promise<void> {
+  if (!hasDatabaseUrl()) return;
   const pool = getPool();
   await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);  await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'`);  await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
   await pool.query(`
@@ -101,11 +152,21 @@ export async function initSchema(): Promise<void> {
 
 // ─── Settings ───────────────────────────────────────────
 export async function getSetting(key: string): Promise<unknown | null> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    return db.settings[key] ?? null;
+  }
   const { rows } = await getPool().query(`SELECT data FROM settings WHERE key = $1`, [key]);
   return rows.length > 0 ? rows[0].data : null;
 }
 
 export async function upsertSetting(key: string, data: unknown): Promise<void> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    db.settings[key] = data;
+    await writeLocalDb(db);
+    return;
+  }
   await getPool().query(
     `INSERT INTO settings (key, data, updated_at) VALUES ($1, $2, NOW())
      ON CONFLICT (key) DO UPDATE SET data = $2, updated_at = NOW()`,
@@ -178,6 +239,14 @@ export async function restoreAepClassificationSnapshot(month: string, snapshotId
 
 // ─── Jobs ──────────────────────────────────────────────
 export async function getAllJobs(): Promise<Job[]> {
+  if (!hasDatabaseUrl()) {
+    const now = new Date();
+    const db = await readLocalDb();
+    return db.jobs
+      .map((job) => ({ ...job, month: job.month ?? job.createdAt.slice(0, 7) }))
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+      .filter((job) => !(job.expiresAt && job.status === "OPEN" && new Date(job.expiresAt) < now));
+  }
   const now = new Date();
   const { rows } = await getPool().query(`SELECT data FROM jobs ORDER BY (data->>'createdAt') DESC`);
   return rows
@@ -190,42 +259,90 @@ export async function getAllJobs(): Promise<Job[]> {
 }
 
 export async function createJob(job: Job): Promise<Job> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    db.jobs.unshift(job);
+    await writeLocalDb(db);
+    return job;
+  }
   await getPool().query(`INSERT INTO jobs (id, data) VALUES ($1, $2)`, [job.id, JSON.stringify(job)]);
   return job;
 }
 
 export async function updateJob(updatedJob: Job): Promise<Job | null> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    const index = db.jobs.findIndex((job) => job.id === updatedJob.id);
+    if (index < 0) return null;
+    db.jobs[index] = updatedJob;
+    await writeLocalDb(db);
+    return updatedJob;
+  }
   const { rowCount } = await getPool().query(`UPDATE jobs SET data = $1 WHERE id = $2`, [JSON.stringify(updatedJob), updatedJob.id]);
   return (rowCount ?? 0) > 0 ? updatedJob : null;
 }
 
 export async function getJobById(id: string): Promise<Job | null> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    return db.jobs.find((job) => job.id === id) ?? null;
+  }
   const { rows } = await getPool().query(`SELECT data FROM jobs WHERE id = $1`, [id]);
   return rows.length > 0 ? (rows[0].data as Job) : null;
 }
 
 export async function deleteJob(id: string): Promise<boolean> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    const nextJobs = db.jobs.filter((job) => job.id !== id);
+    if (nextJobs.length === db.jobs.length) return false;
+    db.jobs = nextJobs;
+    await writeLocalDb(db);
+    return true;
+  }
   const { rowCount } = await getPool().query(`DELETE FROM jobs WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
 }
 
 // ─── Employees ─────────────────────────────────────────
 export async function getAllEmployees(): Promise<Employee[]> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    return [...db.employees].sort((left, right) => left.name.localeCompare(right.name, "vi"));
+  }
   const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile FROM employees ORDER BY name`);
   return rows as Employee[];
 }
 
 export async function getEmployeeById(id: string): Promise<Employee | null> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    return db.employees.find((employee) => employee.id === id) ?? null;
+  }
   const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile FROM employees WHERE id = $1`, [id]);
   return rows.length > 0 ? (rows[0] as Employee) : null;
 }
 
 export async function createEmployee(employee: Employee): Promise<Employee> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    db.employees.push(employee);
+    await writeLocalDb(db);
+    return employee;
+  }
   await getPool().query(`INSERT INTO employees (id, name, balance) VALUES ($1, $2, $3)`, [employee.id, employee.name, employee.balance]);
   return employee;
 }
 
 export async function updateEmployee(updated: Employee): Promise<Employee | null> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    const index = db.employees.findIndex((employee) => employee.id === updated.id);
+    if (index < 0) return null;
+    db.employees[index] = updated;
+    await writeLocalDb(db);
+    return updated;
+  }
   const { rowCount } = await getPool().query(
     `UPDATE employees SET name = $1, balance = $2, profile = $3 WHERE id = $4`,
     [updated.name, updated.balance, JSON.stringify(updated.profile ?? {}), updated.id]
@@ -234,12 +351,24 @@ export async function updateEmployee(updated: Employee): Promise<Employee | null
 }
 
 export async function deleteEmployee(id: string): Promise<boolean> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    const nextEmployees = db.employees.filter((employee) => employee.id !== id);
+    if (nextEmployees.length === db.employees.length) return false;
+    db.employees = nextEmployees;
+    await writeLocalDb(db);
+    return true;
+  }
   const { rowCount } = await getPool().query(`DELETE FROM employees WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
 }
 
 // ─── Manual Salary ─────────────────────────────────────
 export async function getAllManualEntries(): Promise<ManualEntry[]> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    return [...db.manualEntries].sort((left, right) => right.month.localeCompare(left.month, "vi"));
+  }
   const { rows } = await getPool().query(
     `SELECT id, emp_id AS "empId", month, title, CAST(amount AS FLOAT) AS amount, note FROM manual_salary ORDER BY created_at DESC`
   );
@@ -247,6 +376,12 @@ export async function getAllManualEntries(): Promise<ManualEntry[]> {
 }
 
 export async function createManualEntry(entry: ManualEntry): Promise<ManualEntry> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    db.manualEntries.unshift(entry);
+    await writeLocalDb(db);
+    return entry;
+  }
   await getPool().query(
     `INSERT INTO manual_salary (id, emp_id, month, title, amount, note) VALUES ($1, $2, $3, $4, $5, $6)`,
     [entry.id, entry.empId, entry.month, entry.title, entry.amount, entry.note]
@@ -255,6 +390,14 @@ export async function createManualEntry(entry: ManualEntry): Promise<ManualEntry
 }
 
 export async function deleteManualEntry(id: string): Promise<boolean> {
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    const nextEntries = db.manualEntries.filter((entry) => entry.id !== id);
+    if (nextEntries.length === db.manualEntries.length) return false;
+    db.manualEntries = nextEntries;
+    await writeLocalDb(db);
+    return true;
+  }
   const { rowCount } = await getPool().query(`DELETE FROM manual_salary WHERE id = $1`, [id]);
   return (rowCount ?? 0) > 0;
 }
