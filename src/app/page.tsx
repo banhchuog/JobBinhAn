@@ -916,6 +916,13 @@ export default function Home() {
   const [dailyAepRevenueData, setDailyAepRevenueData] = useState<Record<string, number> | null>(null);
   const [dailyAepRevenueLoading, setDailyAepRevenueLoading] = useState(false);
   const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
+  // AEP: intraday (so sánh cùng thứ cùng giờ)
+  const [intradayAepData, setIntradayAepData] = useState<{
+    todayDate: string; lastWeekDate: string; cutoffTime: string;
+    weekdayName: string; today: number; lastWeek: number;
+  } | null>(null);
+  const [intradayAepLoading, setIntradayAepLoading] = useState(false);
+  const [intradayAepError, setIntradayAepError] = useState<string | null>(null);
   // AEP: dữ liệu đã chốt thủ công { expenses: {id: bool}, salaryAssignments: {assignmentId: bool}, manualEntries: {id: bool} }
   const [aepClassification, setAepClassification] = useState<AepClassificationState | null>(null);
   const [aepHistory, setAepHistory] = useState<AepHistoryEntry[]>([]);
@@ -1184,6 +1191,7 @@ export default function Home() {
     fetchThuChi();
     fetchRevenue();
     fetchDailyAepRevenue();
+    fetchIntradayAepRevenue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2202,6 +2210,21 @@ export default function Home() {
       setDailyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo ngày");
     } finally {
       setDailyAepRevenueLoading(false);
+    }
+  };
+
+  const fetchIntradayAepRevenue = async () => {
+    setIntradayAepLoading(true);
+    setIntradayAepError(null);
+    try {
+      const res = await fetch("/api/revenue/intraday");
+      const data = await res.json();
+      if (!res.ok) { setIntradayAepError(data.error || "Lỗi API intraday"); return; }
+      setIntradayAepData(data);
+    } catch {
+      setIntradayAepError("Không lấy được dữ liệu so sánh cùng giờ");
+    } finally {
+      setIntradayAepLoading(false);
     }
   };
 
@@ -4460,6 +4483,105 @@ export default function Home() {
 
                             {dailyAepRevenueLoading && (
                               <p className="text-[10px] text-gray-400 mt-2">Đang cập nhật dữ liệu doanh thu ngày từ Casso...</p>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Widget: So sánh cùng thứ cùng giờ ── */}
+                      {(() => {
+                        if (intradayAepError) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">So sánh cùng thứ cùng giờ</p>
+                              <p className="text-xs text-orange-500">{intradayAepError}</p>
+                              <button onClick={fetchIntradayAepRevenue} className="mt-1 text-xs text-blue-600 underline">Thử lại</button>
+                            </div>
+                          );
+                        }
+                        if (!intradayAepData && intradayAepLoading) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 animate-pulse">
+                              <div className="h-3 bg-gray-100 rounded w-40 mb-3" />
+                              <div className="h-16 bg-gray-50 rounded-xl" />
+                            </div>
+                          );
+                        }
+                        if (!intradayAepData) return null;
+
+                        const { todayDate, lastWeekDate, cutoffTime, weekdayName, today, lastWeek } = intradayAepData;
+                        const todayM  = Math.round(today / 1e6 * 10) / 10;
+                        const lastWeekM = Math.round(lastWeek / 1e6 * 10) / 10;
+                        const delta = Math.round((todayM - lastWeekM) * 10) / 10;
+                        const deltaPct = lastWeekM > 0 ? Math.round((todayM - lastWeekM) / lastWeekM * 100) : null;
+                        const isUp = delta > 0;
+                        const isDown = delta < 0;
+                        const formatDate = (d: string) => {
+                          const [, m, day] = d.split("-");
+                          return `${Number(day)}/${Number(m)}`;
+                        };
+
+                        const noData = today === 0 && lastWeek === 0;
+
+                        return (
+                          <div className={`rounded-2xl border p-4 ${noData ? "bg-gray-50 border-gray-200" : isUp ? "bg-emerald-50 border-emerald-200" : isDown ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`}>
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-3">
+                              <p className={`text-xs font-semibold uppercase tracking-wide ${noData ? "text-gray-400" : isUp ? "text-emerald-600" : isDown ? "text-rose-600" : "text-amber-600"}`}>
+                                <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                                {weekdayName} · đến {cutoffTime}
+                              </p>
+                              <button onClick={fetchIntradayAepRevenue} disabled={intradayAepLoading}
+                                className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 flex items-center gap-1">
+                                <svg className={`w-3 h-3 ${intradayAepLoading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                                </svg>
+                                {intradayAepLoading ? "Đang tải..." : "Làm mới"}
+                              </button>
+                            </div>
+
+                            {noData ? (
+                              <div className="text-center py-3">
+                                <p className="text-sm text-gray-400 font-medium">Chưa có giao dịch AEP hôm nay</p>
+                                <p className="text-[11px] text-gray-300 mt-1">Giao dịch khớp 65k / 165k / 270k / 420k sẽ hiện ở đây</p>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Hai cột so sánh */}
+                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                  <div className={`rounded-xl px-3 py-2.5 ${isUp ? "bg-emerald-100" : isDown ? "bg-rose-100" : "bg-amber-100"}`}>
+                                    <p className="text-[10px] font-semibold text-gray-500 mb-1">{weekdayName} này ({formatDate(todayDate)})</p>
+                                    <p className={`text-xl font-black ${isUp ? "text-emerald-700" : isDown ? "text-rose-700" : "text-amber-700"}`}>{todayM.toFixed(1)}tr</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">đến {cutoffTime}</p>
+                                  </div>
+                                  <div className="rounded-xl bg-white/70 px-3 py-2.5 border border-white">
+                                    <p className="text-[10px] font-semibold text-gray-400 mb-1">{weekdayName} trước ({formatDate(lastWeekDate)})</p>
+                                    <p className="text-xl font-black text-gray-500">{lastWeekM > 0 ? `${lastWeekM.toFixed(1)}tr` : "—"}</p>
+                                    <p className="text-[10px] text-gray-300 mt-0.5">cùng mốc {cutoffTime}</p>
+                                  </div>
+                                </div>
+
+                                {/* Banner kết quả */}
+                                {lastWeekM > 0 ? (
+                                  <div className={`rounded-xl px-3 py-2 flex items-center justify-between ${isUp ? "bg-emerald-100" : isDown ? "bg-rose-100" : "bg-amber-100"}`}>
+                                    <span className={`text-sm font-bold ${isUp ? "text-emerald-700" : isDown ? "text-rose-700" : "text-amber-700"}`}>
+                                      {isUp ? "↑ Tăng " : isDown ? "↓ Giảm " : "→ Đi ngang "}
+                                      {Math.abs(delta).toFixed(1)}tr
+                                    </span>
+                                    {deltaPct !== null && (
+                                      <span className={`text-sm font-black ${isUp ? "text-emerald-600" : isDown ? "text-rose-600" : "text-amber-600"}`}>
+                                        {isUp ? "+" : isDown ? "-" : ""}{Math.abs(deltaPct)}%
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] text-gray-400 text-center">Chưa có dữ liệu {weekdayName.toLowerCase()} tuần trước để so sánh</p>
+                                )}
+
+                                <p className="text-[10px] text-gray-300 mt-2 text-right">Dựa theo thời điểm Casso gọi webhook · received_at</p>
+                              </>
                             )}
                           </div>
                         );

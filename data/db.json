@@ -18,6 +18,96 @@
   ],
   "jobs": [
     {
+      "id": "oi4m6f",
+      "title": "Hậu kỳ Sát Giới · Tập 18",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "OPEN",
+      "createdAt": "2026-04-16T01:39:51.244Z",
+      "month": "2026-04",
+      "assignments": [],
+      "groupId": "ahuk7d",
+      "jobType": "standard",
+      "jobCategory": "Hậu kỳ",
+      "projectName": "Sát Giới",
+      "workUnit": "episode",
+      "episodeLabel": "18",
+      "workUnits": 1,
+      "ratePerUnit": 3000000
+    },
+    {
+      "id": "uhkefg",
+      "title": "Hậu kỳ Sát Giới · Tập 17",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "OPEN",
+      "createdAt": "2026-04-16T01:39:51.244Z",
+      "month": "2026-04",
+      "assignments": [],
+      "groupId": "ahuk7d",
+      "jobType": "standard",
+      "jobCategory": "Hậu kỳ",
+      "projectName": "Sát Giới",
+      "workUnit": "episode",
+      "episodeLabel": "17",
+      "workUnits": 1,
+      "ratePerUnit": 3000000
+    },
+    {
+      "id": "csbr5s",
+      "title": "Hậu kỳ Sát Giới · Tập 16",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "OPEN",
+      "createdAt": "2026-04-16T01:39:51.244Z",
+      "month": "2026-04",
+      "assignments": [],
+      "groupId": "ahuk7d",
+      "jobType": "standard",
+      "jobCategory": "Hậu kỳ",
+      "projectName": "Sát Giới",
+      "workUnit": "episode",
+      "episodeLabel": "16",
+      "workUnits": 1,
+      "ratePerUnit": 3000000
+    },
+    {
+      "id": "tpqgo",
+      "title": "Hậu kỳ Sát Giới · Tập 15",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "OPEN",
+      "createdAt": "2026-04-16T01:39:51.244Z",
+      "month": "2026-04",
+      "assignments": [],
+      "groupId": "ahuk7d",
+      "jobType": "standard",
+      "jobCategory": "Hậu kỳ",
+      "projectName": "Sát Giới",
+      "workUnit": "episode",
+      "episodeLabel": "15",
+      "workUnits": 1,
+      "ratePerUnit": 3000000
+    },
+    {
+      "id": "v6ml2m",
+      "title": "Hậu kỳ Sát Giới · Tập 14",
+      "description": "",
+      "totalSalary": 3000000,
+      "status": "OPEN",
+      "createdAt": "2026-04-16T01:39:51.244Z",
+      "month": "2026-04",
+      "assignments": [],
+      "groupId": "ahuk7d",
+      "jobType": "standard",
+      "jobCategory": "Hậu kỳ",
+      "projectName": "Sát Giới",
+      "workUnit": "episode",
+      "episodeLabel": "14",
+      "workUnits": 1,
+      "ratePerUnit": 3000000
+    },
+    {
       "id": "0mn8a",
       "title": "Hậu trường",
       "description": "",
@@ -36,7 +126,8 @@
           "status": "APPROVED",
           "approvedAt": "2026-02-25T16:36:38.874Z"
         }
-      ]
+      ],
+      "jobCategory": "Khác"
     },
     {
       "id": "zwpc6",
@@ -66,7 +157,9 @@
           "assignedAt": "2026-02-25T16:27:56.624Z",
           "status": "PENDING_APPROVAL"
         }
-      ]
+      ],
+      "month": "2026-02",
+      "jobCategory": "Hậu kỳ"
     },
     {
       "id": "fu5ohk",
@@ -94,7 +187,11 @@
           "assignedAt": "2026-02-25T14:51:21.529Z",
           "status": "APPROVED"
         }
-      ]
+      ],
+      "month": "2026-02",
+      "jobCategory": "Hậu kỳ"
     }
-  ]
+  ],
+  "manualEntries": [],
+  "settings": {}
 }

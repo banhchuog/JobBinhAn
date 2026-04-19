@@ -461,3 +461,58 @@ export async function getDailyAepRevenue(): Promise<Record<string, number>> {
     return acc;
   }, {});
 }
+
+export interface IntradayAepRevenue {
+  todayDate: string;      // "2026-04-19"
+  lastWeekDate: string;   // "2026-04-12"
+  cutoffTime: string;     // "15:20" giờ VN hiện tại
+  weekdayName: string;    // "Chủ nhật"
+  today: number;          // VND - tổng hôm nay đến giờ hiện tại
+  lastWeek: number;       // VND - tổng cùng thứ tuần trước đến cùng giờ
+}
+
+export async function getIntradayAepRevenue(): Promise<IntradayAepRevenue> {
+  const { rows } = await getPool().query(`
+    WITH params AS (
+      SELECT
+        (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS today_date,
+        ((NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - INTERVAL '7 days')::date AS last_week_date,
+        (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::time AS cutoff_time,
+        EXTRACT(DOW FROM NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::int AS dow
+    ),
+    today_total AS (
+      SELECT COALESCE(SUM(amount), 0) AS amount
+      FROM casso_transactions, params
+      WHERE is_incoming = TRUE AND is_aep = TRUE
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.today_date
+    ),
+    last_week_total AS (
+      SELECT COALESCE(SUM(amount), 0) AS amount
+      FROM casso_transactions, params
+      WHERE is_incoming = TRUE AND is_aep = TRUE
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.last_week_date
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
+    )
+    SELECT
+      to_char(p.today_date, 'YYYY-MM-DD')     AS today_date,
+      to_char(p.last_week_date, 'YYYY-MM-DD') AS last_week_date,
+      to_char(p.cutoff_time, 'HH24:MI')       AS cutoff_time,
+      p.dow,
+      CAST(t.amount AS FLOAT)                 AS today,
+      CAST(lw.amount AS FLOAT)                AS last_week
+    FROM params p, today_total t, last_week_total lw
+  `);
+
+  const row = rows[0];
+  const dow = Number(row.dow); // 0=CN, 1=T2, ..., 6=T7
+  const weekdayNames = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+
+  return {
+    todayDate: String(row.today_date),
+    lastWeekDate: String(row.last_week_date),
+    cutoffTime: String(row.cutoff_time),
+    weekdayName: weekdayNames[dow] ?? "Hôm nay",
+    today: Number(row.today) || 0,
+    lastWeek: Number(row.last_week) || 0,
+  };
+}
