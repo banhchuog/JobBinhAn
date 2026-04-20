@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, ReferenceLine,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ComposedChart, ReferenceLine, Cell,
 } from "recharts";
 
 type View = "LOGIN" | "DIRECTOR" | "EMPLOYEE";
@@ -4275,59 +4275,80 @@ export default function Home() {
                         const prevMonth = aepChartData.length >= 2 ? aepChartData[aepChartData.length - 2] : null;
 
                         return (
-                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                              <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>
-                              Doanh thu Anh Em Phim theo tháng (triệu đồng)
-                            </p>
+                          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            {/* Header */}
+                            <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-gray-50">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-50 shrink-0">
+                                  <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>
+                                </span>
+                                <div>
+                                  <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo tháng</p>
+                                  <p className="text-[10px] text-gray-400">Anh Em Phim · triệu đồng</p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">{aepChartData.length} tháng</span>
+                            </div>
 
-                            {/* Mini summary */}
-                            <div className="flex flex-wrap gap-4 mb-3">
-                              <div className="text-center">
-                                <p className="text-[10px] text-gray-400">Tháng mới nhất</p>
-                                <p className="text-sm font-black text-emerald-600">{lastMonth.amount.toFixed(1)}tr</p>
-                                {prevMonth && lastMonth.growth !== null && (
-                                  <p className={`text-[10px] font-semibold ${lastMonth.growth >= 0 ? "text-emerald-500" : "text-red-400"}`}>
-                                    {lastMonth.growth >= 0 ? "↑" : "↓"} {Math.abs(lastMonth.growth)}% vs tháng trước
+                            {/* KPI row */}
+                            <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Mới nhất</p>
+                                <p className="text-base font-black text-emerald-600 leading-none">{lastMonth.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                {prevMonth && lastMonth.growth !== null ? (
+                                  <p className={`text-[9px] font-bold mt-1 ${lastMonth.growth >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                    {lastMonth.growth >= 0 ? "↑" : "↓"}{Math.abs(lastMonth.growth)}%
                                   </p>
-                                )}
+                                ) : <p className="text-[9px] text-gray-300 mt-1">{lastMonth.name}</p>}
                               </div>
-                              <div className="text-center">
-                                <p className="text-[10px] text-gray-400">Trung bình/tháng</p>
-                                <p className="text-sm font-black text-blue-500">{avg.toFixed(1)}tr</p>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Trung bình</p>
+                                <p className="text-base font-black text-indigo-500 leading-none">{avg.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-300 mt-1">/ tháng</p>
                               </div>
-                              <div className="text-center">
-                                <p className="text-[10px] text-gray-400">Cao nhất</p>
-                                <p className="text-sm font-black text-amber-500">{maxMonth.amount.toFixed(1)}tr</p>
-                                <p className="text-[10px] text-gray-400">{maxMonth.name}</p>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Cao nhất</p>
+                                <p className="text-base font-black text-amber-500 leading-none">{maxMonth.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-400 mt-1">{maxMonth.name}</p>
                               </div>
                             </div>
 
-                            <ResponsiveContainer width="100%" height={180}>
-                              <ComposedChart data={aepChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
-                                <Tooltip
-                                  formatter={(value, name) => {
-                                    const safeValue = typeof value === "number" ? value : 0;
-                                    return [
-                                    name === "growth" ? `${safeValue}%` : `${safeValue}tr`,
-                                    name === "growth" ? "Tăng trưởng" : "Doanh thu AEP"
-                                  ];}}
-                                  contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                                  cursor={{ fill: "#f9fafb" }}
-                                />
-                                <ReferenceLine
-                                  y={avg}
-                                  stroke="#10b981"
-                                  strokeDasharray="5 3"
-                                  strokeWidth={1.5}
-                                  label={{ value: `TB ${avg.toFixed(0)}tr`, position: "right", fill: "#10b981", fontSize: 9 }}
-                                />
-                                <Bar dataKey="amount" name="Doanh thu AEP" fill="#34d399" radius={[4, 4, 0, 0]} />
-                              </ComposedChart>
-                            </ResponsiveContainer>
+                            {/* Chart */}
+                            <div className="px-3 pt-3 pb-4">
+                              <ResponsiveContainer width="100%" height={180}>
+                                <ComposedChart data={aepChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (!active || !payload?.length) return null;
+                                      const d = payload[0]?.payload as { name: string; amount: number; growth: number | null };
+                                      return (
+                                        <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
+                                          <p className="font-bold text-gray-700 mb-1">{d.name}</p>
+                                          <p className="text-emerald-600 font-semibold">Doanh thu: {d.amount.toFixed(1)}tr</p>
+                                          {d.growth !== null && (
+                                            <p className={`mt-0.5 font-semibold ${d.growth >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                              {d.growth >= 0 ? "↑" : "↓"} {Math.abs(d.growth)}% vs tháng trước
+                                            </p>
+                                          )}
+                                        </div>
+                                      );
+                                    }}
+                                    cursor={{ fill: "#f9fafb" }}
+                                  />
+                                  <ReferenceLine y={avg} stroke="#6366f1" strokeDasharray="5 3" strokeWidth={1.2}
+                                    label={{ value: `TB ${avg.toFixed(0)}tr`, position: "right", fill: "#6366f1", fontSize: 9 }} />
+                                  <Bar dataKey="amount" name="Doanh thu AEP" radius={[5, 5, 0, 0]}>
+                                    {aepChartData.map((entry, index) => (
+                                      <Cell key={`cell-month-${index}`} fill={entry.amount >= avg ? "#10b981" : "#6ee7b7"} />
+                                    ))}
+                                  </Bar>
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường tím = TB tháng</p>
+                            </div>
                           </div>
                         );
                       })()}
@@ -4405,85 +4426,98 @@ export default function Home() {
                           : `Chưa có dữ liệu ${comparisonDay.weekdayLabel.toLowerCase()} tuần trước để so sánh${isUsingCompletedPreviousDay ? ` cho ngày ${formatFullDate(comparisonDay.date)}` : ""}.`;
 
                         return (
-                          <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                              <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
-                              Doanh thu AEP theo ngày ({monthLabel(selectedDailyMonth!)})
-                            </p>
+                          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            {/* Header */}
+                            <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-gray-50">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-indigo-50 shrink-0">
+                                  <svg className="w-3.5 h-3.5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
+                                </span>
+                                <div>
+                                  <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo ngày</p>
+                                  <p className="text-[10px] text-gray-400">{monthLabel(selectedDailyMonth!)} · triệu đồng</p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">{dailyChartData.length} ngày</span>
+                            </div>
 
-                            <div className="flex flex-wrap gap-4 mb-3">
-                              <div className="text-center">
-                                <p className="text-[10px] text-gray-400">Ngày mới nhất</p>
-                                <p className="text-sm font-black text-emerald-600">{latestDay.amount.toFixed(1)}tr</p>
-                                <p className="text-[10px] text-gray-400">Ngày {Number(latestDay.day)}</p>
-                                <p className={`text-[10px] mt-1 max-w-[180px] ${comparisonDay.weekdayDelta === null ? "text-gray-400" : comparisonDay.weekdayDelta > 0 ? "text-emerald-500" : comparisonDay.weekdayDelta < 0 ? "text-rose-500" : "text-amber-500"}`}>{comparisonDay.weekdayDelta === null ? "Chưa có mốc tuần trước" : `${comparisonDay.weekdayLabel}${isUsingCompletedPreviousDay ? ` ${Number(comparisonDay.day)}` : ""}: ${formatTrendSigned(comparisonDay.weekdayDelta)}tr${comparisonDay.weekdayDeltaPct !== null ? ` (${comparisonDay.weekdayDeltaPct > 0 ? "+" : ""}${comparisonDay.weekdayDeltaPct}%)` : ""}`}</p>
+                            {/* KPI row */}
+                            <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Mới nhất</p>
+                                <p className="text-base font-black text-indigo-600 leading-none">{latestDay.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                {comparisonDay.weekdayDelta !== null ? (
+                                  <p className={`text-[9px] font-bold mt-1 ${comparisonDay.weekdayDelta > 0 ? "text-emerald-500" : comparisonDay.weekdayDelta < 0 ? "text-rose-500" : "text-amber-500"}`}>
+                                    {comparisonDay.weekdayDelta > 0 ? "↑" : comparisonDay.weekdayDelta < 0 ? "↓" : "→"}{Math.abs(comparisonDay.weekdayDelta).toFixed(1)}tr
+                                  </p>
+                                ) : <p className="text-[9px] text-gray-300 mt-1">Ngày {Number(latestDay.day)}</p>}
                               </div>
-                              <div className="text-center">
-                                <p className="text-[10px] text-gray-400">Trung bình/ngày</p>
-                                <p className="text-sm font-black text-blue-500">{average.toFixed(1)}tr</p>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Trung bình</p>
+                                <p className="text-base font-black text-amber-500 leading-none">{average.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-300 mt-1">/ ngày</p>
                               </div>
-                              <div className="text-center">
-                                <p className="text-[10px] text-gray-400">Cao nhất</p>
-                                <p className="text-sm font-black text-amber-500">{bestDay.amount.toFixed(1)}tr</p>
-                                <p className="text-[10px] text-gray-400">Ngày {Number(bestDay.day)}</p>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Cao nhất</p>
+                                <p className="text-base font-black text-amber-500 leading-none">{bestDay.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-400 mt-1">Ngày {Number(bestDay.day)}</p>
                               </div>
                             </div>
 
-                            <div className={`mb-3 rounded-xl border px-3 py-2 text-[11px] ${latestDay.weekdayDelta === null ? "border-gray-200 bg-gray-50 text-gray-500" : latestDay.weekdayDelta > 0 ? "border-emerald-200 bg-emerald-50 text-emerald-700" : latestDay.weekdayDelta < 0 ? "border-rose-200 bg-rose-50 text-rose-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                            {/* Comparison banner */}
+                            <div className={`mx-4 mt-3 rounded-xl border px-3 py-2 text-[11px] ${comparisonDay.weekdayDelta === null ? "border-gray-100 bg-gray-50 text-gray-400" : comparisonDay.weekdayDelta > 0 ? "border-emerald-100 bg-emerald-50 text-emerald-700" : comparisonDay.weekdayDelta < 0 ? "border-rose-100 bg-rose-50 text-rose-700" : "border-amber-100 bg-amber-50 text-amber-700"}`}>
                               {latestWeekdayComparisonText}
                             </div>
 
-                            <ResponsiveContainer width="100%" height={180}>
-                              <ComposedChart data={dailyChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                                <YAxis tick={{ fontSize: 10, fill: "#9ca3af" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
-                                <Tooltip
-                                  content={({ active, payload }) => {
-                                    if (!active || !payload || payload.length === 0) return null;
-                                    const point = payload[0]?.payload as {
-                                      day: string;
-                                      amount: number;
-                                      weekdayLabel: string;
-                                      prevWeekDate: string;
-                                      prevWeekAmount: number | null;
-                                      weekdayDelta: number | null;
-                                      weekdayDeltaPct: number | null;
-                                    };
-                                    if (!point) return null;
-
-                                    return (
-                                      <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm">
-                                        <p className="font-semibold text-gray-700">Ngày {point.day}/{selectedDailyMonth!.slice(5, 7)}</p>
-                                        <p className="mt-1 text-indigo-600">Doanh thu ngày: {point.amount.toFixed(1)}tr</p>
-                                        <p className={`mt-1 ${point.weekdayDelta === null ? "text-gray-400" : point.weekdayDelta > 0 ? "text-emerald-600" : point.weekdayDelta < 0 ? "text-rose-500" : "text-amber-600"}`}>
-                                          {point.weekdayDelta === null
-                                            ? `Chưa có ${point.weekdayLabel.toLowerCase()} tuần trước để so sánh`
-                                            : `${point.weekdayLabel} này ${point.weekdayDelta > 0 ? "tăng" : point.weekdayDelta < 0 ? "giảm" : "đi ngang"} ${Math.abs(point.weekdayDelta).toFixed(1)}tr${point.weekdayDeltaPct !== null ? ` (${point.weekdayDeltaPct > 0 ? "+" : ""}${point.weekdayDeltaPct}%)` : ""} so với ${formatFullDate(point.prevWeekDate)}`}
-                                        </p>
-                                        {point.prevWeekAmount !== null && (
-                                          <p className="mt-1 text-[11px] text-gray-400">{point.weekdayLabel} tuần trước: {point.prevWeekAmount.toFixed(1)}tr</p>
-                                        )}
-                                      </div>
-                                    );
-                                  }}
-                                  contentStyle={{ fontSize: 12, borderRadius: 10, border: "1px solid #e5e7eb" }}
-                                  cursor={{ fill: "#f9fafb" }}
-                                />
-                                <ReferenceLine
-                                  y={average}
-                                  stroke="#f59e0b"
-                                  strokeDasharray="5 3"
-                                  strokeWidth={1.5}
-                                  label={{ value: `TB ${average.toFixed(1)}tr`, position: "right", fill: "#f59e0b", fontSize: 9 }}
-                                />
-                                <Bar dataKey="amount" name="Doanh thu ngày" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                              </ComposedChart>
-                            </ResponsiveContainer>
-
-                            {dailyAepRevenueLoading && (
-                              <p className="text-[10px] text-gray-400 mt-2">Đang cập nhật dữ liệu doanh thu ngày từ Casso...</p>
-                            )}
+                            {/* Chart */}
+                            <div className="px-3 pt-3 pb-4">
+                              <ResponsiveContainer width="100%" height={180}>
+                                <ComposedChart data={dailyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (!active || !payload || payload.length === 0) return null;
+                                      const point = payload[0]?.payload as {
+                                        day: string; amount: number; weekdayLabel: string;
+                                        prevWeekDate: string; prevWeekAmount: number | null;
+                                        weekdayDelta: number | null; weekdayDeltaPct: number | null;
+                                      };
+                                      if (!point) return null;
+                                      return (
+                                        <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
+                                          <p className="font-bold text-gray-700 mb-1">Ngày {point.day}/{selectedDailyMonth!.slice(5, 7)}</p>
+                                          <p className="text-indigo-600 font-semibold">Doanh thu: {point.amount.toFixed(1)}tr</p>
+                                          {point.weekdayDelta !== null ? (
+                                            <p className={`mt-0.5 font-semibold ${point.weekdayDelta > 0 ? "text-emerald-600" : point.weekdayDelta < 0 ? "text-rose-500" : "text-amber-600"}`}>
+                                              {point.weekdayLabel} {point.weekdayDelta > 0 ? "↑" : point.weekdayDelta < 0 ? "↓" : "→"} {Math.abs(point.weekdayDelta).toFixed(1)}tr{point.weekdayDeltaPct !== null ? ` (${point.weekdayDeltaPct > 0 ? "+" : ""}${point.weekdayDeltaPct}%)` : ""} vs tuần trước
+                                            </p>
+                                          ) : (
+                                            <p className="mt-0.5 text-gray-400">Chưa có {point.weekdayLabel.toLowerCase()} tuần trước</p>
+                                          )}
+                                          {point.prevWeekAmount !== null && (
+                                            <p className="mt-0.5 text-[10px] text-gray-400">Tuần trước ({formatFullDate(point.prevWeekDate)}): {point.prevWeekAmount.toFixed(1)}tr</p>
+                                          )}
+                                        </div>
+                                      );
+                                    }}
+                                    cursor={{ fill: "#f9fafb" }}
+                                  />
+                                  <ReferenceLine y={average} stroke="#f59e0b" strokeDasharray="5 3" strokeWidth={1.2}
+                                    label={{ value: `TB ${average.toFixed(1)}tr`, position: "right", fill: "#f59e0b", fontSize: 9 }} />
+                                  <Bar dataKey="amount" name="Doanh thu ngày" radius={[5, 5, 0, 0]}>
+                                    {dailyChartData.map((entry, index) => (
+                                      <Cell key={`cell-day-${index}`} fill={entry.amount >= average ? "#6366f1" : "#a5b4fc"} />
+                                    ))}
+                                  </Bar>
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              {dailyAepRevenueLoading && (
+                                <p className="text-[9px] text-gray-300 mt-1">Đang cập nhật từ Casso...</p>
+                              )}
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường vàng = TB ngày</p>
+                            </div>
                           </div>
                         );
                       })()}
