@@ -3450,65 +3450,65 @@ export default function Home() {
                     const a = document.createElement("a"); a.href = url; a.download = `Bang-Luong-Chuan-2026-${directorMonth}.csv`; a.click(); URL.revokeObjectURL(url);
                   };
                   return (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
-                      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
-                          <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
+                      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+                          <h3 className="font-bold text-gray-800 dark:text-white text-lg flex items-center gap-2">
                             <FileSpreadsheet className="w-6 h-6 text-indigo-500" />
                             Bảng Lương Chuẩn (Luật 2026) — {monthLabel(directorMonth)}
                           </h3>
-                          <button onClick={() => setShowSalaryPreview(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors bg-white shadow-sm border border-gray-100">
-                            <X className="w-5 h-5 text-gray-500" />
+                          <button onClick={() => setShowSalaryPreview(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-600">
+                            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                           </button>
                         </div>
-                        <div className="overflow-auto flex-1 p-6 bg-slate-50">
-                          <p className="text-xs text-slate-500 mb-3">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
-                          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
+                        <div className="overflow-auto flex-1 p-6 bg-slate-50 dark:bg-gray-900">
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
+                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-sm">
                             <table className="w-full text-sm text-left">
-                              <thead className="bg-slate-100 text-slate-600 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
+                              <thead className="bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-slate-300 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
                                 <tr>
-                                  <th className="px-4 py-4 border-b border-slate-200">STT</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 min-w-[150px]">Họ và tên</th>
-                                  <th className="px-4 py-4 border-b border-slate-200">Loại HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-600">Thưởng KPI</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-black font-extrabold">Tổng thu nhập gộp</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Trừ BH (10.5%)</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Giảm trừ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-600">TN Tính thuế</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-rose-600">Thuế TNCN</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-emerald-600 text-base">Thực lĩnh</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600">STT</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 min-w-[150px]">Họ và tên</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600">Loại HĐ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-orange-500">Thưởng KPI</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-white font-extrabold">Tổng thu nhập gộp</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right">Trừ BH (10.5%)</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right">Giảm trừ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-indigo-400">TN Tính thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-rose-400">Thuế TNCN</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-emerald-400 text-base">Thực lĩnh</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100 text-slate-700">
+                              <tbody className="divide-y divide-gray-100 dark:divide-gray-700 text-slate-700 dark:text-slate-300">
                                 {tableRows.map((tr) => (
-                                  <tr key={tr.i} className="hover:bg-slate-50 transition-colors whitespace-nowrap group">
-                                    <td className="px-4 py-3.5 text-slate-400 font-medium">{tr.i + 1}</td>
-                                    <td className="px-4 py-3.5 font-bold text-slate-800">{tr.name}</td>
+                                  <tr key={tr.i} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors whitespace-nowrap group">
+                                    <td className="px-4 py-3.5 text-slate-400 dark:text-slate-500 font-medium">{tr.i + 1}</td>
+                                    <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-white">{tr.name}</td>
                                     <td className="px-4 py-3.5">
-                                      <button onClick={() => toggleStatus(tr.empId, tr.status)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${ tr.status === 'probation' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' }`}>
+                                      <button onClick={() => toggleStatus(tr.empId, tr.status)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${ tr.status === 'probation' ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/50' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800/40' }`}>
                                         {tr.status === 'probation' ? '🔶 Thử việc' : '✅ Chính thức'}
                                       </button>
                                     </td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.lcs)}</td>
-                                    <td className="px-4 py-3.5 text-right text-orange-600 font-medium bg-orange-50/10">{formatCurrency(tr.thuongKPI)}</td>
-                                    <td className="px-4 py-3.5 text-right font-bold text-black border-x border-slate-100 bg-slate-50/50 group-hover:bg-white">{formatCurrency(tr.tongThuNhap)}</td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.tongBH)}</td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.gtBanThan)}</td>
-                                    <td className="px-4 py-3.5 text-right text-indigo-600 font-semibold bg-indigo-50/30 group-hover:bg-indigo-50 border-x border-indigo-50/50">{formatCurrency(tr.tntt)}</td>
-                                    <td className="px-4 py-3.5 text-right text-rose-600 font-bold bg-rose-50/30 group-hover:bg-rose-50 border-r border-rose-50/50">{formatCurrency(tr.thue)}</td>
-                                    <td className="px-4 py-3.5 text-right text-emerald-600 font-black text-base bg-emerald-50/30 group-hover:bg-emerald-50">{formatCurrency(tr.thucLinh)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500 dark:text-slate-400">{formatCurrency(tr.lcs)}</td>
+                                    <td className="px-4 py-3.5 text-right text-orange-600 dark:text-orange-400 font-medium">{formatCurrency(tr.thuongKPI)}</td>
+                                    <td className="px-4 py-3.5 text-right font-bold text-black dark:text-white border-x border-slate-100 dark:border-gray-600 bg-slate-50/50 dark:bg-gray-700/30 group-hover:bg-white dark:group-hover:bg-gray-700/60">{formatCurrency(tr.tongThuNhap)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500 dark:text-slate-400">{formatCurrency(tr.tongBH)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500 dark:text-slate-400">{formatCurrency(tr.gtBanThan)}</td>
+                                    <td className="px-4 py-3.5 text-right text-indigo-600 dark:text-indigo-400 font-semibold border-x border-indigo-50/50 dark:border-indigo-900/50">{formatCurrency(tr.tntt)}</td>
+                                    <td className="px-4 py-3.5 text-right text-rose-600 dark:text-rose-400 font-bold border-r border-rose-50/50 dark:border-rose-900/50">{formatCurrency(tr.thue)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600 dark:text-emerald-400 font-black text-base">{formatCurrency(tr.thucLinh)}</td>
                                   </tr>
                                 ))}
                                 {tableRows.length === 0 && (
-                                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
+                                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
                                 )}
                               </tbody>
                             </table>
                           </div>
                         </div>
-                        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
-                          <button onClick={() => setShowSalaryPreview(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors">Đóng</button>
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-end gap-3">
+                          <button onClick={() => setShowSalaryPreview(false)} className="px-4 py-2 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">Đóng</button>
                           <button onClick={exportPayrollCSV} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-sm">
                             <Download className="w-4 h-4" />
                             Xuất CSV chuẩn 2026
