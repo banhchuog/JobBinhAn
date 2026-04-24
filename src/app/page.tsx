@@ -488,90 +488,90 @@ function getJobCategorySurfaceClass(label: string) {
 
   if (normalized === "mini") {
     return {
-      cardBg: "bg-violet-50 border border-violet-200",
-      accentText: "text-violet-700",
-      barBg: "bg-violet-200",
-      barFill: "bg-violet-400",
+      cardBg: "bg-violet-50 border border-violet-200 dark:bg-violet-950 dark:border-violet-800",
+      accentText: "text-violet-700 dark:text-violet-300",
+      barBg: "bg-violet-200 dark:bg-violet-800",
+      barFill: "bg-violet-400 dark:bg-violet-500",
       btnClass: "bg-violet-500 hover:bg-violet-600 text-white",
     };
   }
   if (normalized.includes("hậu kỳ")) {
     return {
-      cardBg: "bg-blue-50 border border-blue-200",
-      accentText: "text-blue-700",
-      barBg: "bg-blue-200",
-      barFill: "bg-blue-500",
+      cardBg: "bg-blue-50 border border-blue-200 dark:bg-blue-950 dark:border-blue-800",
+      accentText: "text-blue-700 dark:text-blue-300",
+      barBg: "bg-blue-200 dark:bg-blue-800",
+      barFill: "bg-blue-500 dark:bg-blue-400",
       btnClass: "bg-blue-600 hover:bg-blue-700 text-white",
     };
   }
   if (normalized.includes("đạo diễn")) {
     return {
-      cardBg: "bg-amber-50 border border-amber-200",
-      accentText: "text-amber-700",
-      barBg: "bg-amber-200",
-      barFill: "bg-amber-400",
+      cardBg: "bg-amber-50 border border-amber-200 dark:bg-amber-950 dark:border-amber-800",
+      accentText: "text-amber-700 dark:text-amber-300",
+      barBg: "bg-amber-200 dark:bg-amber-800",
+      barFill: "bg-amber-400 dark:bg-amber-500",
       btnClass: "bg-amber-500 hover:bg-amber-600 text-white",
     };
   }
-  if (normalized.includes("kịch bản")) {
+  if (normalized.includes("kịch bản") || normalized.includes("storyboard")) {
     return {
-      cardBg: "bg-emerald-50 border border-emerald-200",
-      accentText: "text-emerald-700",
-      barBg: "bg-emerald-200",
-      barFill: "bg-emerald-500",
+      cardBg: "bg-emerald-50 border border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800",
+      accentText: "text-emerald-700 dark:text-emerald-300",
+      barBg: "bg-emerald-200 dark:bg-emerald-800",
+      barFill: "bg-emerald-500 dark:bg-emerald-400",
       btnClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
     };
   }
   if (normalized.includes("quay phim")) {
     return {
-      cardBg: "bg-cyan-50 border border-cyan-200",
-      accentText: "text-cyan-700",
-      barBg: "bg-cyan-200",
-      barFill: "bg-cyan-500",
+      cardBg: "bg-cyan-50 border border-cyan-200 dark:bg-cyan-950 dark:border-cyan-800",
+      accentText: "text-cyan-700 dark:text-cyan-300",
+      barBg: "bg-cyan-200 dark:bg-cyan-800",
+      barFill: "bg-cyan-500 dark:bg-cyan-400",
       btnClass: "bg-cyan-600 hover:bg-cyan-700 text-white",
     };
   }
   if (normalized.includes("ánh sáng")) {
     return {
-      cardBg: "bg-yellow-50 border border-yellow-200",
-      accentText: "text-yellow-700",
-      barBg: "bg-yellow-200",
-      barFill: "bg-yellow-400",
+      cardBg: "bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800",
+      accentText: "text-yellow-700 dark:text-yellow-300",
+      barBg: "bg-yellow-200 dark:bg-yellow-800",
+      barFill: "bg-yellow-400 dark:bg-yellow-500",
       btnClass: "bg-yellow-500 hover:bg-yellow-600 text-white",
     };
   }
   if (normalized.includes("thu âm")) {
     return {
-      cardBg: "bg-pink-50 border border-pink-200",
-      accentText: "text-pink-700",
-      barBg: "bg-pink-200",
-      barFill: "bg-pink-400",
+      cardBg: "bg-pink-50 border border-pink-200 dark:bg-pink-950 dark:border-pink-800",
+      accentText: "text-pink-700 dark:text-pink-300",
+      barBg: "bg-pink-200 dark:bg-pink-800",
+      barFill: "bg-pink-400 dark:bg-pink-500",
       btnClass: "bg-pink-500 hover:bg-pink-600 text-white",
     };
   }
   if (normalized.includes("thiết kế")) {
     return {
-      cardBg: "bg-rose-50 border border-rose-200",
-      accentText: "text-rose-700",
-      barBg: "bg-rose-200",
-      barFill: "bg-rose-400",
+      cardBg: "bg-rose-50 border border-rose-200 dark:bg-rose-950 dark:border-rose-800",
+      accentText: "text-rose-700 dark:text-rose-300",
+      barBg: "bg-rose-200 dark:bg-rose-800",
+      barFill: "bg-rose-400 dark:bg-rose-500",
       btnClass: "bg-rose-500 hover:bg-rose-600 text-white",
     };
   }
   if (normalized.includes("vfx")) {
     return {
-      cardBg: "bg-indigo-50 border border-indigo-200",
-      accentText: "text-indigo-700",
-      barBg: "bg-indigo-200",
-      barFill: "bg-indigo-500",
+      cardBg: "bg-indigo-50 border border-indigo-200 dark:bg-indigo-950 dark:border-indigo-800",
+      accentText: "text-indigo-700 dark:text-indigo-300",
+      barBg: "bg-indigo-200 dark:bg-indigo-800",
+      barFill: "bg-indigo-500 dark:bg-indigo-400",
       btnClass: "bg-indigo-600 hover:bg-indigo-700 text-white",
     };
   }
   return {
-    cardBg: "bg-slate-50 border border-slate-200",
-    accentText: "text-slate-700",
-    barBg: "bg-slate-200",
-    barFill: "bg-slate-500",
+    cardBg: "bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700",
+    accentText: "text-slate-700 dark:text-slate-300",
+    barBg: "bg-slate-200 dark:bg-slate-700",
+    barFill: "bg-slate-500 dark:bg-slate-400",
     btnClass: "bg-slate-600 hover:bg-slate-700 text-white",
   };
 }
@@ -3068,11 +3068,11 @@ export default function Home() {
                                           ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                           : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>}
                                     </span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-white/70 text-orange-600 border border-white/60">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-white/70 dark:bg-white/10 text-orange-600 dark:text-orange-400 border border-white/60 dark:border-white/10">
                                       {remainingLabel}
                                     </span>
                                   </div>
-                                  <h3 className="font-bold text-gray-900 text-[15px] leading-snug line-clamp-2">{job.title}</h3>
+                                  <h3 className="font-bold text-gray-900 dark:text-white text-[15px] leading-snug line-clamp-2">{job.title}</h3>
                                   <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${categoryBadgeClass}`}>
                                       {categoryLabel}
@@ -3080,18 +3080,18 @@ export default function Home() {
                                     {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0 border border-purple-200">{job.groupName}</span>}
                                     {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 border border-orange-200"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
                                   </div>
-                                  {standardMeta && <p className="text-[11px] text-gray-500 mt-1.5 line-clamp-2">{standardMeta}</p>}
-                                  {job.description && <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">{job.description}</p>}
-                                  <p className="text-[10px] text-gray-400 mt-1">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                  {standardMeta && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2">{standardMeta}</p>}
+                                  {job.description && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 line-clamp-1">{job.description}</p>}
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 relative z-10">
                                 <button onClick={() => openJobEditModal(job)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Sửa job">
+                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 dark:hover:bg-white/10 rounded-xl transition-colors border border-white/60 dark:border-white/10" title="Sửa job">
                                   <Pencil className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => handleDeleteJob(job.id)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Xoá job">
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 dark:hover:bg-white/10 rounded-xl transition-colors border border-white/60 dark:border-white/10" title="Xoá job">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -3102,7 +3102,7 @@ export default function Home() {
                                   ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
                                   : formatCurrency(job.totalSalary)}
                               </p>
-                              <p className="text-[10px] text-gray-500 shrink-0">
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
                                 {job.assignments.length} người nhận
                               </p>
                             </div>
@@ -3112,8 +3112,8 @@ export default function Home() {
                             {job.assignments.length > 0 && (
                               <div className="space-y-1.5 relative z-10 max-h-28 overflow-y-auto pr-1">
                                 {job.assignments.map((a) => (
-                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-white/70 border border-white/80 px-2.5 py-2 rounded-xl backdrop-blur-[1px]">
-                                    <span className="font-medium text-gray-800">{a.employeeName}</span>
+                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-white/70 dark:bg-white/5 border border-white/80 dark:border-white/10 px-2.5 py-2 rounded-xl backdrop-blur-[1px]">
+                                    <span className="font-medium text-gray-800 dark:text-gray-200">{a.employeeName}</span>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {isMini
                                         ? <span className="text-purple-600 font-medium">{a.units ?? 1} clip</span>
