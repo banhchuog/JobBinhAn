@@ -222,9 +222,9 @@ function calcPayrollProbation(grossIncome: number, dependentCount = 0) {
   };
 }
 
-/** Chọn hàm tính lương phù hợp dựa theo trạng thái nhân viên */
-function getPayroll(emp: { profile?: { employmentStatus?: string } }, grossIncome: number, dependentCount = 0) {
-  if (emp.profile?.employmentStatus === 'probation') return calcPayrollProbation(grossIncome, dependentCount);
+/** Chọn hàm tính lương phù hợp dựa theo trạng thái hợp đồng tháng đó */
+function getPayroll(status: 'official' | 'probation' | undefined, grossIncome: number, dependentCount = 0) {
+  if (status === 'probation') return calcPayrollProbation(grossIncome, dependentCount);
   return calcPayrollFromGross(grossIncome, dependentCount);
 }
 
@@ -999,6 +999,7 @@ export default function Home() {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
   const [showSalaryPreview, setShowSalaryPreview] = useState(false);
+  const [empStatusByMonth, setEmpStatusByMonth] = useState<Record<string, Record<string, 'official' | 'probation'>>>({});
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedContractEmps, setSelectedContractEmps] = useState<string[]>([]);
 
@@ -1202,6 +1203,13 @@ export default function Home() {
     fetch("/api/settings/profit_shares")
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (Array.isArray(d)) setProfitShares(d); })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/settings/employment_status")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && typeof d === 'object' && !Array.isArray(d)) setEmpStatusByMonth(d); })
       .catch(() => {});
   }, []);
 
@@ -3421,45 +3429,53 @@ export default function Home() {
               <div className="space-y-5">
                 {showSalaryPreview && (() => {
                   const tableRows = rows.map((r, i) => {
-                    const payroll = getPayroll(r.emp, r.totalApproved);
-                    return {
-                      i,
-                      name: r.emp.name,
-                      lcs: payroll.lcs,
-                      thuongKPI: payroll.thuongKPI,
-                      tongThuNhap: payroll.tongThuNhap,
-                      tongBH: payroll.tongBH,
-                      gtBanThan: payroll.gtBanThan,
-                      tntt: payroll.tntt,
-                      thue: payroll.thue,
-                      thucLinh: payroll.thucLinh,
-                    };
+                    const status = (empStatusByMonth[directorMonth]?.[r.emp.id] ?? 'official') as 'official' | 'probation';
+                    const payroll = getPayroll(status, r.totalApproved);
+                    return { i, empId: r.emp.id, name: r.emp.name, status, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, tongThuNhap: payroll.tongThuNhap, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
                   });
+                  const toggleStatus = async (empId: string, current: 'official' | 'probation') => {
+                    const next = current === 'probation' ? 'official' : 'probation';
+                    const updated = { ...empStatusByMonth, [directorMonth]: { ...(empStatusByMonth[directorMonth] ?? {}), [empId]: next } };
+                    setEmpStatusByMonth(updated);
+                    await fetch('/api/settings/employment_status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
+                  };
+                  const exportPayrollCSV = () => {
+                    const header = "STT,Họ và tên,Loại HĐ,Lương đóng BHXH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
+                    const csvRows = tableRows.map((tr) => {
+                      const p = getPayroll(tr.status, tr.tongThuNhap);
+                      return [tr.i + 1, `"${tr.name}"`, tr.status === 'probation' ? 'Thử việc' : 'Chính thức', p.lcs, p.thuongKPI, p.tongThuNhap, p.tnMienThue, p.tnChiuThue, p.bhxh, p.bhyt, p.bhtn, p.tongBH, p.gtBanThan, p.gtNguoiPhuThuoc, p.tntt, p.thue, p.thucLinh].join(",");
+                    });
+                    const blob = new Blob(["\uFEFF" + [header, ...csvRows].join("\n")], { type: "text/csv;charset=utf-8;" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = `Bang-Luong-Chuan-2026-${directorMonth}.csv`; a.click(); URL.revokeObjectURL(url);
+                  };
                   return (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
                       <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
                           <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
                             <FileSpreadsheet className="w-6 h-6 text-indigo-500" />
-                            Bảng Lương Chuẩn (Luật 2026) - {monthLabel(directorMonth)}
+                            Bảng Lương Chuẩn (Luật 2026) — {monthLabel(directorMonth)}
                           </h3>
                           <button onClick={() => setShowSalaryPreview(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors bg-white shadow-sm border border-gray-100">
                             <X className="w-5 h-5 text-gray-500" />
                           </button>
                         </div>
                         <div className="overflow-auto flex-1 p-6 bg-slate-50">
+                          <p className="text-xs text-slate-500 mb-3">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
                           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
                             <table className="w-full text-sm text-left">
                               <thead className="bg-slate-100 text-slate-600 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
                                 <tr>
                                   <th className="px-4 py-4 border-b border-slate-200">STT</th>
                                   <th className="px-4 py-4 border-b border-slate-200 min-w-[150px]">Họ và tên</th>
+                                  <th className="px-4 py-4 border-b border-slate-200">Loại HĐ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-600" title="Phần dôi ra từ các Job hoàn thành (Không tính BHXH)">Thưởng KPI</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-black font-extrabold" title="Tổng thu nhập trước khấu trừ BH và thuế, được tính ngược từ thực lĩnh">Tổng thu nhập gộp</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-600">Thưởng KPI</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-black font-extrabold">Tổng thu nhập gộp</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right">Trừ BH (10.5%)</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức trừ cho bản thân và người phụ thuộc">Giảm trừ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-600" title="Căn cứ áp dụng thang thuế 7 bậc">TN Tính thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Giảm trừ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-600">TN Tính thuế</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-rose-600">Thuế TNCN</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-emerald-600 text-base">Thực lĩnh</th>
                                 </tr>
@@ -3469,6 +3485,11 @@ export default function Home() {
                                   <tr key={tr.i} className="hover:bg-slate-50 transition-colors whitespace-nowrap group">
                                     <td className="px-4 py-3.5 text-slate-400 font-medium">{tr.i + 1}</td>
                                     <td className="px-4 py-3.5 font-bold text-slate-800">{tr.name}</td>
+                                    <td className="px-4 py-3.5">
+                                      <button onClick={() => toggleStatus(tr.empId, tr.status)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${ tr.status === 'probation' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' }`}>
+                                        {tr.status === 'probation' ? '🔶 Thử việc' : '✅ Chính thức'}
+                                      </button>
+                                    </td>
                                     <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.lcs)}</td>
                                     <td className="px-4 py-3.5 text-right text-orange-600 font-medium bg-orange-50/10">{formatCurrency(tr.thuongKPI)}</td>
                                     <td className="px-4 py-3.5 text-right font-bold text-black border-x border-slate-100 bg-slate-50/50 group-hover:bg-white">{formatCurrency(tr.tongThuNhap)}</td>
@@ -3480,11 +3501,18 @@ export default function Home() {
                                   </tr>
                                 ))}
                                 {tableRows.length === 0 && (
-                                  <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
+                                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
                                 )}
                               </tbody>
                             </table>
                           </div>
+                        </div>
+                        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                          <button onClick={() => setShowSalaryPreview(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors">Đóng</button>
+                          <button onClick={exportPayrollCSV} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-sm">
+                            <Download className="w-4 h-4" />
+                            Xuất CSV chuẩn 2026
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -3523,8 +3551,9 @@ export default function Home() {
                       navigator.clipboard.writeText(lines.join("\n"));
                       setCopySuccess(true);
                       setTimeout(() => setCopySuccess(false), 2000);
-                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Copy văn bản">
-                      {copySuccess ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                    }} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors text-sm font-medium" title="Copy văn bản">
+                      {copySuccess ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      <span>{copySuccess ? 'Copied!' : 'Copy'}</span>
                     </button>
                     <button onClick={() => {
                       const header = "Nhân viên,Job,Phần trăm / Clip,Số tiền,Ngày duyệt,Ghi chú";
@@ -3539,51 +3568,20 @@ export default function Home() {
                       const a = document.createElement("a"); a.href = url;
                       a.download = `bang-luong-${directorMonth}.csv`;
                       a.click(); URL.revokeObjectURL(url);
-                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải CSV">
-                      <Download className="w-5 h-5" />
+                    }} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors text-sm font-medium" title="Tải CSV">
+                      <Download className="w-4 h-4" />
+                      <span>CSV đơn giản</span>
                     </button>
-                    <button onClick={() => {
-                      const header = "STT,Họ và tên,Lương đóng BHXH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
-                      
-                      const csvRows = rows.map((r, i) => {
-                        const payroll = getPayroll(r.emp, r.totalApproved);
-                        
-                        const cols = [
-                          i + 1,
-                          `"${r.emp.name}"`,
-                          payroll.lcs,
-                          payroll.thuongKPI,
-                          payroll.tongThuNhap,
-                          payroll.tnMienThue,
-                          payroll.tnChiuThue,
-                          payroll.bhxh, payroll.bhyt, payroll.bhtn, payroll.tongBH,
-                          payroll.gtBanThan,
-                          payroll.gtNguoiPhuThuoc,
-                          payroll.tntt,
-                          payroll.thue,
-                          payroll.thucLinh
-                        ];
-                        // format số nguyên cho đẹp nếu cần hoặc xuất nguyên CSV cho Excel đọc
-                        return cols.join(",");
-                      });
-                      
-                      const csv = [header, ...csvRows].join("\n");
-                      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a"); a.href = url;
-                      a.download = `Bang-Luong-Chuan-2026-${directorMonth}.csv`;
-                      a.click(); URL.revokeObjectURL(url);
-                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Tải Bảng Lương Chuẩn (Luật 2026 15.5tr/6.2tr)">
-                      <FileSpreadsheet className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => setShowSalaryPreview(true)} className="p-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors" title="Xem trước Bảng Lương Chuẩn">
-                      <Search className="w-5 h-5" />
+                    <button onClick={() => setShowSalaryPreview(true)} className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors text-sm font-medium" title="Xem trước Bảng Lương Chuẩn">
+                      <Search className="w-4 h-4" />
+                      <span>Xem trước</span>
                     </button>
                     <button onClick={() => {
                       setShowContractModal(true);
                       setSelectedContractEmps(rows.map(r => r.emp.id));
-                    }} className="p-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors" title="Xuất hợp đồng (mail merge Word)">
-                      <FileSpreadsheet className="w-5 h-5" />
+                    }} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 hover:bg-blue-400 rounded-lg transition-colors text-sm font-medium" title="Xuất hợp đồng (mail merge Word)">
+                      <FileSpreadsheet className="w-4 h-4" />
+                      <span>Hợp đồng</span>
                     </button>
                   </div>
                 </div>
@@ -3758,23 +3756,6 @@ export default function Home() {
                               {emp.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="font-semibold">{emp.name}</span>
-                            <button
-                              onClick={async () => {
-                                const next = emp.profile?.employmentStatus === 'probation' ? 'official' : 'probation';
-                                await fetch(`/api/employees/${emp.id}`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ profile: { ...(emp.profile ?? {}), employmentStatus: next } }),
-                                });
-                                setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, profile: { ...(e.profile ?? {}), employmentStatus: next } } : e));
-                              }}
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors shrink-0 border ${
-                                emp.profile?.employmentStatus === 'probation'
-                                  ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
-                                  : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
-                              }`}
-                              title="Bấm để chuyển trạng thái thử việc / chính thức"
-                            >{emp.profile?.employmentStatus === 'probation' ? '🔶 Thử việc' : '✅ Chính thức'}</button>
                             <button
                               onClick={() => { setManualModal({ emp }); setManualTitle(""); setManualAmount(""); setManualNote(""); }}
                               className="w-5 h-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold transition-colors shrink-0"
