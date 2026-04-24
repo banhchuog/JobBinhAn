@@ -821,6 +821,7 @@ export default function Home() {
 
   // ── Director State ───────────────────────────────────
   const [newJobCategory, setNewJobCategory] = useState<string>(JOB_CATEGORY_OPTIONS[0]);
+  const [newJobCategoryCustom, setNewJobCategoryCustom] = useState<string>("");
   const [newJobProject, setNewJobProject] = useState("");
   const [newJobDesc, setNewJobDesc] = useState("");
   const [newJobRate, setNewJobRate] = useState("");
@@ -1049,13 +1050,13 @@ export default function Home() {
 
   const standardJobTitlePreview = useMemo(
     () => buildStandardJobTitle(
-      newJobCategory,
+      newJobCategory === "Khác" ? newJobCategoryCustom.trim() : newJobCategory,
       newJobProject,
       newJobWorkUnit === "episode"
         ? (parsedNewJobEpisodes.count === 1 ? parsedNewJobEpisodes.items[0] : "")
         : ""
     ),
-    [newJobCategory, newJobProject, newJobWorkUnit, parsedNewJobEpisodes]
+    [newJobCategory, newJobCategoryCustom, newJobProject, newJobWorkUnit, parsedNewJobEpisodes]
   );
 
   const standardJobTotalPreview = useMemo(
@@ -1712,13 +1713,14 @@ export default function Home() {
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
     const projectName = newJobProject.trim();
+    const effectiveCategory = newJobCategory === "Khác" ? newJobCategoryCustom.trim() : newJobCategory;
     const workUnits = newJobWorkUnit === "episode"
       ? (parsedNewJobEpisodes.count > 0 ? parsedNewJobEpisodes.count : Number(newJobWorkUnits))
       : (parsedNewJobDays.count > 0 ? parsedNewJobDays.count : Number(newJobWorkUnits));
     const ratePerUnit = Number(newJobRate);
-    if (!newJobCategory || !projectName || !Number.isFinite(workUnits) || workUnits <= 0 || !Number.isFinite(ratePerUnit) || ratePerUnit <= 0) return;
+    if (!effectiveCategory || !projectName || !Number.isFinite(workUnits) || workUnits <= 0 || !Number.isFinite(ratePerUnit) || ratePerUnit <= 0) return;
 
-    const title = standardJobTitlePreview || buildStandardJobTitle(newJobCategory, projectName, newJobWorkUnit === "episode" ? parsedNewJobEpisodes.normalized : "");
+    const title = standardJobTitlePreview || buildStandardJobTitle(effectiveCategory, projectName, newJobWorkUnit === "episode" ? parsedNewJobEpisodes.normalized : "");
     const expiresAt = newJobHasExpiry ? toEndOfDayIso(newJobExpiresAt) : undefined;
     setSubmitting(true);
     try {
@@ -1728,12 +1730,12 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             jobs: parsedNewJobEpisodes.items.map((episode) => ({
-              title: buildStandardJobTitle(newJobCategory, projectName, episode),
+              title: buildStandardJobTitle(effectiveCategory, projectName, episode),
               description: newJobDesc.trim(),
               totalSalary: ratePerUnit,
               month: currentYM(),
               jobType: "standard",
-              jobCategory: newJobCategory,
+              jobCategory: effectiveCategory,
               projectName,
               workUnit: "episode",
               episodeLabel: episode,
@@ -1752,7 +1754,7 @@ export default function Home() {
             description: newJobDesc.trim(),
             totalSalary: workUnits * ratePerUnit,
             jobType: "standard",
-            jobCategory: newJobCategory,
+            jobCategory: effectiveCategory,
             projectName,
             workUnit: newJobWorkUnit,
             ...(newJobWorkUnit === "episode" && parsedNewJobEpisodes.normalized ? { episodeLabel: parsedNewJobEpisodes.normalized } : {}),
@@ -1764,6 +1766,7 @@ export default function Home() {
         });
       }
       setNewJobCategory(JOB_CATEGORY_OPTIONS[0]);
+      setNewJobCategoryCustom("");
       setNewJobProject("");
       setNewJobDesc("");
       setNewJobRate("");
@@ -2489,12 +2492,23 @@ export default function Home() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Loại job</label>
-                        <select value={newJobCategory} onChange={(e) => setNewJobCategory(e.target.value)}
+                        <select value={newJobCategory} onChange={(e) => { setNewJobCategory(e.target.value); setNewJobCategoryCustom(""); }}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
                           {JOB_CATEGORY_OPTIONS.map((option) => (
                             <option key={option} value={option}>{option}</option>
                           ))}
                         </select>
+                        {newJobCategory === "Khác" && (
+                          <input
+                            type="text"
+                            autoFocus
+                            required
+                            value={newJobCategoryCustom}
+                            onChange={(e) => setNewJobCategoryCustom(e.target.value)}
+                            placeholder="Nhập cụ thể loại job..."
+                            className="mt-2 w-full px-4 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Dự án</label>
@@ -6234,16 +6248,30 @@ export default function Home() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Loại job</label>
                   <select
-                    value={jobEditModal.jobCategory}
-                    onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, jobCategory: e.target.value } : prev)}
+                    value={JOB_CATEGORY_OPTIONS.includes(jobEditModal.jobCategory as typeof JOB_CATEGORY_OPTIONS[number]) ? jobEditModal.jobCategory : "Khác"}
+                    onChange={(e) => {
+                      if (e.target.value !== "Khác") {
+                        setJobEditModal((prev) => prev ? { ...prev, jobCategory: e.target.value } : prev);
+                      } else {
+                        setJobEditModal((prev) => prev ? { ...prev, jobCategory: "" } : prev);
+                      }
+                    }}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
                   >
-                    {Array.from(new Set([...JOB_CATEGORY_OPTIONS, jobEditModal.jobCategory || "Khác"]))
-                      .filter(Boolean)
-                      .map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
+                    {JOB_CATEGORY_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
                   </select>
+                  {(!JOB_CATEGORY_OPTIONS.includes(jobEditModal.jobCategory as typeof JOB_CATEGORY_OPTIONS[number]) || jobEditModal.jobCategory === "") && (
+                    <input
+                      type="text"
+                      autoFocus
+                      value={jobEditModal.jobCategory}
+                      onChange={(e) => setJobEditModal((prev) => prev ? { ...prev, jobCategory: e.target.value } : prev)}
+                      placeholder="Nhập cụ thể loại job..."
+                      className="mt-2 w-full px-3 py-2.5 border border-blue-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Dự án</label>
