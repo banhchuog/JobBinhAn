@@ -196,6 +196,38 @@ function calcPayrollFromNet(actualTakeHome: number, dependentCount = 0) {
   };
 }
 
+/** Tính lương thử việc: không bắt buộc đóng BH (hợp đồng thử việc riêng) */
+function calcPayrollProbation(grossIncome: number, dependentCount = 0) {
+  const tongBH = 0;
+  const tnMienThue = 0;
+  const tnChiuThue = grossIncome;
+  const gtBanThan = PAYROLL_PERSONAL_DEDUCTION;
+  const gtNguoiPhuThuoc = dependentCount * PAYROLL_DEPENDENT_DEDUCTION;
+  const tntt = Math.max(0, tnChiuThue - gtBanThan - gtNguoiPhuThuoc - tongBH);
+  const thue = Math.max(0, Math.round(calcPersonalIncomeTax(tntt)));
+  const thucLinh = grossIncome - thue;
+  return {
+    lcs: 0,
+    thuongKPI: grossIncome,
+    tongThuNhap: grossIncome,
+    tnMienThue,
+    tnChiuThue,
+    bhxh: 0, bhyt: 0, bhtn: 0,
+    tongBH,
+    gtBanThan,
+    gtNguoiPhuThuoc,
+    tntt,
+    thue,
+    thucLinh,
+  };
+}
+
+/** Chọn hàm tính lương phù hợp dựa theo trạng thái nhân viên */
+function getPayroll(emp: { profile?: { employmentStatus?: string } }, grossIncome: number, dependentCount = 0) {
+  if (emp.profile?.employmentStatus === 'probation') return calcPayrollProbation(grossIncome, dependentCount);
+  return calcPayrollFromGross(grossIncome, dependentCount);
+}
+
 type AepShootDay = {
   key: string;
   date: string;
@@ -3389,7 +3421,7 @@ export default function Home() {
               <div className="space-y-5">
                 {showSalaryPreview && (() => {
                   const tableRows = rows.map((r, i) => {
-                    const payroll = calcPayrollFromNet(r.totalApproved);
+                    const payroll = getPayroll(r.emp, r.totalApproved);
                     return {
                       i,
                       name: r.emp.name,
@@ -3514,7 +3546,7 @@ export default function Home() {
                       const header = "STT,Họ và tên,Lương đóng BHXH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
                       
                       const csvRows = rows.map((r, i) => {
-                        const payroll = calcPayrollFromNet(r.totalApproved);
+                        const payroll = getPayroll(r.emp, r.totalApproved);
                         
                         const cols = [
                           i + 1,
@@ -3726,6 +3758,23 @@ export default function Home() {
                               {emp.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="font-semibold">{emp.name}</span>
+                            <button
+                              onClick={async () => {
+                                const next = emp.profile?.employmentStatus === 'probation' ? 'official' : 'probation';
+                                await fetch(`/api/employees/${emp.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ profile: { ...(emp.profile ?? {}), employmentStatus: next } }),
+                                });
+                                setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, profile: { ...(e.profile ?? {}), employmentStatus: next } } : e));
+                              }}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold transition-colors shrink-0 border ${
+                                emp.profile?.employmentStatus === 'probation'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200'
+                                  : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
+                              }`}
+                              title="Bấm để chuyển trạng thái thử việc / chính thức"
+                            >{emp.profile?.employmentStatus === 'probation' ? '🔶 Thử việc' : '✅ Chính thức'}</button>
                             <button
                               onClick={() => { setManualModal({ emp }); setManualTitle(""); setManualAmount(""); setManualNote(""); }}
                               className="w-5 h-5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold transition-colors shrink-0"

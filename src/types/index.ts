@@ -1,6 +1,8 @@
 export type Role = 'DIRECTOR' | 'EMPLOYEE';
 
 export interface EmployeeProfile {
+  /** Trạng thái lao động: chính thức (mặc định) hoặc thử việc */
+  employmentStatus?: 'official' | 'probation';
   hoTen?: string;         // Họ và tên đầy đủ (cập nhật display name)
   cccd?: string;          // Số CCCD/CMND
   ngayCapCccd?: string;   // YYYY-MM-DD
