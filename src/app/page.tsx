@@ -966,6 +966,8 @@ export default function Home() {
   const [aepRestoreNotice, setAepRestoreNotice] = useState<{ tone: "info" | "success" | "error"; text: string } | null>(null);
   const [aepSubTab, setAepSubTab] = useState<"overview" | "chot">("overview");
   const [aepMonth, setAepMonth] = useState<string>("2026-02");
+  const [showAepExportModal, setShowAepExportModal] = useState(false);
+  const [aepExportMonths, setAepExportMonths] = useState<string[]>([]);
 
   // ── AEP Chốt filters ────────────────────────────────
   const [aepFilterExpense, setAepFilterExpense] = useState("");
@@ -3435,7 +3437,7 @@ export default function Home() {
                   });
                   const toggleStatus = async (empId: string, current: 'official' | 'probation') => {
                     const next = current === 'probation' ? 'official' : 'probation';
-                    const updated = { ...empStatusByMonth, [directorMonth]: { ...(empStatusByMonth[directorMonth] ?? {}), [empId]: next } };
+                    const updated = { ...empStatusByMonth, [directorMonth]: { ...(empStatusByMonth[directorMonth] ?? {}), [empId]: next } } as Record<string, Record<string, "official" | "probation">>;
                     setEmpStatusByMonth(updated);
                     await fetch('/api/settings/employment_status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
                   };
@@ -5444,73 +5446,14 @@ export default function Home() {
                           ))}
                         </div>
                         <button
-                          onClick={async () => {
-                            try {
-                              setAepExporting(true);
-                              const XLSX = await import("xlsx");
-
-                              const summaryRows = [
-                                ["Hạng mục", "Giá trị"],
-                                ["Tháng", monthLabel(aepMonth)],
-                                ["Doanh thu", aepRev],
-                                ["Chi phí vận hành", aepExpensesTotal],
-                                ["Lương sản xuất", aepSalaryTotal],
-                                ["Lương thủ công", aepManualTotal],
-                                ["Tổng chi phí", aepTotalChi],
-                                ["Lợi nhuận", aepProfit],
-                                ["Xuất lúc", new Date().toLocaleString("vi-VN")],
-                              ];
-
-                              const expenseRows = [
-                                ["Ngày", "Hạng mục", "Ghi chú", "Số tiền", "Tiền tệ", "Người tạo"],
-                                ...aepExpenses.map((expense) => [
-                                  expense.date,
-                                  expense.subject,
-                                  expense.note || "",
-                                  expense.currency === "VND" ? Number(expense.amount) : Number(expense.amount) * 25000,
-                                  expense.currency,
-                                  expense.created_by || "",
-                                ]),
-                              ];
-
-                              const salaryRows = [
-                                ["Nhân sự", "Job", "Ngày duyệt", "Lương"],
-                                ...aepSalaryRows.flatMap(({ emp, approved }) =>
-                                  approved.map(({ job, assignment }) => [
-                                    emp.profile?.hoTen || emp.name,
-                                    job.title,
-                                    assignment.approvedAt ? assignment.approvedAt.slice(0, 10) : "",
-                                    assignment.salaryEarned,
-                                  ])
-                                ),
-                              ];
-
-                              const manualRows = [
-                                ["Nhân sự", "Tiêu đề", "Ghi chú", "Số tiền"],
-                                ...aepManualEntries.map((entry) => [
-                                  employees.find((emp) => emp.id === entry.empId)?.profile?.hoTen || employees.find((emp) => emp.id === entry.empId)?.name || entry.empId,
-                                  entry.title,
-                                  entry.note || "",
-                                  entry.amount,
-                                ]),
-                              ];
-
-                              const workbook = XLSX.utils.book_new();
-                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "TongQuan");
-                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(expenseRows), "ChiPhi");
-                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(salaryRows), "LuongJob");
-                              XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(manualRows), "LuongThuCong");
-                              XLSX.writeFile(workbook, `AEP-${aepMonth}.xlsx`);
-                            } catch {
-                              alert("Không thể xuất file XLSX cho tháng này.");
-                            } finally {
-                              setAepExporting(false);
-                            }
+                          onClick={() => {
+                            setAepExportMonths([aepMonth]);
+                            setShowAepExportModal(true);
                           }}
                           disabled={aepExporting}
                           className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-200 bg-white text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
-                          {aepExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}
+                          <FileSpreadsheet className="w-3.5 h-3.5" />
                           Xuất XLSX
                         </button>
                       </div>
@@ -7756,6 +7699,209 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {showAepExportModal && (() => {
+        const AEP_START = "2026-02";
+        const salaryMonths = (() => {
+          const s = new Set<string>([currentYM()]);
+          jobs.forEach((job) => {
+            const jm = job.month || job.createdAt.slice(0, 7);
+            s.add(jm);
+            job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt)); });
+          });
+          return Array.from(s);
+        })();
+        const aepMonths = [...new Set([
+          ...(revenueData ? Object.keys(revenueData) : []),
+          ...(thuChiData ? thuChiData.map((t) => t.date?.slice(0, 7)).filter(Boolean) as string[] : []),
+          ...salaryMonths,
+        ])].filter((ym) => ym >= AEP_START).sort().reverse();
+
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={() => setShowAepExportModal(false)}>
+            <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-center pt-3 pb-1 sm:hidden"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+              
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2"><FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Xuất Excel (BCTC)</h3>
+                  <p className="text-xs text-gray-500 mt-1">Gộp số liệu các tháng đã chọn thành 1 file duy nhất</p>
+                </div>
+                <button onClick={() => setShowAepExportModal(false)} className="p-2 -mr-2 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 overflow-y-auto min-h-[150px] space-y-2">
+                {aepMonths.map((ym) => (
+                  <label key={ym} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-emerald-300 hover:bg-emerald-50/50 cursor-pointer transition-colors group">
+                    <input
+                      type="checkbox"
+                      checked={aepExportMonths.includes(ym)}
+                      onChange={(e) => {
+                        if (e.target.checked) setAepExportMonths((prev) => [...prev, ym]);
+                        else setAepExportMonths((prev) => prev.filter((m) => m !== ym));
+                      }}
+                      className="w-5 h-5 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 transition-shadow"
+                    />
+                    <span className="text-sm font-semibold text-gray-700 group-hover:text-emerald-800 transition-colors flex-1">{monthLabel(ym)}</span>
+                    {ym === aepMonth && <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-bold ml-auto">Tháng hiện tại</span>}
+                  </label>
+                ))}
+              </div>
+
+              <div className="p-5 border-t border-gray-100 bg-gray-50 shrink-0 flex gap-3 sm:rounded-b-2xl">
+                <button
+                  onClick={() => setShowAepExportModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-100 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  disabled={aepExportMonths.length === 0 || aepExporting}
+                  onClick={async () => {
+                    try {
+                      setAepExporting(true);
+                      const XLSX = await import("xlsx");
+
+                      let totalRev = 0;
+                      let totalExpenses = 0;
+                      let totalSalary = 0;
+                      let totalManual = 0;
+
+                      const allExpenseRows: any[][] = [];
+                      const allSalaryRows: any[][] = [];
+                      const allManualRows: any[][] = [];
+
+                      for (const month of aepExportMonths) {
+                        const res = await fetch(`/api/aep/${month}`);
+                        const data = await res.json().catch(() => null);
+                        const classification = data?.data || EMPTY_AEP_CLASSIFICATION;
+
+                        const rev = revenueData?.[month] ?? 0;
+                        totalRev += rev;
+
+                        const monthExpenses = thuChiData
+                          ? thuChiData.filter((t) => t.type === "Chi" && t.date?.startsWith(month) && isCheckedExpense(classification, t))
+                          : [];
+                        totalExpenses += monthExpenses.reduce((s, t) => s + (t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000), 0);
+
+                        allExpenseRows.push(
+                          ...monthExpenses.map((t) => [
+                            t.date,
+                            t.subject,
+                            t.note || "",
+                            t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000,
+                            t.currency,
+                            t.created_by || "",
+                          ])
+                        );
+
+                        const monthSalaryData = employees.map((emp) => {
+                          const approved = jobs.flatMap((job) =>
+                            job.assignments.filter((a) => {
+                              if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
+                              const jm = job.month || job.createdAt.slice(0, 7);
+                              return getSalaryMonth(jm, a.approvedAt) === month && classification?.salaryAssignments?.[a.id] === true;
+                            }).map((a) => ({ job, assignment: a }))
+                          );
+                          return { emp, approved };
+                        }).filter((r) => r.approved.length > 0);
+
+                        monthSalaryData.forEach(({ emp, approved }) => {
+                          approved.forEach(({ job, assignment }) => {
+                            totalSalary += assignment.salaryEarned;
+                            allSalaryRows.push([
+                              emp.profile?.hoTen || emp.name,
+                              job.title,
+                              assignment.approvedAt ? assignment.approvedAt.slice(0, 10) : "",
+                              assignment.salaryEarned,
+                              month,
+                            ]);
+                          });
+                        });
+
+                        const allManualForMonth = manualEntries[month] ?? [];
+                        const monthManualEntries = allManualForMonth.filter((e) => classification?.manualEntries?.[e.id] === true);
+                        totalManual += monthManualEntries.reduce((s, e) => s + e.amount, 0);
+
+                        allManualRows.push(
+                          ...monthManualEntries.map((entry) => [
+                            employees.find((emp) => emp.id === entry.empId)?.profile?.hoTen || employees.find((emp) => emp.id === entry.empId)?.name || entry.empId,
+                            entry.title,
+                            entry.note || "",
+                            entry.amount,
+                            month,
+                          ])
+                        );
+                      }
+
+                      const totalChi = totalExpenses + totalSalary + totalManual;
+                      const profit = totalRev - totalChi;
+
+                      const summaryRows = [
+                        ["Hạng mục", "Giá trị"],
+                        ["Các tháng gộp", aepExportMonths.map(monthLabel).join(", ")],
+                        ["Tổng Doanh thu", totalRev],
+                        ["Tổng Chi phí vận hành", totalExpenses],
+                        ["Tổng Lương sản xuất", totalSalary],
+                        ["Tổng Lương thủ công", totalManual],
+                        ["Tổng chi phí", totalChi],
+                        ["Lợi nhuận", profit],
+                        ["Xuất lúc", new Date().toLocaleString("vi-VN")],
+                      ];
+
+                      const expenseSheetRows = [
+                        ["Ngày", "Hạng mục", "Ghi chú", "Số tiền (VND)", "Tiền tệ gốc", "Người tạo"],
+                        ...allExpenseRows,
+                      ];
+
+                      const salarySheetRows = [
+                        ["Nhân sự", "Job", "Ngày duyệt", "Lương", "Tháng tính"],
+                        ...allSalaryRows,
+                      ];
+
+                      const manualSheetRows = [
+                        ["Nhân sự", "Tiêu đề", "Ghi chú", "Số tiền", "Tháng tính"],
+                        ...allManualRows,
+                      ];
+
+                      const workbook = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(summaryRows), "TongQuan");
+                      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(expenseSheetRows), "ChiPhi");
+                      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(salarySheetRows), "LuongJob");
+                      XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(manualSheetRows), "LuongThuCong");
+
+                      const fileName = aepExportMonths.length === 1 ? `AEP-${aepExportMonths[0]}.xlsx` : `AEP-Gop-${aepExportMonths.length}-Thang.xlsx`;
+                      XLSX.writeFile(workbook, fileName);
+
+                      setShowAepExportModal(false);
+                    } catch (e) {
+                      console.error("Export error", e);
+                      alert("Không thể xuất file XLSX. Vui lòng thử lại.");
+                    } finally {
+                      setAepExporting(false);
+                    }
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-bold transition-colors inline-flex items-center justify-center gap-2"
+                >
+                  {aepExporting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Đang gộp & xuất...
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Xuất File
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Modal báo xong clip mini ── */}
       {miniDoneModal && (() => {
