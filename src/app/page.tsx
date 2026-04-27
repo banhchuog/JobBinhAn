@@ -6809,7 +6809,7 @@ export default function Home() {
                       for (const month of aepExportMonths) {
                         const res = await fetch(`/api/aep/${month}`);
                         const data = await res.json().catch(() => null);
-                        const classification = data?.data || EMPTY_AEP_CLASSIFICATION;
+                        const classification = data || EMPTY_AEP_CLASSIFICATION;
 
                         const rev = revenueData?.[month] ?? 0;
                         totalRev += rev;
