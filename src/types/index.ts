@@ -19,6 +19,7 @@ export interface Employee {
   name: string;
   balance: number;
   profile?: EmployeeProfile;
+  isActive?: boolean;
 }
 
 export interface Job {

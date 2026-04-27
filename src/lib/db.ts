@@ -96,7 +96,10 @@ function getPool(): Pool {
 export async function initSchema(): Promise<void> {
   if (!hasDatabaseUrl()) return;
   const pool = getPool();
-  await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);  await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'`);  await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT NOT NULL, balance DECIMAL DEFAULT 0)`);
+  await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS profile JSONB DEFAULT '{}'`);
+  await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, data JSONB NOT NULL)`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS manual_salary (
       id TEXT PRIMARY KEY,
@@ -308,30 +311,32 @@ export async function deleteJob(id: string): Promise<boolean> {
 export async function getAllEmployees(): Promise<Employee[]> {
   if (!hasDatabaseUrl()) {
     const db = await readLocalDb();
-    return [...db.employees].sort((left, right) => left.name.localeCompare(right.name, "vi"));
+    return db.employees.map(e => ({...e, isActive: e.isActive ?? true})).sort((left, right) => left.name.localeCompare(right.name, "vi"));
   }
-  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile FROM employees ORDER BY name`);
+  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile, COALESCE(is_active, true) as "isActive" FROM employees ORDER BY name`);
   return rows as Employee[];
 }
 
 export async function getEmployeeById(id: string): Promise<Employee | null> {
   if (!hasDatabaseUrl()) {
     const db = await readLocalDb();
-    return db.employees.find((employee) => employee.id === id) ?? null;
+    const emp = db.employees.find((employee) => employee.id === id);
+    if (!emp) return null;
+    return { ...emp, isActive: emp.isActive ?? true };
   }
-  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile FROM employees WHERE id = $1`, [id]);
+  const { rows } = await getPool().query(`SELECT id, name, CAST(balance AS FLOAT) as balance, profile, COALESCE(is_active, true) as "isActive" FROM employees WHERE id = $1`, [id]);
   return rows.length > 0 ? (rows[0] as Employee) : null;
 }
 
 export async function createEmployee(employee: Employee): Promise<Employee> {
   if (!hasDatabaseUrl()) {
     const db = await readLocalDb();
-    db.employees.push(employee);
+    db.employees.push({...employee, isActive: true});
     await writeLocalDb(db);
     return employee;
   }
-  await getPool().query(`INSERT INTO employees (id, name, balance) VALUES ($1, $2, $3)`, [employee.id, employee.name, employee.balance]);
-  return employee;
+  await getPool().query(`INSERT INTO employees (id, name, balance, is_active) VALUES ($1, $2, $3, true)`, [employee.id, employee.name, employee.balance]);
+  return { ...employee, isActive: true };
 }
 
 export async function updateEmployee(updated: Employee): Promise<Employee | null> {
@@ -344,8 +349,8 @@ export async function updateEmployee(updated: Employee): Promise<Employee | null
     return updated;
   }
   const { rowCount } = await getPool().query(
-    `UPDATE employees SET name = $1, balance = $2, profile = $3 WHERE id = $4`,
-    [updated.name, updated.balance, JSON.stringify(updated.profile ?? {}), updated.id]
+    `UPDATE employees SET name = $1, balance = $2, profile = $3, is_active = $5 WHERE id = $4`,
+    [updated.name, updated.balance, JSON.stringify(updated.profile ?? {}), updated.id, updated.isActive ?? true]
   );
   return (rowCount ?? 0) > 0 ? updated : null;
 }

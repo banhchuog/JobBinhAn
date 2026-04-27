@@ -2159,10 +2159,26 @@ export default function Home() {
 
   // ─── Director: Delete / Rename Employee ─────────────
   const handleDeleteEmployee = async (empId: string) => {
-    if (!confirm("Xoá nhân viên này?")) return;
+    if (!confirm("Xoá nhân viên này? Lịch sử công việc sẽ mất nếu có.")) return;
     setSubmitting(true);
     try {
       await fetch(`/api/employees/${empId}`, { method: "DELETE" });
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleToggleEmployeeActive = async (emp: Employee) => {
+    const action = emp.isActive === false ? "Cho nhân viên này làm lại?" : "Cho nhân viên này thôi việc?";
+    if (!confirm(action)) return;
+    setSubmitting(true);
+    try {
+      await fetch(`/api/employees/${emp.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: emp.isActive === false ? true : false }),
+      });
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -3215,11 +3231,11 @@ export default function Home() {
                         ) : (
                           <div className="flex justify-between items-start">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm shrink-0">
+                              <div className={`w-9 h-9 ${emp.isActive === false ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-600'} rounded-full flex items-center justify-center font-bold text-sm shrink-0`}>
                                 {emp.name.charAt(0).toUpperCase()}
                               </div>
                               <div>
-                                <p className="font-medium">{emp.name}</p>
+                                <p className={`font-medium ${emp.isActive === false ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{emp.name}</p>
                                 <p className="text-xs text-green-600 flex items-center gap-0.5">
                                   <Wallet className="w-3 h-3" />{formatCurrency(emp.balance)}
                                 </p>
@@ -3253,8 +3269,12 @@ export default function Home() {
                                 <Pencil className="w-4 h-4" />
                               </button>
                               <button onClick={() => handleDeleteEmployee(emp.id)} disabled={submitting}
-                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá">
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Xoá vĩnh viễn">
                                 <Trash2 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleToggleEmployeeActive(emp)} disabled={submitting}
+                                className={`p-1.5 ${emp.isActive === false ? 'text-green-500 hover:bg-green-50' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'} rounded-lg transition-colors`} title={emp.isActive === false ? "Cho làm lại" : "Thôi việc"}>
+                                <LogOut className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
@@ -7980,8 +8000,8 @@ function EmployeeList({ onLogin, onMounted }: { onLogin: (emp: Employee) => void
         }
         return Array.isArray(payload) ? payload : [];
       })
-      .then((list) => {
-        setEmployees(list);
+      .then((list: Employee[]) => {
+        setEmployees(list.filter(e => e.isActive !== false));
         setLoadError(null);
       })
       .catch((error) => {

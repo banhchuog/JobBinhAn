@@ -14,6 +14,7 @@ export async function PATCH(
       ...employee,
       name: body.name ?? employee.name,
       profile: body.profile !== undefined ? body.profile : (employee.profile ?? {}),
+      isActive: body.isActive !== undefined ? body.isActive : employee.isActive,
     });
     return NextResponse.json(updated);
   } catch {
