@@ -520,90 +520,90 @@ function getJobCategorySurfaceClass(label: string) {
 
   if (normalized === "mini") {
     return {
-      cardBg: "bg-violet-50 border border-violet-200 dark:bg-violet-950 dark:border-violet-800",
-      accentText: "text-violet-700 dark:text-violet-300",
-      barBg: "bg-violet-200 dark:bg-violet-800",
-      barFill: "bg-violet-400 dark:bg-violet-500",
+      cardBg: "bg-violet-50 border border-violet-200",
+      accentText: "text-violet-700",
+      barBg: "bg-violet-200",
+      barFill: "bg-violet-400",
       btnClass: "bg-violet-500 hover:bg-violet-600 text-white",
     };
   }
   if (normalized.includes("hậu kỳ")) {
     return {
-      cardBg: "bg-blue-50 border border-blue-200 dark:bg-blue-950 dark:border-blue-800",
-      accentText: "text-blue-700 dark:text-blue-300",
-      barBg: "bg-blue-200 dark:bg-blue-800",
-      barFill: "bg-blue-500 dark:bg-blue-400",
+      cardBg: "bg-blue-50 border border-blue-200",
+      accentText: "text-blue-700",
+      barBg: "bg-blue-200",
+      barFill: "bg-blue-500",
       btnClass: "bg-blue-600 hover:bg-blue-700 text-white",
     };
   }
   if (normalized.includes("đạo diễn")) {
     return {
-      cardBg: "bg-amber-50 border border-amber-200 dark:bg-amber-950 dark:border-amber-800",
-      accentText: "text-amber-700 dark:text-amber-300",
-      barBg: "bg-amber-200 dark:bg-amber-800",
-      barFill: "bg-amber-400 dark:bg-amber-500",
+      cardBg: "bg-amber-50 border border-amber-200",
+      accentText: "text-amber-700",
+      barBg: "bg-amber-200",
+      barFill: "bg-amber-400",
       btnClass: "bg-amber-500 hover:bg-amber-600 text-white",
     };
   }
   if (normalized.includes("kịch bản") || normalized.includes("storyboard")) {
     return {
-      cardBg: "bg-emerald-50 border border-emerald-200 dark:bg-emerald-950 dark:border-emerald-800",
-      accentText: "text-emerald-700 dark:text-emerald-300",
-      barBg: "bg-emerald-200 dark:bg-emerald-800",
-      barFill: "bg-emerald-500 dark:bg-emerald-400",
+      cardBg: "bg-emerald-50 border border-emerald-200",
+      accentText: "text-emerald-700",
+      barBg: "bg-emerald-200",
+      barFill: "bg-emerald-500",
       btnClass: "bg-emerald-600 hover:bg-emerald-700 text-white",
     };
   }
   if (normalized.includes("quay phim")) {
     return {
-      cardBg: "bg-cyan-50 border border-cyan-200 dark:bg-cyan-950 dark:border-cyan-800",
-      accentText: "text-cyan-700 dark:text-cyan-300",
-      barBg: "bg-cyan-200 dark:bg-cyan-800",
-      barFill: "bg-cyan-500 dark:bg-cyan-400",
+      cardBg: "bg-cyan-50 border border-cyan-200",
+      accentText: "text-cyan-700",
+      barBg: "bg-cyan-200",
+      barFill: "bg-cyan-500",
       btnClass: "bg-cyan-600 hover:bg-cyan-700 text-white",
     };
   }
   if (normalized.includes("ánh sáng")) {
     return {
-      cardBg: "bg-yellow-50 border border-yellow-200 dark:bg-yellow-950 dark:border-yellow-800",
-      accentText: "text-yellow-700 dark:text-yellow-300",
-      barBg: "bg-yellow-200 dark:bg-yellow-800",
-      barFill: "bg-yellow-400 dark:bg-yellow-500",
+      cardBg: "bg-yellow-50 border border-yellow-200",
+      accentText: "text-yellow-700",
+      barBg: "bg-yellow-200",
+      barFill: "bg-yellow-400",
       btnClass: "bg-yellow-500 hover:bg-yellow-600 text-white",
     };
   }
   if (normalized.includes("thu âm")) {
     return {
-      cardBg: "bg-pink-50 border border-pink-200 dark:bg-pink-950 dark:border-pink-800",
-      accentText: "text-pink-700 dark:text-pink-300",
-      barBg: "bg-pink-200 dark:bg-pink-800",
-      barFill: "bg-pink-400 dark:bg-pink-500",
+      cardBg: "bg-pink-50 border border-pink-200",
+      accentText: "text-pink-700",
+      barBg: "bg-pink-200",
+      barFill: "bg-pink-400",
       btnClass: "bg-pink-500 hover:bg-pink-600 text-white",
     };
   }
   if (normalized.includes("thiết kế")) {
     return {
-      cardBg: "bg-rose-50 border border-rose-200 dark:bg-rose-950 dark:border-rose-800",
-      accentText: "text-rose-700 dark:text-rose-300",
-      barBg: "bg-rose-200 dark:bg-rose-800",
-      barFill: "bg-rose-400 dark:bg-rose-500",
+      cardBg: "bg-rose-50 border border-rose-200",
+      accentText: "text-rose-700",
+      barBg: "bg-rose-200",
+      barFill: "bg-rose-400",
       btnClass: "bg-rose-500 hover:bg-rose-600 text-white",
     };
   }
   if (normalized.includes("vfx")) {
     return {
-      cardBg: "bg-indigo-50 border border-indigo-200 dark:bg-indigo-950 dark:border-indigo-800",
-      accentText: "text-indigo-700 dark:text-indigo-300",
-      barBg: "bg-indigo-200 dark:bg-indigo-800",
-      barFill: "bg-indigo-500 dark:bg-indigo-400",
+      cardBg: "bg-indigo-50 border border-indigo-200",
+      accentText: "text-indigo-700",
+      barBg: "bg-indigo-200",
+      barFill: "bg-indigo-500",
       btnClass: "bg-indigo-600 hover:bg-indigo-700 text-white",
     };
   }
   return {
-    cardBg: "bg-slate-50 border border-slate-200 dark:bg-slate-900 dark:border-slate-700",
-    accentText: "text-slate-700 dark:text-slate-300",
-    barBg: "bg-slate-200 dark:bg-slate-700",
-    barFill: "bg-slate-500 dark:bg-slate-400",
+    cardBg: "bg-slate-50 border border-slate-200",
+    accentText: "text-slate-700",
+    barBg: "bg-slate-200",
+    barFill: "bg-slate-500",
     btnClass: "bg-slate-600 hover:bg-slate-700 text-white",
   };
 }
@@ -1033,16 +1033,6 @@ export default function Home() {
     createdAt: string; approvedAt: string;
   } | null>(null);
   const [jobEditModal, setJobEditModal] = useState<JobEditModalState | null>(null);
-
-  // ── Dark mode (auto based on system preference) ─────
-  const [isDark, setIsDark] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
@@ -2459,7 +2449,7 @@ export default function Home() {
   // ══════════════════════════════════════════════════════
   if (view === "DIRECTOR") {
     return (
-      <div className={`min-h-screen bg-gray-50${isDark ? " admin-dark" : ""}`}>
+      <div className="min-h-screen bg-gray-50">
         <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
           <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
             <div className="flex items-center gap-2 text-blue-600">
@@ -3126,11 +3116,11 @@ export default function Home() {
                                           ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                                           : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>}
                                     </span>
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-white/70 dark:bg-white/10 text-orange-600 dark:text-orange-400 border border-white/60 dark:border-white/10">
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 bg-white/70 text-orange-600 border border-white/60">
                                       {remainingLabel}
                                     </span>
                                   </div>
-                                  <h3 className="font-bold text-gray-900 dark:text-white text-[15px] leading-snug line-clamp-2">{job.title}</h3>
+                                  <h3 className="font-bold text-gray-900 text-[15px] leading-snug line-clamp-2">{job.title}</h3>
                                   <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${categoryBadgeClass}`}>
                                       {categoryLabel}
@@ -3138,18 +3128,18 @@ export default function Home() {
                                     {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0 border border-purple-200">{job.groupName}</span>}
                                     {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 border border-orange-200"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
                                   </div>
-                                  {standardMeta && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-2">{standardMeta}</p>}
-                                  {job.description && <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 line-clamp-1">{job.description}</p>}
-                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                  {standardMeta && <p className="text-[11px] text-gray-500 mt-1.5 line-clamp-2">{standardMeta}</p>}
+                                  {job.description && <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">{job.description}</p>}
+                                  <p className="text-[10px] text-gray-400 mt-1">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 relative z-10">
                                 <button onClick={() => openJobEditModal(job)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 dark:hover:bg-white/10 rounded-xl transition-colors border border-white/60 dark:border-white/10" title="Sửa job">
+                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Sửa job">
                                   <Pencil className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => handleDeleteJob(job.id)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 dark:hover:bg-white/10 rounded-xl transition-colors border border-white/60 dark:border-white/10" title="Xoá job">
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Xoá job">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -3160,7 +3150,7 @@ export default function Home() {
                                   ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
                                   : formatCurrency(job.totalSalary)}
                               </p>
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400 shrink-0">
+                              <p className="text-[10px] text-gray-500 shrink-0">
                                 {job.assignments.length} người nhận
                               </p>
                             </div>
@@ -3170,8 +3160,8 @@ export default function Home() {
                             {job.assignments.length > 0 && (
                               <div className="space-y-1.5 relative z-10 max-h-28 overflow-y-auto pr-1">
                                 {job.assignments.map((a) => (
-                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-white/70 dark:bg-white/5 border border-white/80 dark:border-white/10 px-2.5 py-2 rounded-xl backdrop-blur-[1px]">
-                                    <span className="font-medium text-gray-800 dark:text-gray-200">{a.employeeName}</span>
+                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-white/70 border border-white/80 px-2.5 py-2 rounded-xl backdrop-blur-[1px]">
+                                    <span className="font-medium text-gray-800">{a.employeeName}</span>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {isMini
                                         ? <span className="text-purple-600 font-medium">{a.units ?? 1} clip</span>
@@ -3473,64 +3463,64 @@ export default function Home() {
                   };
                   return (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
-                      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
-                          <h3 className="font-bold text-gray-800 dark:text-white text-lg flex items-center gap-2">
+                      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
+                          <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
                             <FileSpreadsheet className="w-6 h-6 text-indigo-500" />
                             Bảng Lương Chuẩn (Luật 2026) — {monthLabel(directorMonth)}
                           </h3>
-                          <button onClick={() => setShowSalaryPreview(false)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-600">
-                            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                          <button onClick={() => setShowSalaryPreview(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors bg-white shadow-sm border border-gray-100">
+                            <X className="w-5 h-5 text-gray-500" />
                           </button>
                         </div>
-                        <div className="overflow-auto flex-1 p-6 bg-slate-50 dark:bg-gray-900">
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
-                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto shadow-sm">
+                        <div className="overflow-auto flex-1 p-6 bg-slate-50">
+                          <p className="text-xs text-slate-500 mb-3">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
+                          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
                             <table className="w-full text-sm text-left">
-                              <thead className="bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-slate-300 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
+                              <thead className="bg-slate-100 text-slate-600 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
                                 <tr>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600">STT</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 min-w-[150px]">Họ và tên</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600">Loại HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-orange-500">Thưởng KPI</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-white font-extrabold">Tổng thu nhập gộp</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right">Trừ BH (10.5%)</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right">Giảm trừ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-indigo-400">TN Tính thuế</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-rose-400">Thuế TNCN</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 dark:border-gray-600 text-right text-emerald-400 text-base">Thực lĩnh</th>
+                                  <th className="px-4 py-4 border-b border-slate-200">STT</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 min-w-[150px]">Họ và tên</th>
+                                  <th className="px-4 py-4 border-b border-slate-200">Loại HĐ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-500">Thưởng KPI</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-white font-extrabold">Tổng thu nhập gộp</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Trừ BH (10.5%)</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Giảm trừ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-400">TN Tính thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-rose-400">Thuế TNCN</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-emerald-400 text-base">Thực lĩnh</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100 dark:divide-gray-700 text-slate-700 dark:text-slate-300">
+                              <tbody className="divide-y divide-gray-100 text-slate-700">
                                 {tableRows.map((tr) => (
-                                  <tr key={tr.i} className="hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-colors whitespace-nowrap group">
-                                    <td className="px-4 py-3.5 text-slate-400 dark:text-slate-500 font-medium">{tr.i + 1}</td>
-                                    <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-white">{tr.name}</td>
+                                  <tr key={tr.i} className="hover:bg-slate-50 transition-colors whitespace-nowrap group">
+                                    <td className="px-4 py-3.5 text-slate-400 font-medium">{tr.i + 1}</td>
+                                    <td className="px-4 py-3.5 font-bold text-slate-800">{tr.name}</td>
                                     <td className="px-4 py-3.5">
-                                      <button onClick={() => toggleStatus(tr.empId, tr.status)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${ tr.status === 'probation' ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-800/50' : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800/40' }`}>
+                                      <button onClick={() => toggleStatus(tr.empId, tr.status)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${ tr.status === 'probation' ? 'bg-amber-100 text-amber-700 border-amber-300 hover:bg-amber-200' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100' }`}>
                                         {tr.status === 'probation' ? '🔶 Thử việc' : '✅ Chính thức'}
                                       </button>
                                     </td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500 dark:text-slate-400">{formatCurrency(tr.lcs)}</td>
-                                    <td className="px-4 py-3.5 text-right text-orange-600 dark:text-orange-400 font-medium">{formatCurrency(tr.thuongKPI)}</td>
-                                    <td className="px-4 py-3.5 text-right font-bold text-black dark:text-white border-x border-slate-100 dark:border-gray-600 bg-slate-50/50 dark:bg-gray-700/30 group-hover:bg-white dark:group-hover:bg-gray-700/60">{formatCurrency(tr.tongThuNhap)}</td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500 dark:text-slate-400">{formatCurrency(tr.tongBH)}</td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500 dark:text-slate-400">{formatCurrency(tr.gtBanThan)}</td>
-                                    <td className="px-4 py-3.5 text-right text-indigo-600 dark:text-indigo-400 font-semibold border-x border-indigo-50/50 dark:border-indigo-900/50">{formatCurrency(tr.tntt)}</td>
-                                    <td className="px-4 py-3.5 text-right text-rose-600 dark:text-rose-400 font-bold border-r border-rose-50/50 dark:border-rose-900/50">{formatCurrency(tr.thue)}</td>
-                                    <td className="px-4 py-3.5 text-right text-emerald-600 dark:text-emerald-400 font-black text-base">{formatCurrency(tr.thucLinh)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.lcs)}</td>
+                                    <td className="px-4 py-3.5 text-right text-orange-600 font-medium">{formatCurrency(tr.thuongKPI)}</td>
+                                    <td className="px-4 py-3.5 text-right font-bold text-black border-x border-slate-100 bg-slate-50/50 group-hover:bg-white">{formatCurrency(tr.tongThuNhap)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.tongBH)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.gtBanThan)}</td>
+                                    <td className="px-4 py-3.5 text-right text-indigo-600 font-semibold border-x border-indigo-50/50">{formatCurrency(tr.tntt)}</td>
+                                    <td className="px-4 py-3.5 text-right text-rose-600 font-bold border-r border-rose-50/50">{formatCurrency(tr.thue)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600 font-black text-base">{formatCurrency(tr.thucLinh)}</td>
                                   </tr>
                                 ))}
                                 {tableRows.length === 0 && (
-                                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400 dark:text-slate-500 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
+                                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
                                 )}
                               </tbody>
                             </table>
                           </div>
                         </div>
-                        <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-end gap-3">
-                          <button onClick={() => setShowSalaryPreview(false)} className="px-4 py-2 text-gray-600 dark:text-gray-300 font-medium hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">Đóng</button>
+                        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+                          <button onClick={() => setShowSalaryPreview(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors">Đóng</button>
                           <button onClick={exportPayrollCSV} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-sm">
                             <Download className="w-4 h-4" />
                             Xuất CSV chuẩn 2026
