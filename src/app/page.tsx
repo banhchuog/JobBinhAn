@@ -1976,6 +1976,29 @@ export default function Home() {
     }
   };
 
+  const handleApproveAllPending = async () => {
+    if (pendingApprovals.length === 0) return;
+    if (!confirm(`Duyệt tất cả ${pendingApprovals.length} phần việc đang chờ duyệt?`)) return;
+
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        pendingApprovals.map(({ job, assignment }) =>
+          fetch(`/api/jobs/${job.id}/assignments/${assignment.id}/approve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          })
+        )
+      );
+      setApprovingItem(null);
+      setApproveNote("");
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ─── Director: Reject (trả lại đang làm) ────────────────────────────────
   const handleReject = async (jobId: string, assignmentId: string) => {
     setSubmitting(true);
@@ -3280,7 +3303,18 @@ export default function Home() {
           {/* ── Approvals tab ── */}
           {directorTab === "approvals" && (
             <div>
-              <h2 className="text-lg font-semibold mb-4">Chờ Duyệt</h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <h2 className="text-lg font-semibold">Chờ Duyệt</h2>
+                {pendingApprovals.length > 0 && (
+                  <button
+                    onClick={handleApproveAllPending}
+                    disabled={submitting}
+                    className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4" /> Duyệt tất cả ({pendingApprovals.length})
+                  </button>
+                )}
+              </div>
               {loading ? <LoadingBlock /> : pendingApprovals.length === 0 ? (
                 <EmptyBlock text="Không có phần việc nào chờ duyệt." />
               ) : (
