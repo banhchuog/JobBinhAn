@@ -1001,6 +1001,7 @@ export default function Home() {
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
   const [showSalaryPreview, setShowSalaryPreview] = useState(false);
+  const [qrPreview, setQrPreview] = useState<{ name: string; amount: number; url: string } | null>(null);
   const [empStatusByMonth, setEmpStatusByMonth] = useState<Record<string, Record<string, 'official' | 'probation'>>>({});
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedContractEmps, setSelectedContractEmps] = useState<string[]>([]);
@@ -3474,10 +3475,43 @@ export default function Home() {
             return (
               <div className="space-y-5">
                 {showSalaryPreview && (() => {
+                  const BANK_BINS: [string[], string][] = [
+                    [['vietcombank','vcb'], '970436'],
+                    [['techcombank','tcb'], '970407'],
+                    [['bidv'], '970418'],
+                    [['vietinbank','ctg','viettinbank'], '970415'],
+                    [['agribank'], '970405'],
+                    [['mbbank','mb bank','mb'], '970422'],
+                    [['vpbank','vp bank'], '970432'],
+                    [['acb'], '970416'],
+                    [['sacombank'], '970403'],
+                    [['tpbank','tp bank'], '970423'],
+                    [['vib'], '970441'],
+                    [['hdbank','hd bank'], '970437'],
+                    [['ocb'], '970448'],
+                    [['seabank','sea bank'], '970440'],
+                    [['shb'], '970443'],
+                    [['msb'], '970426'],
+                    [['lienvietpostbank','lienviệt','lpb'], '970449'],
+                    [['eximbank','exim'], '970431'],
+                    [['ncb'], '970419'],
+                    [['pvcombank'], '970412'],
+                    [['abbank'], '970425'],
+                    [['vietbank'], '970433'],
+                    [['baovietbank','bao viet'], '970438'],
+                  ];
+                  const getBankBin = (bankName?: string): string | null => {
+                    if (!bankName) return null;
+                    const lower = bankName.toLowerCase();
+                    for (const [keys, bin] of BANK_BINS) {
+                      if (keys.some(k => lower.includes(k))) return bin;
+                    }
+                    return null;
+                  };
                   const tableRows = rows.map((r, i) => {
                     const status = (empStatusByMonth[directorMonth]?.[r.emp.id] ?? 'official') as 'official' | 'probation';
                     const payroll = getPayroll(status, r.totalApproved);
-                    return { i, empId: r.emp.id, name: r.emp.name, status, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, tongThuNhap: payroll.tongThuNhap, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
+                    return { i, empId: r.emp.id, name: r.emp.name, cccd: r.emp.profile?.cccd ?? '', stk: r.emp.profile?.stk ?? '', nganHang: r.emp.profile?.nganHang ?? '', status, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, tongThuNhap: payroll.tongThuNhap, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
                   });
                   const toggleStatus = async (empId: string, current: 'official' | 'probation') => {
                     const next = current === 'probation' ? 'official' : 'probation';
@@ -3524,6 +3558,7 @@ export default function Home() {
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-400">TN Tính thuế</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-rose-400">Thuế TNCN</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-emerald-400 text-base">Thực lĩnh</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-center">QR</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-100 text-slate-700">
@@ -3544,6 +3579,20 @@ export default function Home() {
                                     <td className="px-4 py-3.5 text-right text-indigo-600 font-semibold border-x border-indigo-50/50">{formatCurrency(tr.tntt)}</td>
                                     <td className="px-4 py-3.5 text-right text-rose-600 font-bold border-r border-rose-50/50">{formatCurrency(tr.thue)}</td>
                                     <td className="px-4 py-3.5 text-right text-emerald-600 font-black text-base">{formatCurrency(tr.thucLinh)}</td>
+                                    <td className="px-4 py-3.5 text-center">
+                                      {(() => {
+                                        const bin = getBankBin(tr.nganHang);
+                                        if (!bin || !tr.stk) return <span className="text-[10px] text-slate-300">—</span>;
+                                        const month = directorMonth.split('-')[1]?.replace(/^0/, '');
+                                        const addInfo = `TT LUONG THANG ${month} ${tr.cccd} ${tr.name}`.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
+                                        const url = `https://img.vietqr.io/image/${bin}-${tr.stk}-compact2.png?amount=${Math.round(tr.thucLinh)}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(tr.name.toUpperCase())}`;
+                                        return (
+                                          <button onClick={() => setQrPreview({ name: tr.name, amount: tr.thucLinh, url })} className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors" title="Xem QR thanh toán lương">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01M14 21h.01M21 14v7"/></svg>
+                                          </button>
+                                        );
+                                      })()}
+                                    </td>
                                   </tr>
                                 ))}
                                 {tableRows.length === 0 && (
@@ -3564,6 +3613,20 @@ export default function Home() {
                     </div>
                   );
                 })()}
+                {/* QR Payment Modal */}
+                {qrPreview && (
+                  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70]" onClick={() => setQrPreview(null)}>
+                    <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-xs w-full mx-4" onClick={e => e.stopPropagation()}>
+                      <div className="text-center">
+                        <p className="font-bold text-slate-800 text-base">{qrPreview.name}</p>
+                        <p className="text-emerald-600 font-black text-xl mt-1">{formatCurrency(qrPreview.amount)}</p>
+                      </div>
+                      <img src={qrPreview.url} alt="VietQR" className="w-56 h-56 rounded-xl border border-slate-200 shadow" />
+                      <p className="text-[11px] text-slate-400 text-center">Quét mã để thanh toán lương qua VietQR</p>
+                      <button onClick={() => setQrPreview(null)} className="w-full py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600 font-medium text-sm transition-colors">Đóng</button>
+                    </div>
+                  </div>
+                )}
                 {/* Chọn tháng */}
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-gray-400 shrink-0" />
