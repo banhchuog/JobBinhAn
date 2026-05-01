@@ -452,13 +452,25 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
 
 export async function getDailyAepRevenue(): Promise<Record<string, number>> {
   const { rows } = await getPool().query(
-    `SELECT booking_date::text AS date, CAST(SUM(amount) AS FLOAT) AS amount
-     FROM casso_transactions
-     WHERE is_incoming = TRUE 
-       AND is_aep = TRUE
-       AND booking_date >= CURRENT_DATE - INTERVAL '30 days'
-     GROUP BY booking_date
-     ORDER BY booking_date ASC`
+    `WITH day_series AS (
+       SELECT generate_series(
+         CURRENT_DATE - INTERVAL '29 days',
+         CURRENT_DATE,
+         INTERVAL '1 day'
+       )::date AS booking_date
+     ),
+     revenue_by_day AS (
+       SELECT booking_date, COALESCE(SUM(amount), 0) AS amount
+       FROM casso_transactions
+       WHERE is_incoming = TRUE
+         AND is_aep = TRUE
+         AND booking_date >= CURRENT_DATE - INTERVAL '29 days'
+       GROUP BY booking_date
+     )
+     SELECT day_series.booking_date::text AS date, CAST(COALESCE(revenue_by_day.amount, 0) AS FLOAT) AS amount
+     FROM day_series
+     LEFT JOIN revenue_by_day ON revenue_by_day.booking_date = day_series.booking_date
+     ORDER BY day_series.booking_date ASC`
   );
 
   return rows.reduce<Record<string, number>>((acc, row) => {

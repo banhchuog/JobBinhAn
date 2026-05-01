@@ -4448,20 +4448,16 @@ export default function Home() {
                           .sort(([a], [b]) => a.localeCompare(b));
                         const amountByDate = new Map(allDailyEntries);
 
-                        const latestDailyMonth = allDailyEntries.length > 0
-                          ? allDailyEntries[allDailyEntries.length - 1][0]?.slice(0, 7) ?? null
-                          : null;
-                        const selectedDailyMonth = overviewFilter === "all" ? latestDailyMonth : overviewFilter;
-                        const dailyEntries = selectedDailyMonth
-                          ? allDailyEntries.filter(([date]) => date.startsWith(selectedDailyMonth))
-                          : [];
+                        const dailyEntries = allDailyEntries.slice(-30);
+                        const rangeStart = dailyEntries[0]?.[0] ?? null;
+                        const rangeEnd = dailyEntries[dailyEntries.length - 1]?.[0] ?? null;
 
                         if (dailyEntries.length === 0) {
                           return (
                             <div className="bg-white border border-gray-200 rounded-2xl p-4">
                               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                                 <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
-                                Doanh thu AEP theo ngày{selectedDailyMonth ? ` (${monthLabel(selectedDailyMonth)})` : ""}
+                                Doanh thu AEP theo ngày (30 ngày gần nhất)
                               </p>
                               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
                                 <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu ngày từ Casso</p>
@@ -4493,6 +4489,7 @@ export default function Home() {
                           return {
                             date,
                             day: date.slice(8, 10),
+                            dayLabel: `${date.slice(8, 10)}/${date.slice(5, 7)}`,
                             amount: Math.round((amount / 1e6) * 10) / 10,
                             growth,
                             weekdayLabel,
@@ -4525,7 +4522,7 @@ export default function Home() {
                                 </span>
                                 <div>
                                   <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo ngày</p>
-                                  <p className="text-[10px] text-gray-400">{monthLabel(selectedDailyMonth!)} · triệu đồng</p>
+                                  <p className="text-[10px] text-gray-400">30 ngày gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
                                 </div>
                               </div>
                               <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">{dailyChartData.length} ngày</span>
@@ -4564,20 +4561,20 @@ export default function Home() {
                               <ResponsiveContainer width="100%" height={180}>
                                 <ComposedChart data={dailyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} />
+                                  <XAxis dataKey="dayLabel" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} minTickGap={18} />
                                   <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
                                   <Tooltip
                                     content={({ active, payload }) => {
                                       if (!active || !payload || payload.length === 0) return null;
                                       const point = payload[0]?.payload as {
-                                        day: string; amount: number; weekdayLabel: string;
+                                        day: string; date: string; amount: number; weekdayLabel: string;
                                         prevWeekDate: string; prevWeekAmount: number | null;
                                         weekdayDelta: number | null; weekdayDeltaPct: number | null;
                                       };
                                       if (!point) return null;
                                       return (
                                         <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
-                                          <p className="font-bold text-gray-700 mb-1">Ngày {point.day}/{selectedDailyMonth!.slice(5, 7)}</p>
+                                          <p className="font-bold text-gray-700 mb-1">{formatFullDate(point.date)}</p>
                                           <p className="text-indigo-600 font-semibold">Doanh thu: {point.amount.toFixed(1)}tr</p>
                                           {point.weekdayDelta !== null ? (
                                             <p className={`mt-0.5 font-semibold ${point.weekdayDelta > 0 ? "text-emerald-600" : point.weekdayDelta < 0 ? "text-rose-500" : "text-amber-600"}`}>
