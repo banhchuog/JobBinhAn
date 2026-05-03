@@ -3584,8 +3584,15 @@ export default function Home() {
                                         const bin = getBankBin(tr.nganHang);
                                         if (!bin || !tr.stk) return <span className="text-[10px] text-slate-300">—</span>;
                                         const month = directorMonth.split('-')[1]?.replace(/^0/, '');
-                                        const addInfo = `TT LUONG THANG ${month} ${tr.cccd} ${tr.name}`.toUpperCase().replace(/[^A-Z0-9 ]/g, '');
-                                        const url = `https://img.vietqr.io/image/${bin}-${tr.stk}-compact2.png?amount=${Math.round(tr.thucLinh)}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(tr.name.toUpperCase())}`;
+                                        const toAscii = (s: string) => s
+                                          .replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D')
+                                          .normalize('NFD')
+                                          .replace(/[\u0300-\u036f]/g, '')
+                                          .replace(/[^A-Za-z0-9 ]/g, '')
+                                          .toUpperCase();
+                                        const addInfo = toAscii(`TT LUONG THANG ${month} ${tr.cccd} ${tr.name}`);
+                                        const accountName = toAscii(tr.name);
+                                        const url = `https://img.vietqr.io/image/${bin}-${tr.stk}-compact2.png?amount=${Math.round(tr.thucLinh)}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(accountName)}`;
                                         return (
                                           <button onClick={() => setQrPreview({ name: tr.name, amount: tr.thucLinh, url })} className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors" title="Xem QR thanh toán lương">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01M14 21h.01M21 14v7"/></svg>
