@@ -3590,7 +3590,7 @@ export default function Home() {
                                           .replace(/[\u0300-\u036f]/g, '')
                                           .replace(/[^A-Za-z0-9 ]/g, '')
                                           .toUpperCase();
-                                        const addInfo = toAscii(`TT LUONG THANG ${month} ${tr.cccd} ${tr.name}`);
+                                        const addInfo = toAscii(`TT LUONG T${month} ${tr.cccd} ${tr.name}`);
                                         const accountName = toAscii(tr.name);
                                         const url = `https://img.vietqr.io/image/${bin}-${tr.stk}-compact2.png?amount=${Math.round(tr.thucLinh)}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(accountName)}`;
                                         return (
