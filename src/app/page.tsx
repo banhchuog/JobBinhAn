@@ -1035,6 +1035,10 @@ export default function Home() {
   } | null>(null);
   const [jobEditModal, setJobEditModal] = useState<JobEditModalState | null>(null);
 
+  // ── Bulk select (employee) ───────────────────────────
+  const [bulkMode, setBulkMode] = useState<"claim" | "done" | null>(null);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+
   // ── Group AI modal ───────────────────────────────────
   const [groupModalOpen, setGroupModalOpen] = useState(false);
   const [groupInput, setGroupInput] = useState("");
@@ -2251,6 +2255,51 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(units !== undefined ? { units } : {}),
       });
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Employee: Bulk Claim ────────────────────────────
+  const handleBulkClaim = async () => {
+    if (!currentEmployee || bulkSelected.size === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        Array.from(bulkSelected).map((jobId) =>
+          fetch(`/api/jobs/${jobId}/claim`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ employeeId: currentEmployee.id, employeeName: currentEmployee.name, percentage: 100 }),
+          })
+        )
+      );
+      setBulkMode(null);
+      setBulkSelected(new Set());
+      await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ─── Employee: Bulk Done ─────────────────────────────
+  const handleBulkDone = async () => {
+    if (!currentEmployee || bulkSelected.size === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(
+        Array.from(bulkSelected).map((key) => {
+          const [jobId, assignmentId] = key.split(":");
+          return fetch(`/api/jobs/${jobId}/assignments/${assignmentId}/done`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+        })
+      );
+      setBulkMode(null);
+      setBulkSelected(new Set());
       await fetchAll();
     } finally {
       setSubmitting(false);
@@ -7604,6 +7653,39 @@ export default function Home() {
 
                 {/* Action row */}
                 <div className="flex items-center justify-between mt-3 gap-1.5 relative z-10">
+                  {/* Bulk checkbox — claim mode (amber, non-mini only) */}
+                  {bulkMode === "claim" && theme === "amber" && !isMini && (
+                    <label className="flex items-center gap-1.5 cursor-pointer flex-1">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-amber-500 cursor-pointer"
+                        checked={bulkSelected.has(job.id)}
+                        onChange={(e) => {
+                          const next = new Set(bulkSelected);
+                          e.target.checked ? next.add(job.id) : next.delete(job.id);
+                          setBulkSelected(next);
+                        }}
+                      />
+                      <span className="text-xs font-medium text-gray-700">Chọn</span>
+                    </label>
+                  )}
+                  {/* Bulk checkbox — done mode (blue, WORKING non-mini only) */}
+                  {bulkMode === "done" && theme === "blue" && !isMini && myAssignment?.status === "WORKING" && (
+                    <label className="flex items-center gap-1.5 cursor-pointer flex-1">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-blue-500 cursor-pointer"
+                        checked={bulkSelected.has(`${job.id}:${myAssignment.id}`)}
+                        onChange={(e) => {
+                          const key = `${job.id}:${myAssignment.id}`;
+                          const next = new Set(bulkSelected);
+                          e.target.checked ? next.add(key) : next.delete(key);
+                          setBulkSelected(next);
+                        }}
+                      />
+                      <span className="text-xs font-medium text-gray-700">Chọn</span>
+                    </label>
+                  )}
                   <div className="flex items-center gap-1">
                     {theme === "amber" && myApprovedPct > 0 && (
                       <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-full ${badgeBg}`}>
@@ -7674,10 +7756,25 @@ export default function Home() {
               {/* Đang làm */}
               {myActiveJobs.length > 0 && (
                 <div>
-                  <h2 className="text-base font-bold text-blue-700 mb-3 flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
-                    Đang làm ({myActiveJobs.length})
-                  </h2>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-base font-bold text-blue-700 flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" />
+                      Đang làm ({myActiveJobs.length})
+                    </h2>
+                    <button
+                      onClick={() => {
+                        if (bulkMode === "done") { setBulkMode(null); setBulkSelected(new Set()); }
+                        else { setBulkMode("done"); setBulkSelected(new Set()); }
+                      }}
+                      className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${
+                        bulkMode === "done"
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-blue-600 border-blue-300 hover:border-blue-500"
+                      }`}
+                    >
+                      {bulkMode === "done" ? "Huỷ chọn" : "Chọn nhiều"}
+                    </button>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {myActiveJobs.map((job) => <JobCard key={job.id} job={job} theme="blue" />)}
                   </div>
@@ -7691,7 +7788,20 @@ export default function Home() {
                     <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
                     Chợ Việc Làm ({openJobs.length})
                   </h2>
-                  <div className="flex gap-1.5 flex-wrap">
+                  <div className="flex gap-1.5 flex-wrap items-center">
+                    <button
+                      onClick={() => {
+                        if (bulkMode === "claim") { setBulkMode(null); setBulkSelected(new Set()); }
+                        else { setBulkMode("claim"); setBulkSelected(new Set()); }
+                      }}
+                      className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors ${
+                        bulkMode === "claim"
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-white text-amber-600 border-amber-300 hover:border-amber-500"
+                      }`}
+                    >
+                      {bulkMode === "claim" ? "Huỷ chọn" : "Chọn nhiều"}
+                    </button>
                     {(["all", "onsite", "postprod", "mini"] as const).map((f) => (
                       <button key={f} onClick={() => setMarketFilter(f)}
                         className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
@@ -7799,6 +7909,42 @@ export default function Home() {
 
         </> /* end market view */
         )} {/* end employeeView === "market" */}
+
+        {/* ── Floating Bulk Action Bar ── */}
+        {bulkMode && bulkSelected.size > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-4 px-4 pointer-events-none">
+            <div className="pointer-events-auto bg-gray-900 text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 max-w-sm w-full">
+              <span className="text-sm font-semibold flex-1">
+                {bulkSelected.size} job đã chọn
+              </span>
+              {bulkMode === "claim" && (
+                <button
+                  onClick={handleBulkClaim}
+                  disabled={submitting}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors"
+                >
+                  {submitting ? "Đang nhận..." : `Nhận ${bulkSelected.size} job`}
+                </button>
+              )}
+              {bulkMode === "done" && (
+                <button
+                  onClick={handleBulkDone}
+                  disabled={submitting}
+                  className="flex items-center gap-1.5 bg-blue-500 hover:bg-blue-400 disabled:opacity-60 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {submitting ? "Đang xong..." : `Xong ${bulkSelected.size} job`}
+                </button>
+              )}
+              <button
+                onClick={() => { setBulkMode(null); setBulkSelected(new Set()); }}
+                className="text-gray-400 hover:text-white p-1 transition-colors"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+        )}
 
       </main>
 
