@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-// Proxy tới API doanh thu anhemphim.vn để tránh CORS
-// Endpoint: GET https://anhemphim.vn/api/revenue/monthly
+// Proxy tới API doanh thu anhemphim.com.vn để tránh CORS
+// Endpoint: GET https://anhemphim.com.vn/api/revenue/monthly
 // Response: { "YYYY-MM": number, ... }
 export async function GET() {
   try {
-    const res = await fetch("https://anhemphim.vn/api/revenue/monthly", {
+    const res = await fetch("https://anhemphim.com.vn/api/revenue/monthly", {
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(8000),
       next: { revalidate: 300 }, // cache 5 phút
