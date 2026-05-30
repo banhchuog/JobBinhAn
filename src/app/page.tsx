@@ -946,6 +946,7 @@ export default function Home() {
   const [revenueData, setRevenueData] = useState<Record<string, number> | null>(null);
   const [revenueLoading, setRevenueLoading] = useState(false);
   const [revenueError, setRevenueError] = useState<string | null>(null);
+  const [revenueDebug, setRevenueDebug] = useState<Record<string, unknown> | null>(null);
   const [dailyAepRevenueData, setDailyAepRevenueData] = useState<Record<string, number> | null>(null);
   const [dailyAepRevenueLoading, setDailyAepRevenueLoading] = useState(false);
   const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
@@ -2310,13 +2311,18 @@ export default function Home() {
   const fetchRevenue = async () => {
     setRevenueLoading(true);
     setRevenueError(null);
+    setRevenueDebug(null);
     try {
       const res = await fetch("/api/revenue");
       const data = await res.json();
-      if (!res.ok) { setRevenueError(data.error || "Lỗi API doanh thu"); return; }
+      if (!res.ok) {
+        setRevenueError(data.error || "Lỗi API doanh thu");
+        if (data.debug) setRevenueDebug(data.debug);
+        return;
+      }
       setRevenueData(data);
-    } catch {
-      setRevenueError("Không lấy được dữ liệu doanh thu");
+    } catch (err) {
+      setRevenueError(err instanceof Error ? err.message : "Không lấy được dữ liệu doanh thu");
     } finally {
       setRevenueLoading(false);
     }
@@ -4249,10 +4255,25 @@ export default function Home() {
 
                 {/* Revenue error */}
                 {revenueError && (
-                  <p className="text-xs text-amber-600 flex items-center gap-1.5 px-1">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> anhemphim.vn: {revenueError}
-                    <button onClick={fetchRevenue} className="underline ml-1">Thử lại</button>
-                  </p>
+                  <div className="text-xs text-amber-600 px-1 space-y-1">
+                    <p className="flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" /> anhemphim.vn: {revenueError}
+                      <button onClick={fetchRevenue} className="underline ml-1">Thử lại</button>
+                      {revenueDebug && (
+                        <button
+                          onClick={() => {
+                            const text = `[Revenue API Error]\nTime: ${new Date().toISOString()}\n` +
+                              Object.entries(revenueDebug).map(([k, v]) => `${k}: ${v ?? "null"}`).join("\n");
+                            navigator.clipboard.writeText(text);
+                          }}
+                          className="underline ml-1 text-amber-700"
+                        >Copy debug</button>
+                      )}
+                    </p>
+                    {revenueDebug && (
+                      <pre className="bg-amber-50 border border-amber-200 rounded p-2 text-[10px] text-amber-800 overflow-x-auto max-h-28 whitespace-pre-wrap break-all">{`status: ${revenueDebug.status}\ncf-ray: ${revenueDebug.cfRay ?? "–"}\ncf-mitigated: ${revenueDebug.cfMitigated ?? "–"}\nserver: ${revenueDebug.server ?? "–"}\nbody: ${String(revenueDebug.bodySnippet ?? "").slice(0, 200)}`}</pre>
+                    )}
+                  </div>
                 )}
                 {dailyAepRevenueError && (
                   <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">

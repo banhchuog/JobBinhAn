@@ -12,8 +12,17 @@ export async function GET() {
     });
 
     if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      const debug = {
+        status: res.status,
+        url: "https://anhemphim.com.vn/api/revenue/monthly",
+        cfRay: res.headers.get("cf-ray"),
+        cfMitigated: res.headers.get("cf-mitigated"),
+        server: res.headers.get("server"),
+        bodySnippet: body.slice(0, 400),
+      };
       return NextResponse.json(
-        { error: `API doanh thu trả về lỗi ${res.status}` },
+        { error: `API doanh thu trả về lỗi ${res.status}`, debug },
         { status: 502 }
       );
     }
