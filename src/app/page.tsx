@@ -3524,31 +3524,32 @@ export default function Home() {
                               <p className={`text-xs truncate ${theme.titleText}`}>{day.projectList.join(", ") || "Chưa có dự án"}</p>
                             </div>
                           </div>
-                          <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 shrink-0 ${theme.badge}`}>{day.jobCount} job</span>
-                        </div>
-                        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
-                          <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStaffingDayModal(day);
-                                setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
-                              }}
-                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${theme.button}`}
-                            >
-                              <UserPlus className="w-3.5 h-3.5" /> Nhân sự
-                            </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${theme.badge}`}>{day.jobCount} job</span>
                             <button
                               type="button"
                               onClick={() => handleDeleteShootingDay(day)}
                               disabled={submitting}
-                              className="inline-flex items-center gap-1 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 text-xs font-bold"
-                              title="Xoá ngày quay và các job liên quan"
+                              className="p-1 text-gray-300 hover:text-red-500 hover:bg-white/70 rounded-lg disabled:opacity-40 transition-colors"
+                              title="Xoá đợt quay"
+                              aria-label="Xoá đợt quay"
                             >
-                              <Trash2 className="w-3.5 h-3.5" /> Xoá
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                          <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStaffingDayModal(day);
+                              setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
+                            }}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0 ${theme.button}`}
+                          >
+                            <UserPlus className="w-3.5 h-3.5" /> Nhân sự
+                          </button>
                         </div>
                       </div>
                     );
@@ -4838,31 +4839,32 @@ export default function Home() {
                                 <p className={`text-xs truncate ${theme.titleText}`}>{day.projectList.join(", ") || "Chưa có dự án"}</p>
                               </div>
                             </div>
-                            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 shrink-0 ${theme.badge}`}>{day.jobCount} job</span>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
-                            <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setStaffingDayModal(day);
-                                  setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
-                                }}
-                                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${theme.button}`}
-                              >
-                                <UserPlus className="w-3.5 h-3.5" /> Nhân sự
-                              </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${theme.badge}`}>{day.jobCount} job</span>
                               <button
                                 type="button"
                                 onClick={() => handleDeleteShootingDay(day)}
                                 disabled={submitting}
-                                className="inline-flex items-center gap-1 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 text-xs font-bold"
-                                title="Xoá ngày quay và các job liên quan"
+                                className="p-1 text-gray-300 hover:text-red-500 hover:bg-white/70 rounded-lg disabled:opacity-40 transition-colors"
+                                title="Xoá đợt quay"
+                                aria-label="Xoá đợt quay"
                               >
-                                <Trash2 className="w-3.5 h-3.5" /> Xoá
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                            <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStaffingDayModal(day);
+                                setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
+                              }}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0 ${theme.button}`}
+                            >
+                              <UserPlus className="w-3.5 h-3.5" /> Nhân sự
+                            </button>
                           </div>
                         </div>
                       );
