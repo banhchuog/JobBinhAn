@@ -6972,20 +6972,32 @@ export default function Home() {
                 <p className="text-sm text-gray-400 text-center py-8">Không có job nào trong ngày này.</p>
               ) : staffingDayModal.jobs.map((job) => {
                 const assignedPercent = job.assignments.reduce((sum, assignment) => sum + assignment.percentage, 0);
+                const assignedNames = job.assignments.map((assignment) => assignment.employeeName).filter(Boolean);
                 const isFull = assignedPercent >= 100;
                 return (
                   <div key={job.id} className={`rounded-xl border p-3 ${isFull ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50/40"}`}>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm text-gray-900 truncate">{job.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {job.jobCategory || "Job"} · {formatCurrency(job.totalSalary)}
-                          {job.assignments.length > 0 ? ` · Đã gán: ${job.assignments.map((assignment) => assignment.employeeName).join(", ")}` : ""}
+                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>{job.jobCategory || "Job"}</span>
+                          <span>·</span>
+                          <span>{formatCurrency(job.totalSalary)}</span>
+                          {assignedPercent > 0 && <span>· {Math.min(assignedPercent, 100)}% đã gán</span>}
                         </p>
+                        {assignedNames.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {job.assignments.map((assignment) => (
+                              <span key={assignment.id} className="inline-flex items-center gap-1 rounded-full bg-white border border-emerald-200 text-emerald-700 px-2 py-1 text-[11px] font-bold">
+                                <CheckCircle2 className="w-3 h-3" /> {assignment.employeeName}{assignment.percentage > 0 ? ` ${assignment.percentage}%` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       {isFull ? (
                         <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-white border border-emerald-200 rounded-full px-3 py-1.5 shrink-0">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Đã đủ
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Đã gán
                         </span>
                       ) : (
                         <select
