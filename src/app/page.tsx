@@ -2355,6 +2355,56 @@ export default function Home() {
     }
   };
 
+  const getShootingDayDeleteJobs = (day: ShootingCalendarDay) => {
+    const scheduleGroupKeys = new Set(
+      day.jobs
+        .map((job) => job.groupId || job.groupName)
+        .filter((groupKey): groupKey is string => !!groupKey)
+    );
+
+    return jobs.filter((job) => {
+      const isScheduleJob = job.groupName?.includes("Lịch quay") || job.description?.includes("Lịch quay");
+      const groupKey = job.groupId || job.groupName;
+      return !!isScheduleJob && !!groupKey && scheduleGroupKeys.has(groupKey);
+    });
+  };
+
+  const handleDeleteShootingDay = async (day: ShootingCalendarDay) => {
+    const jobsToDelete = getShootingDayDeleteJobs(day);
+    if (jobsToDelete.length === 0) return;
+    const dateLabels = Array.from(new Set(jobsToDelete
+      .filter((job) => job.workUnit === "day" && job.expiresAt)
+      .map((job) => getIsoDateParts(job.expiresAt!.slice(0, 10))?.fullLabel)
+      .filter(Boolean) as string[]
+    )).sort((left, right) => left.localeCompare(right, "vi"));
+    const preview = jobsToDelete.slice(0, 8).map((job) => `- ${job.title}`).join("\n");
+    const more = jobsToDelete.length > 8 ? `\n...và ${jobsToDelete.length - 8} job khác` : "";
+    const dateNote = dateLabels.length > 0 ? `\nCác ngày trong đợt: ${dateLabels.join(", ")}` : "";
+    if (!confirm(`CẢNH BÁO: Xoá toàn bộ đợt quay ${day.groupList?.[0] ?? day.fullLabel}?${dateNote}\n\n${jobsToDelete.length} job sẽ bị xoá vĩnh viễn:\n${preview}${more}\n\nHành động này không thể hoàn tác.`)) return;
+
+    setSubmitting(true);
+    try {
+      await Promise.all(jobsToDelete.map(async (job) => {
+        const res = await fetch(`/api/jobs/${job.id}`, { method: "DELETE" });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null);
+          throw new Error(payload?.error || `Không thể xoá job ${job.title}`);
+        }
+      }));
+      setSelectedJobIds((prev) => {
+        const next = new Set(prev);
+        jobsToDelete.forEach((job) => next.delete(job.id));
+        return next;
+      });
+      if (staffingDayModal?.dateKey === day.dateKey) setStaffingDayModal(null);
+      await fetchAll();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Không thể xoá ngày quay");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const openJobEditModal = (job: Job) => {
     setJobEditModal({
       id: job.id,
@@ -3478,16 +3528,27 @@ export default function Home() {
                         </div>
                         <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
                           <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setStaffingDayModal(day);
-                              setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
-                            }}
-                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0 ${theme.button}`}
-                          >
-                            <UserPlus className="w-3.5 h-3.5" /> Nhân sự
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStaffingDayModal(day);
+                                setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
+                              }}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${theme.button}`}
+                            >
+                              <UserPlus className="w-3.5 h-3.5" /> Nhân sự
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteShootingDay(day)}
+                              disabled={submitting}
+                              className="inline-flex items-center gap-1 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 text-xs font-bold"
+                              title="Xoá ngày quay và các job liên quan"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" /> Xoá
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -4781,16 +4842,27 @@ export default function Home() {
                           </div>
                           <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
                             <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStaffingDayModal(day);
-                                setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
-                              }}
-                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0 ${theme.button}`}
-                            >
-                              <UserPlus className="w-3.5 h-3.5" /> Nhân sự
-                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStaffingDayModal(day);
+                                  setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
+                                }}
+                                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${theme.button}`}
+                              >
+                                <UserPlus className="w-3.5 h-3.5" /> Nhân sự
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteShootingDay(day)}
+                                disabled={submitting}
+                                className="inline-flex items-center gap-1 rounded-full bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50 px-2.5 py-1.5 text-xs font-bold"
+                                title="Xoá ngày quay và các job liên quan"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Xoá
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
