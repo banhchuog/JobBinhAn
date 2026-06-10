@@ -3664,9 +3664,9 @@ export default function Home() {
                   const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedJobIds.has(id));
                   if (filtered.length === 0) return <EmptyBlock text={normalizedSearch ? `Không tìm thấy job nào cho "${jobSearch}".` : "Không có job nào khớp bộ lọc hiện tại."} />;
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+                    <div className="space-y-2">
                       {/* ── Select-all row ── */}
-                      <div className="flex items-center gap-2 px-1 md:col-span-2 xl:col-span-3">
+                      <div className="flex items-center gap-2 px-1">
                         <input type="checkbox" id="selectAllJobs" checked={allSelected}
                           onChange={() => {
                             if (allSelected) {
@@ -3703,9 +3703,9 @@ export default function Home() {
                           : `Còn ${Math.max(0, 100 - job.assignments.reduce((sum, assignment) => sum + assignment.percentage, 0))}%`;
                         const { cardBg, accentText, barBg, barFill } = categorySurfaceClass;
                         return (
-                          <div key={job.id} className={`relative overflow-hidden rounded-2xl p-3.5 shadow-sm transition-all ${cardBg} ${isSelected ? "ring-2 ring-red-300 ring-offset-2" : ""}`}>
-                            <div className={`absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-20 ${barFill}`} />
-                            <div className="flex justify-between items-start mb-2 gap-2 relative z-10">
+                          <div key={job.id} className={`relative overflow-hidden rounded-xl px-3 py-2 shadow-sm transition-all ${cardBg} ${isSelected ? "ring-2 ring-red-300 ring-offset-1" : ""}`}>
+                            <div className={`absolute -top-6 -right-6 w-14 h-14 rounded-full opacity-10 ${barFill}`} />
+                            <div className="flex justify-between items-start gap-2 relative z-10">
                               <div className="flex items-start gap-2.5 flex-1 min-w-0">
                                 <input type="checkbox" checked={isSelected}
                                   onChange={() => setSelectedJobIds(prev => {
@@ -3713,10 +3713,10 @@ export default function Home() {
                                     isSelected ? n.delete(job.id) : n.add(job.id);
                                     return n;
                                   })}
-                                  className="mt-1 w-4 h-4 rounded accent-red-500 cursor-pointer shrink-0" />
+                                  className="mt-1 w-3.5 h-3.5 rounded accent-red-500 cursor-pointer shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                                    <span className={`text-sm leading-none ${accentText}`}>
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <span className={`text-xs leading-none ${accentText}`}>
                                       {isMini
                                         ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg>
                                         : job.expiresAt
@@ -3727,32 +3727,31 @@ export default function Home() {
                                       {remainingLabel}
                                     </span>
                                   </div>
-                                  <h3 className="font-bold text-gray-900 text-[15px] leading-snug line-clamp-2">{job.title}</h3>
-                                  <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                  <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-1">{job.title}</h3>
+                                  <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${categoryBadgeClass}`}>
                                       {categoryLabel}
                                     </span>
                                     {job.groupName && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full shrink-0 border border-purple-200">{job.groupName}</span>}
                                     {job.expiresAt && <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 border border-orange-200"><Timer className="w-2.5 h-2.5" />HH {new Date(job.expiresAt).toLocaleDateString("vi-VN")}</span>}
                                   </div>
-                                  {standardMeta && <p className="text-[11px] text-gray-500 mt-1.5 line-clamp-2">{standardMeta}</p>}
-                                  {job.description && <p className="text-[11px] text-gray-400 mt-1 line-clamp-1">{job.description}</p>}
-                                  <p className="text-[10px] text-gray-400 mt-1">{monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
+                                  {standardMeta && <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">{standardMeta}</p>}
+                                  <p className="text-[10px] text-gray-400 mt-0.5 truncate">{job.description || monthLabel(job.month || job.createdAt.slice(0, 7))}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0 relative z-10">
                                 <button onClick={() => openJobEditModal(job)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Sửa job">
-                                  <Pencil className="w-4 h-4" />
+                                  className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-white/70 rounded-lg transition-colors border border-white/60" title="Sửa job">
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <button onClick={() => handleDeleteJob(job.id)} disabled={submitting}
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 rounded-xl transition-colors border border-white/60" title="Xoá job">
-                                  <Trash2 className="w-4 h-4" />
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-white/70 rounded-lg transition-colors border border-white/60" title="Xoá job">
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
-                            <div className="relative z-10 flex items-center justify-between gap-2 mt-2 mb-2">
-                              <p className={`font-extrabold text-lg leading-none ${accentText}`}>
+                            <div className="relative z-10 flex items-center justify-between gap-3 mt-1.5">
+                              <p className={`font-extrabold text-sm leading-none ${accentText}`}>
                                 {isMini
                                   ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
                                   : formatCurrency(job.totalSalary)}
@@ -3761,13 +3760,13 @@ export default function Home() {
                                 {job.assignments.length} người nhận
                               </p>
                             </div>
-                            <div className={`w-full rounded-full h-1.5 mt-2 mb-2.5 relative z-10 ${barBg}`}>
-                              <div className={`h-1.5 rounded-full transition-all ${barFill}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                            <div className={`w-full rounded-full h-1 mt-1.5 mb-1.5 relative z-10 ${barBg}`}>
+                              <div className={`h-1 rounded-full transition-all ${barFill}`} style={{ width: `${Math.min(pct, 100)}%` }} />
                             </div>
                             {job.assignments.length > 0 && (
-                              <div className="space-y-1.5 relative z-10 max-h-28 overflow-y-auto pr-1">
+                              <div className="space-y-1 relative z-10 max-h-16 overflow-y-auto pr-1">
                                 {job.assignments.map((a) => (
-                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-sm bg-white/70 border border-white/80 px-2.5 py-2 rounded-xl backdrop-blur-[1px]">
+                                  <div key={a.id} className="flex flex-wrap justify-between items-center gap-1 text-xs bg-white/70 border border-white/80 px-2 py-1 rounded-lg backdrop-blur-[1px]">
                                     <span className="font-medium text-gray-800">{a.employeeName}</span>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       {isMini
@@ -8279,39 +8278,38 @@ export default function Home() {
               : [job.projectName, job.totalUnits ? `${job.totalUnits} clip` : null].filter(Boolean).join(" · ");
 
             return (
-              <div className={`relative flex flex-col rounded-2xl p-4 min-h-[160px] overflow-hidden ${cardBg}`}>
+              <div className={`relative rounded-xl px-3 py-2 overflow-hidden ${cardBg}`}>
                 {/* Subtle decorative circle */}
-                <div className={`absolute -top-5 -right-5 w-20 h-20 rounded-full opacity-20 ${barFill}`} />
+                <div className={`absolute -top-6 -right-6 w-16 h-16 rounded-full opacity-10 ${barFill}`} />
 
                 {/* Top row: type icon + badge */}
-                <div className="flex items-start justify-between gap-1 mb-2 relative z-10">
-                  <span className="text-base leading-none">{isMini ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> : theme === "amber" && job.expiresAt ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>}</span>
+                <div className="flex items-start justify-between gap-2 relative z-10">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    <span className="text-sm leading-none mt-0.5 shrink-0">{isMini ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> : theme === "amber" && job.expiresAt ? <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> : <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>}</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-1 relative z-10">
+                        {job.title}
+                      </h3>
+                      <div className="relative z-10 mt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${categoryBadgeClass}`}>
+                          {categoryLabel}
+                        </span>
+                        {jobMeta && <span className="text-[11px] text-gray-500 line-clamp-1">{jobMeta}</span>}
+                        {theme === "amber" && job.expiresAt && (
+                          <span className={`text-[11px] font-medium ${accentText}`}>
+                            {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}/{new Date(job.expiresAt).getFullYear()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${badgeBg}`}>
                     {badgeLabel}
                   </span>
                 </div>
 
-                {/* Title */}
-                <h3 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2 relative z-10 flex-1">
-                  {job.title}
-                </h3>
-
-                <div className="relative z-10 mt-2 flex items-center gap-1.5 flex-wrap">
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${categoryBadgeClass}`}>
-                    {categoryLabel}
-                  </span>
-                  {jobMeta && <span className="text-[11px] text-gray-500 line-clamp-1">{jobMeta}</span>}
-                </div>
-
-                {/* Date for onsite */}
-                {theme === "amber" && job.expiresAt && (
-                  <p className={`text-[11px] mt-1 relative z-10 font-medium ${accentText}`}>
-                    <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> {new Date(job.expiresAt).getDate()}/{new Date(job.expiresAt).getMonth() + 1}/{new Date(job.expiresAt).getFullYear()}
-                  </p>
-                )}
-
                 {/* Salary */}
-                <p className={`font-extrabold text-base mt-2 relative z-10 leading-tight ${accentText}`}>
+                <p className={`font-extrabold text-sm mt-1.5 relative z-10 leading-tight ${accentText}`}>
                   {isMini
                     ? `${new Intl.NumberFormat("vi-VN").format(job.unitPrice ?? 0)}đ/clip`
                     : formatCurrency(job.totalSalary)}
@@ -8335,12 +8333,12 @@ export default function Home() {
                 )}
 
                 {/* Progress bar */}
-                <div className={`w-full rounded-full h-1.5 mt-2 relative z-10 ${barBg}`}>
-                  <div className={`h-1.5 rounded-full transition-all ${barFill}`} style={{ width: `${Math.min(progressPct, 100)}%` }} />
+                <div className={`w-full rounded-full h-1 mt-1.5 relative z-10 ${barBg}`}>
+                  <div className={`h-1 rounded-full transition-all ${barFill}`} style={{ width: `${Math.min(progressPct, 100)}%` }} />
                 </div>
 
                 {/* Action row */}
-                <div className="flex items-center justify-between mt-3 gap-1.5 relative z-10">
+                <div className="flex items-center justify-between mt-2 gap-1.5 relative z-10">
                   {/* Bulk checkbox — claim mode (amber, non-mini only) */}
                   {bulkMode === "claim" && theme === "amber" && !isMini && (
                     <label className="flex items-center gap-1.5 cursor-pointer flex-1">
@@ -8463,7 +8461,7 @@ export default function Home() {
                       {bulkMode === "done" ? "Huỷ chọn" : "Chọn nhiều"}
                     </button>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="space-y-2">
                     {myActiveJobs.map((job) => <JobCard key={job.id} job={job} theme="blue" />)}
                   </div>
                 </div>
@@ -8553,7 +8551,7 @@ export default function Home() {
                               </div>
                             </div>
                           )}
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <div className="space-y-2">
                             {group.jobs.map((job) => <JobCard key={job.id} job={job} theme="amber" />)}
                           </div>
                         </div>
@@ -8571,7 +8569,7 @@ export default function Home() {
                     Đã hoàn thành ({myDoneJobs.length + myManualInMonth.length})
                   </h2>
                   {myDoneJobs.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                    <div className="space-y-2 mb-4">
                       {myDoneJobs.map((job) => <JobCard key={job.id} job={job} theme="green" />)}
                     </div>
                   )}
