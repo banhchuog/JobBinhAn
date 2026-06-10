@@ -498,7 +498,7 @@ function getWorkUnitRateLabel(unit: StandardWorkUnit | undefined) {
   return unit === "day" ? "ngày" : "tập";
 }
 
-function parseEpisodeLabelInput(value: string) {
+function parseEpisodeLabelInput(value: string, startFrom = 1) {
   const normalized = value
     .replace(/[\n,;]+/g, " ")
     .replace(/\s+/g, " ")
@@ -509,10 +509,12 @@ function parseEpisodeLabelInput(value: string) {
   const isPlainCount = /^\d+$/.test(normalized);
   if (isPlainCount) {
     const count = Math.max(0, Number(normalized));
+    const start = Math.max(1, Math.floor(Number(startFrom)) || 1);
+    const items = Array.from({ length: count }, (_, index) => String(start + index));
     return {
-      normalized: Array.from({ length: count }, (_, index) => String(index + 1)).join(" "),
+      normalized: items.join(" "),
       count,
-      items: Array.from({ length: count }, (_, index) => String(index + 1)),
+      items,
     };
   }
 
@@ -1117,6 +1119,7 @@ export default function Home() {
   const [shootDateInput, setShootDateInput] = useState("");
   const [shootCalendarMonth, setShootCalendarMonth] = useState(currentYM());
   const [shootEpisodeLabel, setShootEpisodeLabel] = useState("1");
+  const [shootEpisodeStart, setShootEpisodeStart] = useState("1");
   const [shootScheduleItems, setShootScheduleItems] = useState<ShootingScheduleItem[]>(() => createShootingScheduleItems("aep"));
 
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
@@ -1298,8 +1301,8 @@ export default function Home() {
   );
 
   const parsedShootEpisodes = useMemo(
-    () => parseEpisodeLabelInput(shootEpisodeLabel),
-    [shootEpisodeLabel]
+    () => parseEpisodeLabelInput(shootEpisodeLabel, shootProjectType === "aep" ? Number(shootEpisodeStart) : 1),
+    [shootEpisodeLabel, shootEpisodeStart, shootProjectType]
   );
 
   const parsedShootDates = useMemo(
@@ -2152,6 +2155,7 @@ export default function Home() {
     setShootDateInput("");
     setShootCalendarMonth(currentYM());
     setShootEpisodeLabel("1");
+    setShootEpisodeStart("1");
     setShootProjectType("aep");
     setShootScheduleItems(createShootingScheduleItems("aep"));
   };
@@ -3225,12 +3229,26 @@ export default function Home() {
                                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm bg-white"
                                 placeholder={shootProjectType === "aep" ? "VD: Sát Giới" : "VD: TVC mùa hè"} />
                             </div>
-                            <div>
-                              <label className="block text-xs font-semibold text-gray-600 mb-1">{shootProjectType === "ads" ? "Số clip" : "Số tập"}</label>
-                              <input type="text" value={shootEpisodeLabel} onChange={(e) => setShootEpisodeLabel(e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm bg-white"
-                                placeholder="VD: 5 hoặc 1 2 3" />
-                              <p className="text-[11px] text-gray-400 mt-1.5">Nhập 5 để tạo {shootEpisodeUnitLabel} 1-5; nhập “{shootProjectType === "ads" ? "Clip" : "Tập"} 5” nếu chỉ tạo đúng số 5.</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {shootProjectType === "aep" && (
+                                <div>
+                                  <label className="block text-xs font-semibold text-gray-600 mb-1">Từ tập</label>
+                                  <input type="number" inputMode="numeric" min="1" value={shootEpisodeStart} onChange={(e) => setShootEpisodeStart(e.target.value)}
+                                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm bg-white"
+                                    placeholder="VD: 15" />
+                                </div>
+                              )}
+                              <div className={shootProjectType === "aep" ? "" : "sm:col-span-2"}>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">{shootProjectType === "ads" ? "Số clip" : "Số tập"}</label>
+                                <input type="text" value={shootEpisodeLabel} onChange={(e) => setShootEpisodeLabel(e.target.value)}
+                                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm bg-white"
+                                  placeholder="VD: 5 hoặc 15 16 17" />
+                              </div>
+                              <p className="sm:col-span-2 text-[11px] text-gray-400 mt-0.5">
+                                {shootProjectType === "aep"
+                                  ? "VD: Từ tập 15, số tập 5 sẽ tạo tập 15-19. Nhập trực tiếp 15 16 17 nếu muốn chọn cụ thể."
+                                  : "Nhập 5 để tạo clip 1-5; nhập “Clip 5” nếu chỉ tạo đúng clip số 5."}
+                              </p>
                             </div>
                           </div>
 
