@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Job, Employee, ManualEntry, JobAssignment, EmployeeProfile } from "@/types";
 import {
   Briefcase, Users, PlusCircle, CheckCircle2, Clock,
-  DollarSign, RefreshCw, LogOut, UserPlus, ChevronRight, Trophy,
+  DollarSign, RefreshCw, LogOut, UserPlus, ChevronLeft, ChevronRight, Trophy,
   Wallet, BadgeCheck, AlertCircle, CalendarDays, Trash2, Pencil,
   Search, Download, Copy, MessageSquare, X, Sparkles, Timer, Share2, ArrowUpDown, ChevronDown,
   Save, CheckCircle, Loader2, FileSpreadsheet, XCircle, History, RotateCcw,
@@ -403,25 +403,82 @@ function classifyRevenueSender(subject: string, note?: string): "metub" | "yeah1
   return "other";
 }
 
-// ── Default shooting positions ──────────────────────────
-interface ShootPosition {
-  role: string;
-  qty: number;
-  salary: number;
+type StandardWorkUnit = "episode" | "day";
+type ShootingProjectType = "aep" | "ads";
+
+type ShootingCalendarDay = {
+  dateKey: string;
+  fullLabel: string;
+  shortLabel: string;
+  ym: string;
+  day: number;
+  projects: Set<string>;
+  groups: Set<string>;
+  jobs: Job[];
+  jobCount: number;
+  totalSalary: number;
+  projectList?: string[];
+  groupList?: string[];
+};
+
+interface ShootingScheduleItem {
+  id: string;
+  enabled: boolean;
+  name: string;
+  jobCategory: string;
+  workUnit: StandardWorkUnit;
+  quantity?: number;
+  ratePerUnit: number;
 }
 
-const DEFAULT_SHOOT_POSITIONS: ShootPosition[] = [
-  { role: "Đạo diễn", qty: 2, salary: 3_000_000 },
-  { role: "Quay phim", qty: 2, salary: 1_200_000 },
-  { role: "Ánh sáng", qty: 2, salary: 800_000 },
-  { role: "Thu âm hiện trường", qty: 1, salary: 1_000_000 },
+const SHOOTING_PROJECT_TYPE_OPTIONS: Array<{ value: ShootingProjectType; label: string; note: string }> = [
+  { value: "aep", label: "Anh Em Phim", note: "Kịch bản, dựng phim, đạo diễn" },
+  { value: "ads", label: "Quảng cáo", note: "Thêm storyboard và hậu kỳ quảng cáo" },
 ];
 
-const DEFAULT_EDIT_SALARY = 3_000_000; // per episode
+const SHOOTING_SCHEDULE_PRESETS: Record<ShootingProjectType, Array<Omit<ShootingScheduleItem, "id" | "enabled">>> = {
+  aep: [
+    { name: "Kịch bản", jobCategory: "Kịch bản", workUnit: "episode", ratePerUnit: 2_000_000 },
+    { name: "Dựng phim", jobCategory: "Hậu kỳ", workUnit: "episode", ratePerUnit: 3_000_000 },
+    { name: "Đạo diễn", jobCategory: "Đạo diễn", workUnit: "day", ratePerUnit: 3_000_000 },
+  ],
+  ads: [
+    { name: "Kịch bản", jobCategory: "Kịch bản", workUnit: "episode", ratePerUnit: 2_000_000 },
+    { name: "Storyboard vẽ tay", jobCategory: "Storyboard", workUnit: "episode", ratePerUnit: 2_000_000 },
+    { name: "Storyboard AI", jobCategory: "Storyboard", workUnit: "episode", ratePerUnit: 1_000_000 },
+    { name: "Dựng phim", jobCategory: "Hậu kỳ", workUnit: "episode", ratePerUnit: 2_000_000 },
+    { name: "Đạo diễn", jobCategory: "Đạo diễn", workUnit: "day", ratePerUnit: 3_000_000 },
+  ],
+};
+
+function createShootingScheduleItems(projectType: ShootingProjectType): ShootingScheduleItem[] {
+  return SHOOTING_SCHEDULE_PRESETS[projectType].map((item, index) => ({
+    ...item,
+    id: `${projectType}-${index}-${item.name}`,
+    enabled: true,
+  }));
+}
+
+function getShootingScheduleItemQuantity(item: ShootingScheduleItem, fallbackCount: number) {
+  const quantity = Math.floor(Number(item.quantity));
+  if (!Number.isFinite(quantity) || quantity <= 0) return fallbackCount;
+  return Math.min(quantity, fallbackCount);
+}
+
+function getShootingDayStaffQuantity(item: ShootingScheduleItem) {
+  const quantity = Math.floor(Number(item.quantity));
+  if (!Number.isFinite(quantity) || quantity <= 0) return 1;
+  return quantity;
+}
+
+function getShootingEpisodeUnitLabel(projectType: ShootingProjectType) {
+  return projectType === "ads" ? "clip" : "tập";
+}
 
 const JOB_CATEGORY_OPTIONS = [
   "Hậu kỳ",
   "Kịch bản",
+  "Storyboard",
   "Đạo diễn",
   "Quay phim",
   "Ánh sáng",
@@ -430,8 +487,6 @@ const JOB_CATEGORY_OPTIONS = [
   "VFX",
   "Khác",
 ] as const;
-
-type StandardWorkUnit = "episode" | "day";
 
 function getWorkUnitLabel(unit: StandardWorkUnit | undefined, count?: number) {
   const normalizedUnit = unit ?? "episode";
@@ -451,7 +506,17 @@ function parseEpisodeLabelInput(value: string) {
 
   if (!normalized) return { normalized: "", count: 0, items: [] as string[] };
 
-  const compact = normalized.replace(/^tập\s*/i, "");
+  const isPlainCount = /^\d+$/.test(normalized);
+  if (isPlainCount) {
+    const count = Math.max(0, Number(normalized));
+    return {
+      normalized: Array.from({ length: count }, (_, index) => String(index + 1)).join(" "),
+      count,
+      items: Array.from({ length: count }, (_, index) => String(index + 1)),
+    };
+  }
+
+  const compact = normalized.replace(/^(tập|clip)\s*/i, "");
   const parts = compact
     .split(" ")
     .map((part) => part.trim())
@@ -495,6 +560,150 @@ function buildStandardJobTitle(category: string, projectName: string, episodeLab
   ].filter(Boolean).join(" · ");
 }
 
+function getIsoDateParts(dateValue: string) {
+  const [yearValue, monthValue, dayValue] = dateValue.split("-").map(Number);
+  if (!yearValue || !monthValue || !dayValue) return null;
+  const date = new Date(yearValue, monthValue - 1, dayValue);
+  if (Number.isNaN(date.getTime())) return null;
+  const day = String(dayValue).padStart(2, "0");
+  const month = String(monthValue).padStart(2, "0");
+  return {
+    year: yearValue,
+    month: monthValue,
+    day: dayValue,
+    ym: `${yearValue}-${month}`,
+    shortLabel: `${day}/${month}`,
+    fullLabel: `${day}/${month}/${yearValue}`,
+  };
+}
+
+type IsoDateParts = NonNullable<ReturnType<typeof getIsoDateParts>>;
+
+type CalendarDateCell = IsoDateParts & {
+  isoDate: string;
+  inCurrentMonth: boolean;
+  isToday: boolean;
+};
+
+function formatIsoDateParts(date: IsoDateParts) {
+  return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
+}
+
+function addMonthsToYM(ym: string, delta: number) {
+  const [yearValue, monthValue] = ym.split("-").map(Number);
+  const date = new Date(yearValue, (monthValue || 1) - 1 + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getCalendarMonthCells(ym: string): CalendarDateCell[] {
+  const [yearValue, monthValue] = ym.split("-").map(Number);
+  const year = yearValue || new Date().getFullYear();
+  const month = monthValue || new Date().getMonth() + 1;
+  const firstDay = new Date(year, month - 1, 1);
+  const leadingDays = (firstDay.getDay() + 6) % 7;
+  const startDate = new Date(year, month - 1, 1 - leadingDays);
+  const today = currentISODate();
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + index);
+    const dateParts = getIsoDateParts(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`);
+    const isoDate = dateParts ? formatIsoDateParts(dateParts) : currentISODate();
+    return {
+      ...(dateParts ?? getIsoDateParts(today)!),
+      isoDate,
+      inCurrentMonth: date.getMonth() === month - 1,
+      isToday: isoDate === today,
+    };
+  });
+}
+
+function normalizeShootingDateToken(token: string, fallbackYear = new Date().getFullYear()) {
+  const trimmed = token.trim();
+  if (!trimmed) return "";
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split("-").map(Number);
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  const slashMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?$/);
+  if (!slashMatch) return "";
+  const day = Number(slashMatch[1]);
+  const month = Number(slashMatch[2]);
+  const rawYear = slashMatch[3] ? Number(slashMatch[3]) : fallbackYear;
+  const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function parseShootingDateInput(value: string) {
+  const normalized = value
+    .replace(/[\n;]+/g, " ")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return { normalized: "", count: 0, items: [] as IsoDateParts[] };
+
+  const seen = new Set<string>();
+  const items = normalized
+    .split(" ")
+    .map((token) => normalizeShootingDateToken(token))
+    .filter(Boolean)
+    .map((date) => getIsoDateParts(date))
+    .filter((date): date is IsoDateParts => !!date)
+    .filter((date) => {
+      const key = `${date.ym}-${String(date.day).padStart(2, "0")}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => `${left.ym}-${String(left.day).padStart(2, "0")}`.localeCompare(`${right.ym}-${String(right.day).padStart(2, "0")}`));
+
+  return {
+    normalized: items.map((item) => `${item.year}-${String(item.month).padStart(2, "0")}-${String(item.day).padStart(2, "0")}`).join(" "),
+    count: items.length,
+    items,
+  };
+}
+
+function buildShootingScheduleJobTitle(itemName: string, projectName: string, unitLabel: string, workUnit: StandardWorkUnit, episodeUnitLabel = "Tập") {
+  const normalizedItem = itemName.trim();
+  const normalizedProject = projectName.trim();
+  const normalizedUnitLabel = unitLabel.trim();
+  const suffix = workUnit === "episode"
+    ? `${episodeUnitLabel} ${normalizedUnitLabel.replace(/^tập\s*/i, "").replace(/^clip\s*/i, "")}`
+    : `Ngày quay ${normalizedUnitLabel}`;
+  return [normalizedItem, normalizedProject, suffix].filter(Boolean).join(" · ");
+}
+
+function getShootingCalendarTheme(day: ShootingCalendarDay) {
+  const haystack = [
+    ...Array.from(day.groups),
+    ...Array.from(day.projects),
+    ...(day.groupList ?? []),
+    ...(day.projectList ?? []),
+    ...day.jobs.flatMap((job) => [job.groupName, job.description, job.projectName]),
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  if (haystack.includes("quảng cáo")) {
+    return {
+      card: "border-teal-200 bg-teal-50/70",
+      dateBox: "bg-teal-600 text-white",
+      titleText: "text-teal-700",
+      badge: "text-teal-700 bg-white border border-teal-200",
+      button: "bg-teal-600 hover:bg-teal-700 text-white",
+      icon: "text-teal-600",
+    };
+  }
+
+  return {
+    card: "border-orange-200 bg-orange-50/60",
+    dateBox: "bg-orange-500 text-white",
+    titleText: "text-orange-700",
+    badge: "text-orange-700 bg-white border border-orange-200",
+    button: "bg-orange-500 hover:bg-orange-600 text-white",
+    icon: "text-orange-500",
+  };
+}
+
 function getJobCategoryLabel(job: Job) {
   if (job.jobType === "mini") return "Mini";
   return job.jobCategory?.trim() || "Chưa phân loại";
@@ -507,6 +716,7 @@ function getJobCategoryBadgeClass(label: string) {
   if (normalized.includes("hậu kỳ")) return "bg-blue-100 text-blue-700 border border-blue-200";
   if (normalized.includes("đạo diễn")) return "bg-amber-100 text-amber-700 border border-amber-200";
   if (normalized.includes("kịch bản")) return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+  if (normalized.includes("storyboard")) return "bg-teal-100 text-teal-700 border border-teal-200";
   if (normalized.includes("quay phim")) return "bg-cyan-100 text-cyan-700 border border-cyan-200";
   if (normalized.includes("ánh sáng")) return "bg-yellow-100 text-yellow-700 border border-yellow-200";
   if (normalized.includes("thu âm")) return "bg-pink-100 text-pink-700 border border-pink-200";
@@ -836,12 +1046,7 @@ function getSocialPlatform(url: string): { icon: React.ReactNode; label: string;
 }
 
 export default function Home() {
-  const [view, setView] = useState<View>(() => {
-    if (typeof window !== "undefined" && localStorage.getItem("director_session") === "1") {
-      return "DIRECTOR";
-    }
-    return "LOGIN";
-  });
+  const [view, setView] = useState<View>("LOGIN");
   const [directorPassInput, setDirectorPassInput] = useState("");
   const [passError, setPassError] = useState(false);
 
@@ -906,26 +1111,19 @@ export default function Home() {
   const [miniTitle, setMiniTitle] = useState("");
   const [miniDesc, setMiniDesc] = useState("");
 
-  // shooting day
-  interface EpisodeDef { name: string; editSalary: number }
+  // shooting schedule
+  const [shootProjectType, setShootProjectType] = useState<ShootingProjectType>("aep");
   const [shootFilmName, setShootFilmName] = useState("");
-  const [shootDay, setShootDay] = useState("");
-  const [shootMonth, setShootMonth] = useState("");
-  const [shootPositions, setShootPositions] = useState<ShootPosition[]>(
-    DEFAULT_SHOOT_POSITIONS.map(p => ({ ...p }))
-  );
-  // sub-type within shooting: "large" | "mini_clips"
-  const [shootSubType, setShootSubType] = useState<"large" | "mini_clips">("large");
-  // large: episodes
-  const [shootEpisodes, setShootEpisodes] = useState<EpisodeDef[]>([{ name: "Tập 1", editSalary: DEFAULT_EDIT_SALARY }]);
-  // mini_clips
-  const [shootClipPrice, setShootClipPrice] = useState(String(100_000));
-  const [shootClipCount, setShootClipCount] = useState("20");
-  const [shootClipTitle, setShootClipTitle] = useState("");
+  const [shootDateInput, setShootDateInput] = useState("");
+  const [shootCalendarMonth, setShootCalendarMonth] = useState(currentYM());
+  const [shootEpisodeLabel, setShootEpisodeLabel] = useState("1");
+  const [shootScheduleItems, setShootScheduleItems] = useState<ShootingScheduleItem[]>(() => createShootingScheduleItems("aep"));
 
   const [approvingItem, setApprovingItem] = useState<{ jobId: string; assignmentId: string; jobTitle: string; empName: string; salary: number } | null>(null);
   const [approveNote, setApproveNote] = useState("");
   const [copySuccess, setCopySuccess] = useState(false);
+  const [staffingDayModal, setStaffingDayModal] = useState<ShootingCalendarDay | null>(null);
+  const [staffingSelections, setStaffingSelections] = useState<Record<string, string>>({});
 
   // ── Manual salary entries ────────────────────────────
   const [manualEntries, setManualEntries] = useState<Record<string, ManualEntry[]>>({});
@@ -1099,6 +1297,104 @@ export default function Home() {
     [newJobRate, newJobWorkUnits, newJobWorkUnit, parsedNewJobDays, parsedNewJobEpisodes]
   );
 
+  const parsedShootEpisodes = useMemo(
+    () => parseEpisodeLabelInput(shootEpisodeLabel),
+    [shootEpisodeLabel]
+  );
+
+  const parsedShootDates = useMemo(
+    () => parseShootingDateInput(shootDateInput),
+    [shootDateInput]
+  );
+
+  const shootCalendarCells = useMemo(
+    () => getCalendarMonthCells(shootCalendarMonth),
+    [shootCalendarMonth]
+  );
+
+  const selectedShootDateKeys = useMemo(
+    () => new Set(parsedShootDates.items.map(formatIsoDateParts)),
+    [parsedShootDates]
+  );
+
+  const validShootScheduleItems = useMemo(
+    () => shootScheduleItems.filter((item) => item.enabled && item.name.trim() && item.jobCategory.trim() && Number(item.ratePerUnit) > 0),
+    [shootScheduleItems]
+  );
+
+  const hasShootEpisodeItems = validShootScheduleItems.some((item) => item.workUnit === "episode");
+  const shootEpisodeUnitLabel = getShootingEpisodeUnitLabel(shootProjectType);
+  const shootEpisodeCount = parsedShootEpisodes.count > 0 ? parsedShootEpisodes.count : 0;
+  const shootDateCount = parsedShootDates.count > 0 ? parsedShootDates.count : 0;
+  const shootScheduleJobCount = validShootScheduleItems.reduce(
+    (total, item) => total + (item.workUnit === "episode" ? getShootingScheduleItemQuantity(item, shootEpisodeCount) : getShootingDayStaffQuantity(item) * shootDateCount),
+    0
+  );
+  const shootScheduleTotalPreview = validShootScheduleItems.reduce(
+    (total, item) => total + (Number(item.ratePerUnit) || 0) * (item.workUnit === "episode" ? getShootingScheduleItemQuantity(item, shootEpisodeCount) : getShootingDayStaffQuantity(item) * shootDateCount),
+    0
+  );
+
+  const shootingCalendarDays = useMemo(() => {
+    const byDate = new Map<string, ShootingCalendarDay>();
+    const scheduleJobsByGroup = new Map<string, Job[]>();
+
+    for (const job of jobs) {
+      const isScheduleJob = job.groupName?.includes("Lịch quay") || job.description?.includes("Lịch quay");
+      const groupKey = job.groupId || job.groupName;
+      if (!isScheduleJob || !groupKey) continue;
+      const groupJobs = scheduleJobsByGroup.get(groupKey) ?? [];
+      groupJobs.push(job);
+      scheduleJobsByGroup.set(groupKey, groupJobs);
+    }
+
+    for (const job of jobs) {
+      const isScheduleJob = (job.groupName?.includes("Lịch quay") || job.description?.includes("Lịch quay")) && job.workUnit === "day";
+      if (!isScheduleJob || !job.expiresAt) continue;
+      const dateParts = getIsoDateParts(job.expiresAt.slice(0, 10));
+      if (!dateParts) continue;
+      const dateKey = `${dateParts.ym}-${String(dateParts.day).padStart(2, "0")}`;
+      const existing = byDate.get(dateKey) ?? {
+        dateKey,
+        fullLabel: dateParts.fullLabel,
+        shortLabel: dateParts.shortLabel,
+        ym: dateParts.ym,
+        day: dateParts.day,
+        projects: new Set<string>(),
+        groups: new Set<string>(),
+        jobs: [],
+        jobCount: 0,
+        totalSalary: 0,
+      };
+      const groupKey = job.groupId || job.groupName;
+      const relatedJobs = (groupKey ? scheduleJobsByGroup.get(groupKey) ?? [job] : [job])
+        .filter((relatedJob) => {
+          if (relatedJob.workUnit !== "day") return true;
+          if (!relatedJob.expiresAt) return false;
+          const relatedDateParts = getIsoDateParts(relatedJob.expiresAt.slice(0, 10));
+          if (!relatedDateParts) return false;
+          return `${relatedDateParts.ym}-${String(relatedDateParts.day).padStart(2, "0")}` === dateKey;
+        });
+      for (const relatedJob of relatedJobs) {
+        if (existing.jobs.some((existingJob) => existingJob.id === relatedJob.id)) continue;
+        if (relatedJob.projectName?.trim()) existing.projects.add(relatedJob.projectName.trim());
+        if (relatedJob.groupName?.trim()) existing.groups.add(relatedJob.groupName.trim());
+        existing.jobs.push(relatedJob);
+        existing.totalSalary += Number(relatedJob.totalSalary) || 0;
+      }
+      existing.jobCount = existing.jobs.length;
+      byDate.set(dateKey, existing);
+    }
+
+    return Array.from(byDate.values())
+      .map((day) => ({
+        ...day,
+        projectList: Array.from(day.projects).sort((left, right) => left.localeCompare(right, "vi")),
+        groupList: Array.from(day.groups).sort((left, right) => left.localeCompare(right, "vi")),
+      }))
+      .sort((left, right) => right.dateKey.localeCompare(left.dateKey));
+  }, [jobs]);
+
   const editJobTotalPreview = useMemo(() => {
     if (!jobEditModal) return 0;
     if (jobEditModal.jobType === "mini") {
@@ -1154,6 +1450,9 @@ export default function Home() {
 
   // Lần đầu load trang: tự kiểm tra đăng nhập đã lưu
   useEffect(() => {
+    if (localStorage.getItem("director_session") === "1") {
+      setView("DIRECTOR");
+    }
     fetchAll(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1848,97 +2147,117 @@ export default function Home() {
   };
 
   // ─── Director: Create Shooting Day ───────────────────
+  const resetShootingScheduleForm = () => {
+    setShootFilmName("");
+    setShootDateInput("");
+    setShootCalendarMonth(currentYM());
+    setShootEpisodeLabel("1");
+    setShootProjectType("aep");
+    setShootScheduleItems(createShootingScheduleItems("aep"));
+  };
+
+  const handleToggleShootDate = (isoDate: string) => {
+    const nextDates = new Set(parsedShootDates.items.map(formatIsoDateParts));
+    if (nextDates.has(isoDate)) {
+      nextDates.delete(isoDate);
+    } else {
+      nextDates.add(isoDate);
+    }
+    setShootDateInput(Array.from(nextDates).sort((left, right) => left.localeCompare(right)).join(" "));
+  };
+
   const handleCreateShootingDay = async () => {
-    if (!shootFilmName || !shootDay || !shootMonth) return;
+    const projectName = shootFilmName.trim();
+    const shootDates = parsedShootDates.items;
+    const activeItems = validShootScheduleItems;
+    const hasEpisodeItems = activeItems.some((item) => item.workUnit === "episode");
+    if (!projectName || shootDates.length === 0 || activeItems.length === 0 || (hasEpisodeItems && parsedShootEpisodes.count === 0)) return;
     setSubmitting(true);
     try {
-      const now = new Date();
-      const year = Number(shootMonth) < now.getMonth() + 1 - 3 ? now.getFullYear() + 1 : now.getFullYear();
-      const ym = `${year}-${String(Number(shootMonth)).padStart(2, "0")}`;
-      const expiresAt = new Date(year, Number(shootMonth) - 1, Number(shootDay), 23, 59, 59, 999).toISOString();
       const groupId = Math.random().toString(36).substring(7);
-      const groupName = `Ngày quay ${shootFilmName} ${shootDay}/${shootMonth}`;
+      const projectTypeLabel = SHOOTING_PROJECT_TYPE_OPTIONS.find((option) => option.value === shootProjectType)?.label ?? "Lịch quay";
+      const episodeUnitTitle = getShootingEpisodeUnitLabel(shootProjectType).replace(/^./, (letter) => letter.toUpperCase());
+      const dateLabel = shootDates.length === 1 ? shootDates[0].shortLabel : `${shootDates[0].shortLabel} +${shootDates.length - 1} ngày`;
+      const fullDateLabel = shootDates.map((date) => date.fullLabel).join(", ");
+      const primaryMonth = shootDates[0].ym;
+      const groupName = `Lịch quay ${projectTypeLabel} - ${projectName} ${dateLabel}`;
+      const description = `Lịch quay ${fullDateLabel} - ${projectTypeLabel} - ${projectName}`;
+      const jobsToCreate: Array<{
+        title: string;
+        description: string;
+        totalSalary: number;
+        month: string;
+        expiresAt?: string;
+        groupId: string;
+        groupName: string;
+        jobType: "standard";
+        jobCategory: string;
+        projectName: string;
+        workUnit: StandardWorkUnit;
+        episodeLabel?: string;
+        dayLabel?: string;
+        workUnits: number;
+        ratePerUnit: number;
+      }> = [];
 
-      const jobsToCreate = [];
-
-      if (shootSubType === "large") {
-        // Tại chỗ: positions
-        for (const pos of shootPositions) {
-          for (let i = 1; i <= pos.qty; i++) {
-            const title = pos.qty > 1
-              ? `${pos.role} ${shootFilmName} (${i})`
-              : `${pos.role} ${shootFilmName}`;
+      for (const item of activeItems) {
+        const itemName = item.name.trim();
+        const jobCategory = item.jobCategory.trim();
+        const ratePerUnit = Number(item.ratePerUnit);
+        if (item.workUnit === "episode") {
+          const episodesToCreate = parsedShootEpisodes.items.slice(0, getShootingScheduleItemQuantity(item, parsedShootEpisodes.items.length));
+          for (const episode of episodesToCreate) {
             jobsToCreate.push({
-              title,
-              description: `Ngày quay ${shootDay}/${shootMonth} — ${shootFilmName}`,
-              totalSalary: pos.salary,
-              month: ym,
-              expiresAt,
+              title: buildShootingScheduleJobTitle(itemName, projectName, episode, "episode", episodeUnitTitle),
+              description,
+              totalSalary: ratePerUnit,
+              month: primaryMonth,
               groupId,
               groupName,
-              isOnSite: true,
+              jobType: "standard",
+              jobCategory,
+              projectName,
+              workUnit: "episode",
+              episodeLabel: episode,
+              workUnits: 1,
+              ratePerUnit,
             });
           }
-        }
-        // Hậu kỳ: tập phim
-        for (const ep of shootEpisodes) {
-          jobsToCreate.push({
-            title: `${ep.name} — ${shootFilmName}`,
-            description: `Hậu kỳ ${ep.name} — ${shootFilmName}`,
-            totalSalary: ep.editSalary,
-            month: ym,
-            groupId,
-            groupName,
-            isOnSite: false,
-          });
-        }
-      } else {
-        // Tại chỗ: positions
-        for (const pos of shootPositions) {
-          for (let i = 1; i <= pos.qty; i++) {
-            const title = pos.qty > 1
-              ? `${pos.role} ${shootFilmName} (${i})`
-              : `${pos.role} ${shootFilmName}`;
-            jobsToCreate.push({
-              title,
-              description: `Ngày quay ${shootDay}/${shootMonth} — ${shootFilmName}`,
-              totalSalary: pos.salary,
-              month: ym,
-              expiresAt,
-              groupId,
-              groupName,
-              isOnSite: true,
-            });
+        } else {
+          const quantityPerDay = getShootingDayStaffQuantity(item);
+          for (const dateParts of shootDates) {
+            const expiresAt = new Date(dateParts.year, dateParts.month - 1, dateParts.day, 23, 59, 59, 999).toISOString();
+            for (let index = 1; index <= quantityPerDay; index += 1) {
+              jobsToCreate.push({
+                title: `${buildShootingScheduleJobTitle(itemName, projectName, dateParts.shortLabel, "day")}${quantityPerDay > 1 ? ` #${index}` : ""}`,
+                description,
+                totalSalary: ratePerUnit,
+                month: dateParts.ym,
+                expiresAt,
+                groupId,
+                groupName,
+                jobType: "standard",
+                jobCategory,
+                projectName,
+                workUnit: "day",
+                dayLabel: dateParts.shortLabel,
+                workUnits: 1,
+                ratePerUnit,
+              });
+            }
           }
         }
-        // Mini clips
-        jobsToCreate.push({
-          title: shootClipTitle || `Clip ${shootFilmName}`,
-          description: `Hậu kỳ clip ngắn — ${shootFilmName}`,
-          totalSalary: Number(shootClipPrice) * Number(shootClipCount),
-          month: ym,
-          groupId,
-          groupName,
-          isOnSite: false,
-          jobType: "mini",
-          unitPrice: Number(shootClipPrice),
-          totalUnits: Number(shootClipCount),
-        });
       }
 
-      await fetch("/api/jobs/batch", {
+      const res = await fetch("/api/jobs/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobs: jobsToCreate.map(j => ({ ...j, jobType: j.jobType ?? "standard" })) }),
+        body: JSON.stringify({ jobs: jobsToCreate }),
       });
+      if (!res.ok) throw new Error("Không thể tạo lịch quay");
 
       // Reset shooting form
-      setShootFilmName("");
-      setShootDay(""); setShootMonth("");
-      setShootPositions(DEFAULT_SHOOT_POSITIONS.map(p => ({ ...p })));
-      setShootSubType("large");
-      setShootEpisodes([{ name: "Tập 1", editSalary: DEFAULT_EDIT_SALARY }]);
-      setShootClipPrice(String(100_000)); setShootClipCount("20"); setShootClipTitle("");
+  resetShootingScheduleForm();
       setCreateMode("none");
       await fetchAll();
     } finally {
@@ -2125,6 +2444,40 @@ export default function Home() {
       await Promise.all([...selectedJobIds].map((id) => fetch(`/api/jobs/${id}`, { method: "DELETE" })));
       setSelectedJobIds(new Set());
       await fetchAll();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAssignStaffingDay = async () => {
+    if (!staffingDayModal) return;
+    const assignments = staffingDayModal.jobs
+      .map((job) => {
+        const employeeId = staffingSelections[job.id];
+        const employee = employees.find((emp) => emp.id === employeeId);
+        return { job, employee };
+      })
+      .filter((item): item is { job: Job; employee: Employee } => !!item.employee && item.job.assignments.reduce((sum, assignment) => sum + assignment.percentage, 0) < 100);
+
+    if (assignments.length === 0) return;
+    setSubmitting(true);
+    try {
+      await Promise.all(assignments.map(async ({ job, employee }) => {
+        const res = await fetch(`/api/jobs/${job.id}/claim`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeId: employee.id, employeeName: employee.name, percentage: 100 }),
+        });
+        if (!res.ok) {
+          const payload = await res.json().catch(() => null);
+          throw new Error(payload?.error || "Không thể gán nhân sự");
+        }
+      }));
+      setStaffingDayModal(null);
+      setStaffingSelections({});
+      await fetchAll();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Không thể gán nhân sự");
     } finally {
       setSubmitting(false);
     }
@@ -2599,11 +2952,11 @@ export default function Home() {
                       <span className="text-xs text-purple-500 text-center">Loạt clip ngắn, nhận từng clip</span>
                     </button>
                     <button
-                      onClick={() => setCreateMode("shooting")}
+                      onClick={() => { resetShootingScheduleForm(); setCreateMode("shooting"); }}
                       className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-orange-200 bg-orange-50 hover:bg-orange-100 hover:border-orange-400 transition-all">
                       <span className="text-3xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-                      <span className="font-bold text-orange-700 text-sm text-center leading-snug">Tạo Ngày Quay</span>
-                      <span className="text-xs text-orange-500 text-center">Tất cả jobs cho 1 ngày quay</span>
+                      <span className="font-bold text-orange-700 text-sm text-center leading-snug">Lịch quay</span>
+                      <span className="text-xs text-orange-500 text-center">Tự tạo job theo ngày quay</span>
                     </button>
                   </div>
                 )}
@@ -2824,208 +3177,303 @@ export default function Home() {
                   </form>
                 )}
 
-                {/* ── Form: Ngày Quay ── */}
+                {/* ── Form: Lịch quay ── */}
                 {createMode === "shooting" && (
                   <div className="space-y-5">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xl"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-                      <span className="font-bold text-orange-700">Tạo Ngày Quay</span>
-                      <button type="button" onClick={() => setCreateMode("none")} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+                      <CalendarDays className="w-5 h-5 text-orange-500" />
+                      <span className="font-bold text-orange-700">Lịch quay</span>
+                      <button type="button" onClick={() => { resetShootingScheduleForm(); setCreateMode("none"); }} className="ml-auto text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
                     </div>
 
-                    {/* Thông tin ngày quay */}
-                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-3">
-                      <p className="text-sm font-semibold text-orange-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M8 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-2"/><path d="M9 12h6M9 16h4"/></svg> Thông tin ngày quay</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="sm:col-span-1">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Tên phim / dự án</label>
-                          <input type="text" value={shootFilmName} onChange={(e) => setShootFilmName(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
-                            placeholder="VD: Sát Giới" />
-                        </div>
+                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl space-y-4">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Ngày quay</label>
-                          <input type="number" inputMode="numeric" min="1" max="31" value={shootDay} onChange={(e) => setShootDay(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
-                            placeholder="VD: 5" />
+                          <p className="text-sm font-bold text-orange-700">Thông tin lịch quay</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Chọn loại dự án, nhập tên và bấm trực tiếp lên lịch để đánh dấu ngày quay.</p>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Tháng</label>
-                          <input type="number" inputMode="numeric" min="1" max="12" value={shootMonth} onChange={(e) => setShootMonth(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm"
-                            placeholder="VD: 3" />
+                        {shootDateCount > 0 && (
+                          <span className="text-xs font-bold text-orange-700 bg-white border border-orange-200 rounded-full px-2.5 py-1 shrink-0">
+                            {shootDateCount} ngày
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {SHOOTING_PROJECT_TYPE_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => {
+                              setShootProjectType(option.value);
+                              setShootScheduleItems(createShootingScheduleItems(option.value));
+                            }}
+                            className={`text-left rounded-xl border px-3 py-2 transition-colors ${shootProjectType === option.value ? "bg-orange-500 border-orange-500 text-white" : "bg-white border-orange-200 text-gray-700 hover:border-orange-400"}`}
+                          >
+                            <span className="block text-sm font-bold">{option.label}</span>
+                            <span className={`block text-xs ${shootProjectType === option.value ? "text-orange-50" : "text-gray-500"}`}>{option.note}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+                        <div className="lg:col-span-2 space-y-3">
+                          <div className="bg-white border border-orange-100 rounded-xl p-3 space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 mb-1">Dự án</label>
+                              <input type="text" list="project-name-options" value={shootFilmName} onChange={(e) => setShootFilmName(e.target.value)}
+                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm bg-white"
+                                placeholder={shootProjectType === "aep" ? "VD: Sát Giới" : "VD: TVC mùa hè"} />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 mb-1">{shootProjectType === "ads" ? "Số clip" : "Số tập"}</label>
+                              <input type="text" value={shootEpisodeLabel} onChange={(e) => setShootEpisodeLabel(e.target.value)}
+                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 outline-none text-sm bg-white"
+                                placeholder="VD: 5 hoặc 1 2 3" />
+                              <p className="text-[11px] text-gray-400 mt-1.5">Nhập 5 để tạo {shootEpisodeUnitLabel} 1-5; nhập “{shootProjectType === "ads" ? "Clip" : "Tập"} 5” nếu chỉ tạo đúng số 5.</p>
+                            </div>
+                          </div>
+
+                          <div className="bg-white border border-orange-100 rounded-xl p-3">
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                              <p className="text-xs font-bold text-gray-700">Ngày đã chọn</p>
+                              {shootDateCount > 0 && (
+                                <button type="button" onClick={() => setShootDateInput("")} className="text-[11px] font-semibold text-gray-400 hover:text-red-500">
+                                  Xoá hết
+                                </button>
+                              )}
+                            </div>
+                            {parsedShootDates.count > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {parsedShootDates.items.map((date) => (
+                                  <button
+                                    key={`${date.ym}-${date.day}`}
+                                    type="button"
+                                    onClick={() => handleToggleShootDate(formatIsoDateParts(date))}
+                                    className="inline-flex items-center gap-1 rounded-full bg-orange-50 border border-orange-200 px-2.5 py-1.5 text-[11px] font-bold text-orange-700 hover:border-red-300 hover:text-red-500 transition-colors"
+                                  >
+                                    {date.fullLabel}<X className="w-3 h-3" />
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400 bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-3 text-center">Chưa chọn ngày quay.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-3">
+                          <div className="rounded-xl border border-orange-200 bg-white overflow-hidden shadow-sm">
+                            <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-orange-100 bg-orange-50/70">
+                              <button
+                                type="button"
+                                onClick={() => setShootCalendarMonth((prev) => addMonthsToYM(prev, -1))}
+                                className="p-2 rounded-lg text-orange-600 hover:bg-white border border-transparent hover:border-orange-200 transition-colors"
+                                title="Tháng trước"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <div className="text-sm font-bold text-gray-900">{monthLabel(shootCalendarMonth)}</div>
+                              <button
+                                type="button"
+                                onClick={() => setShootCalendarMonth((prev) => addMonthsToYM(prev, 1))}
+                                className="p-2 rounded-lg text-orange-600 hover:bg-white border border-transparent hover:border-orange-200 transition-colors"
+                                title="Tháng sau"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-7 gap-1.5 px-3 pt-3 text-center text-[10px] font-bold text-gray-400">
+                              {["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((weekday) => <span key={weekday}>{weekday}</span>)}
+                            </div>
+                            <div className="grid grid-cols-7 gap-1.5 p-3">
+                              {shootCalendarCells.map((date) => {
+                                const isSelected = selectedShootDateKeys.has(date.isoDate);
+                                return (
+                                  <button
+                                    key={date.isoDate}
+                                    type="button"
+                                    onClick={() => handleToggleShootDate(date.isoDate)}
+                                    className={`h-10 sm:h-11 rounded-lg text-sm font-semibold border transition-all flex items-center justify-center ${isSelected ? "bg-orange-500 border-orange-500 text-white shadow-sm" : date.inCurrentMonth ? "bg-white border-orange-100 text-gray-800 hover:border-orange-400 hover:bg-orange-50" : "bg-gray-50 border-gray-100 text-gray-300 hover:text-gray-500"} ${date.isToday && !isSelected ? "ring-1 ring-orange-300" : ""}`}
+                                  >
+                                    {date.day}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Chọn loại hậu kỳ */}
-                    <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
-                      <p className="text-sm font-semibold text-gray-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Loại hậu kỳ cho ngày quay này</p>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => setShootSubType("large")}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${shootSubType === "large" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}>
-                          <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Job lớn (theo tập)
-                        </button>
-                        <button type="button" onClick={() => setShootSubType("mini_clips")}
-                          className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors ${shootSubType === "mini_clips" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-gray-600 border-gray-200 hover:border-purple-300"}`}>
-                          <svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Mini clip
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Hạng mục tại chỗ */}
                     <div className="p-4 bg-white border border-gray-200 rounded-xl space-y-3">
-                      <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Timer className="w-4 h-4 text-orange-500" /> Hạng mục tại chỗ</p>
-                      <div className="grid grid-cols-12 gap-2 mb-1">
-                        <div className="col-span-4 text-xs text-gray-400 font-medium">Vai trò</div>
-                        <div className="col-span-2 text-xs text-gray-400 font-medium text-center">SL</div>
-                        <div className="col-span-5 text-xs text-gray-400 font-medium">Lương/người</div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Timer className="w-4 h-4 text-orange-500" /> Hạng mục tự tạo</p>
+                        <button type="button" onClick={() => setShootScheduleItems(createShootingScheduleItems(shootProjectType))} className="text-xs font-semibold text-orange-600 hover:text-orange-700">
+                          Nạp preset
+                        </button>
                       </div>
-                      <div className="space-y-2">
-                        {shootPositions.map((pos, idx) => (
-                          <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-4">
-                              <input type="text" value={pos.role}
-                                onChange={(e) => setShootPositions(prev => prev.map((p, i) => i === idx ? { ...p, role: e.target.value } : p))}
-                                className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none" />
+                      <datalist id="shoot-category-options">
+                        {JOB_CATEGORY_OPTIONS.map((option) => <option key={option} value={option} />)}
+                      </datalist>
+                      <div className="space-y-3">
+                        {shootScheduleItems.map((item) => (
+                          <div key={item.id} className={`rounded-xl border p-3 transition-colors ${item.enabled ? "border-orange-200 bg-orange-50/40" : "border-gray-200 bg-gray-50"}`}>
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                              <label className="md:col-span-1 flex md:justify-center items-center gap-2 text-xs font-medium text-gray-500 pb-2 md:pb-2.5">
+                                <input
+                                  type="checkbox"
+                                  checked={item.enabled}
+                                  onChange={(e) => setShootScheduleItems((prev) => prev.map((row) => row.id === item.id ? { ...row, enabled: e.target.checked } : row))}
+                                  className="rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+                                />
+                                <span className="md:hidden">Tạo</span>
+                              </label>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Tên job</label>
+                                <input type="text" value={item.name} onChange={(e) => setShootScheduleItems((prev) => prev.map((row) => row.id === item.id ? { ...row, name: e.target.value } : row))}
+                                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none bg-white" />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Loại job</label>
+                                <input type="text" list="shoot-category-options" value={item.jobCategory} onChange={(e) => setShootScheduleItems((prev) => prev.map((row) => row.id === item.id ? { ...row, jobCategory: e.target.value } : row))}
+                                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none bg-white" />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Đơn vị</label>
+                                <select value={item.workUnit} onChange={(e) => setShootScheduleItems((prev) => prev.map((row) => row.id === item.id ? { ...row, workUnit: e.target.value as StandardWorkUnit } : row))}
+                                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none bg-white">
+                                  <option value="episode">Theo tập</option>
+                                  <option value="day">Theo ngày</option>
+                                </select>
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Số lượng</label>
+                                <input type="number" inputMode="numeric" min="1" max={item.workUnit === "episode" ? Math.max(shootEpisodeCount, 1) : undefined} value={item.quantity ?? ""}
+                                  onChange={(e) => setShootScheduleItems((prev) => prev.map((row) => row.id === item.id ? { ...row, quantity: e.target.value === "" ? undefined : Number(e.target.value) } : row))}
+                                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none bg-white"
+                                  placeholder={item.workUnit === "episode" ? String(shootEpisodeCount || 1) : "1"} />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Đơn giá</label>
+                                <input type="number" inputMode="numeric" min="0" value={Number.isFinite(item.ratePerUnit) ? item.ratePerUnit : 0}
+                                  onChange={(e) => setShootScheduleItems((prev) => prev.map((row) => row.id === item.id ? { ...row, ratePerUnit: Number(e.target.value) } : row))}
+                                  className="w-full px-2.5 py-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none bg-white" />
+                              </div>
+                              <div className="md:col-span-1 flex md:justify-end">
+                                <button type="button" onClick={() => setShootScheduleItems((prev) => prev.filter((row) => row.id !== item.id))}
+                                  className="p-2 text-gray-300 hover:text-red-500 hover:bg-white rounded-lg transition-colors" title="Xoá hạng mục">
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="col-span-2">
-                              <input type="number" min="1" max="10" value={pos.qty}
-                                onChange={(e) => setShootPositions(prev => prev.map((p, i) => i === idx ? { ...p, qty: Number(e.target.value) } : p))}
-                                className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-center focus:ring-1 focus:ring-orange-400 outline-none" />
-                            </div>
-                            <div className="col-span-5">
-                              <input type="number" inputMode="numeric" value={pos.salary}
-                                onChange={(e) => setShootPositions(prev => prev.map((p, i) => i === idx ? { ...p, salary: Number(e.target.value) } : p))}
-                                className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-orange-400 outline-none" />
-                            </div>
-                            <div className="col-span-1 flex justify-end">
-                              <button type="button" onClick={() => setShootPositions(prev => prev.filter((_, i) => i !== idx))}
-                                className="text-gray-300 hover:text-red-400"><X className="w-4 h-4" /></button>
-                            </div>
+                            {item.enabled && item.workUnit === "episode" && shootEpisodeCount > 0 && (
+                              <p className="text-xs text-orange-700 mt-2 pl-0 md:pl-[8.333%]">
+                                {getShootingScheduleItemQuantity(item, shootEpisodeCount)} {shootEpisodeUnitLabel} x {formatCurrency(Number(item.ratePerUnit) || 0)} = {formatCurrency((Number(item.ratePerUnit) || 0) * getShootingScheduleItemQuantity(item, shootEpisodeCount))}
+                              </p>
+                            )}
+                            {item.enabled && item.workUnit === "day" && shootDateCount > 0 && (
+                              <p className="text-xs text-orange-700 mt-2 pl-0 md:pl-[8.333%]">
+                                {getShootingDayStaffQuantity(item)} người x {shootDateCount} ngày x {formatCurrency(Number(item.ratePerUnit) || 0)} = {formatCurrency((Number(item.ratePerUnit) || 0) * getShootingDayStaffQuantity(item) * shootDateCount)}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
-                      <button type="button"
-                        onClick={() => setShootPositions(prev => [...prev, { role: "", qty: 1, salary: 0 }])}
+                      <button type="button" onClick={() => setShootScheduleItems((prev) => [...prev, { id: `custom-${Date.now()}-${prev.length}`, enabled: true, name: "Hạng mục mới", jobCategory: "Khác", workUnit: "episode", ratePerUnit: 0 }])}
                         className="text-xs text-orange-600 hover:text-orange-700 flex items-center gap-1 font-medium mt-1">
                         <PlusCircle className="w-3.5 h-3.5" /> Thêm hạng mục
                       </button>
-                      <div className="text-xs text-gray-400 bg-orange-50 rounded-lg px-3 py-2 flex justify-between mt-2">
-                        <span>Tổng tại chỗ:</span>
-                        <span className="font-semibold text-orange-700">
-                          {new Intl.NumberFormat("vi-VN").format(shootPositions.reduce((s, p) => s + p.salary * p.qty, 0))}đ
-                        </span>
+                      <div className="text-xs text-gray-500 bg-orange-50 rounded-lg px-3 py-2 flex justify-between mt-2">
+                        <span>{validShootScheduleItems.length} hạng mục đang bật</span>
+                        <span className="font-semibold text-orange-700">{shootScheduleJobCount} job</span>
                       </div>
                     </div>
 
-                    {/* Hậu kỳ: job lớn theo tập */}
-                    {shootSubType === "large" && (
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-3">
-                        <p className="text-sm font-semibold text-blue-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg> Tập dựng phim</p>
-                        <div className="grid grid-cols-12 gap-2 mb-1">
-                          <div className="col-span-6 text-xs text-gray-400 font-medium">Tên tập</div>
-                          <div className="col-span-5 text-xs text-gray-400 font-medium">Thù lao dựng</div>
-                        </div>
-                        <div className="space-y-2">
-                          {shootEpisodes.map((ep, idx) => (
-                            <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                              <div className="col-span-6">
-                                <input type="text" value={ep.name}
-                                  onChange={(e) => setShootEpisodes(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
-                                  className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-400 outline-none" />
-                              </div>
-                              <div className="col-span-5">
-                                <input type="number" inputMode="numeric" value={ep.editSalary}
-                                  onChange={(e) => setShootEpisodes(prev => prev.map((x, i) => i === idx ? { ...x, editSalary: Number(e.target.value) } : x))}
-                                  className="w-full px-2.5 py-1.5 border border-blue-200 rounded-lg text-sm focus:ring-1 focus:ring-blue-400 outline-none" />
-                              </div>
-                              <div className="col-span-1 flex justify-end">
-                                <button type="button" onClick={() => setShootEpisodes(prev => prev.filter((_, i) => i !== idx))}
-                                  className="text-gray-300 hover:text-red-400"><X className="w-4 h-4" /></button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        <button type="button"
-                          onClick={() => setShootEpisodes(prev => [...prev, { name: `Tập ${prev.length + 1}`, editSalary: DEFAULT_EDIT_SALARY }])}
-                          className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium mt-1">
-                          <PlusCircle className="w-3.5 h-3.5" /> Thêm tập
-                        </button>
-                        <div className="text-xs text-gray-400 bg-blue-100/70 rounded-lg px-3 py-2 flex justify-between">
-                          <span>Tổng hậu kỳ:</span>
-                          <span className="font-semibold text-blue-700">
-                            {new Intl.NumberFormat("vi-VN").format(shootEpisodes.reduce((s, e) => s + e.editSalary, 0))}đ
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hậu kỳ: mini clips */}
-                    {shootSubType === "mini_clips" && (
-                      <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl space-y-3">
-                        <p className="text-sm font-semibold text-purple-700"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 4v16M18 4v16M2 8h4M18 8h4M2 12h4M18 12h4M2 16h4M18 16h4"/></svg> Clip ngắn hậu kỳ</p>
+                    <div className="bg-orange-500 text-white rounded-xl p-4">
+                      <div className="flex items-start justify-between gap-3">
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Tên loạt clip</label>
-                          <input type="text" value={shootClipTitle} onChange={(e) => setShootClipTitle(e.target.value)}
-                            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-400 outline-none"
-                            placeholder={`VD: Clip ${shootFilmName || "phim"} ngắn`} />
+                          <p className="text-sm font-bold flex items-center gap-1.5"><CalendarDays className="w-4 h-4" /> {shootFilmName.trim() || "Chưa nhập dự án"}</p>
+                          <p className="text-xs text-orange-50 mt-1">
+                            {shootDateCount > 0 ? `Ngày quay ${parsedShootDates.items.map((date) => date.fullLabel).join(", ")}` : "Chưa chọn ngày quay"}
+                            {hasShootEpisodeItems && shootEpisodeCount > 0 ? ` - ${shootEpisodeCount} ${shootEpisodeUnitLabel}` : ""}
+                          </p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Giá / clip (đ)</label>
-                            <input type="number" inputMode="numeric" min="1000" value={shootClipPrice} onChange={(e) => setShootClipPrice(e.target.value)}
-                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-400 outline-none" />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Số clip</label>
-                            <input type="number" inputMode="numeric" min="1" value={shootClipCount} onChange={(e) => setShootClipCount(e.target.value)}
-                              className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm focus:ring-1 focus:ring-purple-400 outline-none" />
-                          </div>
-                        </div>
-                        {shootClipPrice && shootClipCount && (
-                          <div className="text-xs text-gray-400 bg-purple-100/70 rounded-lg px-3 py-2 flex justify-between">
-                            <span>Tổng mini:</span>
-                            <span className="font-semibold text-purple-600">
-                              {new Intl.NumberFormat("vi-VN").format(Number(shootClipPrice) * Number(shootClipCount))}đ
-                            </span>
-                          </div>
-                        )}
+                        <span className="text-xs font-bold bg-white/20 px-2 py-1 rounded-full shrink-0">{shootScheduleJobCount} job</span>
                       </div>
-                    )}
-
-                    {/* Preview tổng chi phí */}
-                    {shootFilmName && shootDay && shootMonth && (
-                      <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl p-4">
-                        <p className="text-sm font-bold mb-2"><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> {shootFilmName} — {shootDay}/{shootMonth}</p>
-                        <div className="text-xs space-y-1 opacity-90">
-                          <p>• {shootPositions.reduce((s, p) => s + p.qty, 0)} vị trí tại chỗ ({shootPositions.length} hạng mục) — {new Intl.NumberFormat("vi-VN").format(shootPositions.reduce((s, p) => s + p.salary * p.qty, 0))}đ</p>
-                          {shootSubType === "large"
-                            ? <p>• {shootEpisodes.length} job dựng tập — {new Intl.NumberFormat("vi-VN").format(shootEpisodes.reduce((s, e) => s + e.editSalary, 0))}đ</p>
-                            : <p>• 1 job mini ({shootClipCount} clip × {new Intl.NumberFormat("vi-VN").format(Number(shootClipPrice))}đ) — {new Intl.NumberFormat("vi-VN").format(Number(shootClipPrice) * Number(shootClipCount))}đ</p>
-                          }
-                        </div>
-                        <p className="font-black text-lg mt-2">
-                          Tổng: {new Intl.NumberFormat("vi-VN").format(
-                            shootPositions.reduce((s, p) => s + p.salary * p.qty, 0) +
-                            (shootSubType === "large"
-                              ? shootEpisodes.reduce((s, e) => s + e.editSalary, 0)
-                              : Number(shootClipPrice) * Number(shootClipCount))
-                          )}đ
-                        </p>
+                      <div className="mt-3 space-y-1.5 text-xs text-orange-50">
+                        {validShootScheduleItems.length === 0 ? (
+                          <p>Chưa có hạng mục hợp lệ.</p>
+                        ) : validShootScheduleItems.map((item) => (
+                          <p key={item.id} className="flex justify-between gap-3">
+                            <span>{item.name} ({item.workUnit === "episode" ? `${getShootingScheduleItemQuantity(item, shootEpisodeCount)} ${shootEpisodeUnitLabel}` : `${getShootingDayStaffQuantity(item)} người x ${shootDateCount} ngày`})</span>
+                            <span className="font-semibold text-white">{formatCurrency(item.ratePerUnit * (item.workUnit === "episode" ? getShootingScheduleItemQuantity(item, shootEpisodeCount) : getShootingDayStaffQuantity(item) * shootDateCount))}</span>
+                          </p>
+                        ))}
                       </div>
-                    )}
+                      <p className="font-black text-lg mt-3">Tổng: {formatCurrency(shootScheduleTotalPreview)}</p>
+                    </div>
 
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => setCreateMode("none")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
+                      <button type="button" onClick={() => { resetShootingScheduleForm(); setCreateMode("none"); }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Huỷ</button>
                       <button
                         type="button"
-                        disabled={submitting || !shootFilmName || !shootDay || !shootMonth}
+                        disabled={submitting || !shootFilmName.trim() || shootDateCount === 0 || validShootScheduleItems.length === 0 || (hasShootEpisodeItems && shootEpisodeCount === 0)}
                         onClick={handleCreateShootingDay}
                         className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white py-2.5 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
-                        {submitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Đang tạo...</> : <><CheckCircle2 className="w-4 h-4" /> Tạo tất cả jobs</>}
+                        {submitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Đang tạo...</> : <><CheckCircle2 className="w-4 h-4" /> Tạo lịch quay</>}
                       </button>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white p-5 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <CalendarDays className="w-5 h-5 text-orange-500" /> Lịch quay đã đánh dấu
+                  </h2>
+                  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
+                    {shootingCalendarDays.length} ngày
+                  </span>
+                </div>
+                {shootingCalendarDays.length === 0 ? (
+                  <p className="text-sm text-gray-400">Chưa có ngày quay nào được tạo từ Lịch quay.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {shootingCalendarDays.slice(0, 12).map((day) => {
+                      const theme = getShootingCalendarTheme(day);
+                      return (
+                      <div key={day.dateKey} className={`rounded-xl border p-3 ${theme.card}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 ${theme.dateBox}`}>
+                              <span className="text-lg font-black leading-none">{String(day.day).padStart(2, "0")}</span>
+                              <span className="text-[10px] font-semibold">{day.ym.slice(5)}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-gray-900 truncate">{day.fullLabel}</p>
+                              <p className={`text-xs truncate ${theme.titleText}`}>{day.projectList.join(", ") || "Chưa có dự án"}</p>
+                            </div>
+                          </div>
+                          <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 shrink-0 ${theme.badge}`}>{day.jobCount} job</span>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                          <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStaffingDayModal(day);
+                              setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
+                            }}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0 ${theme.button}`}
+                          >
+                            <UserPlus className="w-3.5 h-3.5" /> Nhân sự
+                          </button>
+                        </div>
+                      </div>
+                    );
+                    })}
                   </div>
                 )}
               </div>
@@ -4071,6 +4519,7 @@ export default function Home() {
 
             const manualSalaryMonth = (manualEntries[directorMonth] ?? []).reduce((s, e) => s + e.amount, 0);
             const grandTotalSalary = salaryRows.reduce((s, r) => s + r.totalApproved, 0) + manualSalaryMonth;
+            const financeShootingDays = shootingCalendarDays.filter((day) => day.ym === directorMonth);
 
             // Thu Chi data cho tháng đang chọn
             const thuChiMonth = thuChiData
@@ -4281,6 +4730,56 @@ export default function Home() {
                     <button onClick={fetchDailyAepRevenue} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
+
+                <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h2 className="text-base font-semibold flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-orange-500" /> Lịch quay {monthLabel(directorMonth)}
+                    </h2>
+                    <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
+                      {financeShootingDays.length} ngày
+                    </span>
+                  </div>
+                  {financeShootingDays.length === 0 ? (
+                    <p className="text-sm text-gray-400">Chưa có ngày quay nào trong tháng này.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {financeShootingDays.map((day) => {
+                        const theme = getShootingCalendarTheme(day);
+                        return (
+                        <div key={day.dateKey} className={`rounded-xl border p-3 ${theme.card}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 ${theme.dateBox}`}>
+                                <span className="text-base font-black leading-none">{String(day.day).padStart(2, "0")}</span>
+                                <span className="text-[10px] font-semibold">{day.ym.slice(5)}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-gray-900 truncate">{day.fullLabel}</p>
+                                <p className={`text-xs truncate ${theme.titleText}`}>{day.projectList.join(", ") || "Chưa có dự án"}</p>
+                              </div>
+                            </div>
+                            <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 shrink-0 ${theme.badge}`}>{day.jobCount} job</span>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                            <span className="truncate">{day.groupList[0] ?? "Lịch quay"}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStaffingDayModal(day);
+                                setStaffingSelections(Object.fromEntries(day.jobs.map((job) => [job.id, job.assignments[0]?.employeeId ?? ""])));
+                              }}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold shrink-0 ${theme.button}`}
+                            >
+                              <UserPlus className="w-3.5 h-3.5" /> Nhân sự
+                            </button>
+                          </div>
+                        </div>
+                      );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 {/* ── View: Tổng quan ── */}
                 {(thuChiData || revenueData) && !thuChiLoading && !revenueLoading && financeView === "overview" && (() => {
@@ -6360,6 +6859,70 @@ export default function Home() {
               ><svg className="inline w-[1em] h-[1em] align-[-0.15em] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Lưu</button>
               <button onClick={() => setDateEditModal(null)}
                 className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">Huỷ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {staffingDayModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setStaffingDayModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-900 flex items-center gap-2"><UserPlus className="w-4 h-4 text-orange-500" /> Gán nhanh nhân sự</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{staffingDayModal.fullLabel} · {staffingDayModal.projectList?.join(", ") || "Lịch quay"}</p>
+              </div>
+              <button onClick={() => setStaffingDayModal(null)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              {staffingDayModal.jobs.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">Không có job nào trong ngày này.</p>
+              ) : staffingDayModal.jobs.map((job) => {
+                const assignedPercent = job.assignments.reduce((sum, assignment) => sum + assignment.percentage, 0);
+                const isFull = assignedPercent >= 100;
+                return (
+                  <div key={job.id} className={`rounded-xl border p-3 ${isFull ? "border-emerald-200 bg-emerald-50" : "border-orange-200 bg-orange-50/40"}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-900 truncate">{job.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {job.jobCategory || "Job"} · {formatCurrency(job.totalSalary)}
+                          {job.assignments.length > 0 ? ` · Đã gán: ${job.assignments.map((assignment) => assignment.employeeName).join(", ")}` : ""}
+                        </p>
+                      </div>
+                      {isFull ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-white border border-emerald-200 rounded-full px-3 py-1.5 shrink-0">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Đã đủ
+                        </span>
+                      ) : (
+                        <select
+                          value={staffingSelections[job.id] ?? ""}
+                          onChange={(e) => setStaffingSelections((prev) => ({ ...prev, [job.id]: e.target.value }))}
+                          className="w-full sm:w-56 px-3 py-2 border border-orange-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-orange-400 outline-none"
+                        >
+                          <option value="">Chọn nhân sự</option>
+                          {employees.filter((employee) => employee.isActive !== false).map((employee) => (
+                            <option key={employee.id} value={employee.id}>{employee.profile?.hoTen || employee.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-5 pb-5 flex gap-2">
+              <button onClick={() => setStaffingDayModal(null)} className="px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl text-sm transition-colors">Huỷ</button>
+              <button
+                type="button"
+                onClick={handleAssignStaffingDay}
+                disabled={submitting || !staffingDayModal.jobs.some((job) => (staffingSelections[job.id] ?? "") && job.assignments.reduce((sum, assignment) => sum + assignment.percentage, 0) < 100)}
+                className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                {submitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Đang gán...</> : <><UserPlus className="w-4 h-4" /> Gán nhân sự</>}
+              </button>
             </div>
           </div>
         </div>
