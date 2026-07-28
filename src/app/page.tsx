@@ -102,12 +102,53 @@ function currentISODate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
-const PAYROLL_BASE_SALARY = 5400000;
+const PAYROLL_DEFAULT_CONTRACT_SALARY = 5_400_000;
+const PAYROLL_REGION_I_MIN_SALARY_2026 = 5_310_000;
+const PAYROLL_REFERENCE_SALARY_FROM_2026_07 = 2_530_000;
+const PAYROLL_BHXH_BHYT_CAP_2026 = PAYROLL_REFERENCE_SALARY_FROM_2026_07 * 20;
+const PAYROLL_BHTN_CAP_REGION_I_2026 = PAYROLL_REGION_I_MIN_SALARY_2026 * 20;
 const PAYROLL_PERSONAL_DEDUCTION = 15500000;
 const PAYROLL_DEPENDENT_DEDUCTION = 6200000;
 const PAYROLL_BHXH_RATE = 0.08;
 const PAYROLL_BHYT_RATE = 0.015;
 const PAYROLL_BHTN_RATE = 0.01;
+
+type PayrollContractSalaryByMonth = Record<string, Record<string, number>>;
+
+function normalizePayrollContractSalary(value: unknown) {
+  const amount = Math.round(Number(value));
+  if (!Number.isFinite(amount) || amount <= 0) return PAYROLL_DEFAULT_CONTRACT_SALARY;
+  return amount;
+}
+
+function normalizePayrollContractSalarySettings(raw: unknown): PayrollContractSalaryByMonth {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const normalized: PayrollContractSalaryByMonth = {};
+  for (const [month, values] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}-\d{2}$/.test(month) || !values || typeof values !== "object" || Array.isArray(values)) continue;
+    const monthValues: Record<string, number> = {};
+    for (const [empId, salary] of Object.entries(values as Record<string, unknown>)) {
+      const amount = Math.round(Number(salary));
+      if (empId && Number.isFinite(amount) && amount > 0) monthValues[empId] = amount;
+    }
+    if (Object.keys(monthValues).length > 0) normalized[month] = monthValues;
+  }
+  return normalized;
+}
+
+function getEffectivePayrollContractSalary(settings: PayrollContractSalaryByMonth, empId: string, month: string) {
+  let sourceMonth: string | null = null;
+  let amount = PAYROLL_DEFAULT_CONTRACT_SALARY;
+  for (const candidateMonth of Object.keys(settings).sort()) {
+    if (candidateMonth > month) continue;
+    const candidateAmount = settings[candidateMonth]?.[empId];
+    if (Number.isFinite(candidateAmount) && candidateAmount > 0) {
+      sourceMonth = candidateMonth;
+      amount = candidateAmount;
+    }
+  }
+  return { amount, sourceMonth };
+}
 
 function calcPersonalIncomeTax(taxableIncome: number) {
   if (taxableIncome <= 0) return 0;
@@ -120,39 +161,37 @@ function calcPersonalIncomeTax(taxableIncome: number) {
   return taxableIncome * 0.05;
 }
 
-function calcPayrollFromGross(grossIncome: number, dependentCount = 0) {
-  let lcs = 0;
-  let thuongKPI = 0;
-  let bhxh = 0;
-  let bhyt = 0;
-  let bhtn = 0;
-  let tongBH = 0;
-
-  if (grossIncome >= PAYROLL_BASE_SALARY) {
-    lcs = PAYROLL_BASE_SALARY;
-    thuongKPI = grossIncome - PAYROLL_BASE_SALARY;
-    bhxh = PAYROLL_BASE_SALARY * PAYROLL_BHXH_RATE;
-    bhyt = PAYROLL_BASE_SALARY * PAYROLL_BHYT_RATE;
-    bhtn = PAYROLL_BASE_SALARY * PAYROLL_BHTN_RATE;
-    tongBH = bhxh + bhyt + bhtn;
-  } else {
-    lcs = grossIncome;
-  }
+function calcPayrollFromGross(grossIncome: number, dependentCount = 0, contractSalary = PAYROLL_DEFAULT_CONTRACT_SALARY) {
+  const normalizedGrossIncome = Math.max(0, Number(grossIncome) || 0);
+  const normalizedContractSalary = normalizePayrollContractSalary(contractSalary);
+  const lcs = Math.min(normalizedGrossIncome, normalizedContractSalary);
+  const thuongKPI = Math.max(0, normalizedGrossIncome - lcs);
+  const bhxhBase = Math.min(lcs, PAYROLL_BHXH_BHYT_CAP_2026);
+  const bhytBase = Math.min(lcs, PAYROLL_BHXH_BHYT_CAP_2026);
+  const bhtnBase = Math.min(lcs, PAYROLL_BHTN_CAP_REGION_I_2026);
+  const bhxh = bhxhBase * PAYROLL_BHXH_RATE;
+  const bhyt = bhytBase * PAYROLL_BHYT_RATE;
+  const bhtn = bhtnBase * PAYROLL_BHTN_RATE;
+  const tongBH = bhxh + bhyt + bhtn;
 
   const tnMienThue = 0;
-  const tnChiuThue = grossIncome - tnMienThue;
+  const tnChiuThue = normalizedGrossIncome - tnMienThue;
   const gtBanThan = PAYROLL_PERSONAL_DEDUCTION;
   const gtNguoiPhuThuoc = dependentCount * PAYROLL_DEPENDENT_DEDUCTION;
   const tntt = Math.max(0, tnChiuThue - gtBanThan - gtNguoiPhuThuoc - tongBH);
   const thue = Math.max(0, Math.round(calcPersonalIncomeTax(tntt)));
-  const thucLinh = grossIncome - tongBH - thue;
+  const thucLinh = normalizedGrossIncome - tongBH - thue;
 
   return {
+    contractSalary: normalizedContractSalary,
     lcs,
     thuongKPI,
-    tongThuNhap: grossIncome,
+    tongThuNhap: normalizedGrossIncome,
     tnMienThue,
     tnChiuThue,
+    bhxhBase,
+    bhytBase,
+    bhtnBase,
     bhxh,
     bhyt,
     bhtn,
@@ -165,31 +204,33 @@ function calcPayrollFromGross(grossIncome: number, dependentCount = 0) {
   };
 }
 
-function calcPayrollFromNet(actualTakeHome: number, dependentCount = 0) {
+function calcPayrollFromNet(actualTakeHome: number, dependentCount = 0, contractSalary = PAYROLL_DEFAULT_CONTRACT_SALARY) {
   if (actualTakeHome <= 0) {
-    return calcPayrollFromGross(0, dependentCount);
+    return calcPayrollFromGross(0, dependentCount, contractSalary);
   }
 
-  const minNetWithInsurance = PAYROLL_BASE_SALARY * (1 - PAYROLL_BHXH_RATE - PAYROLL_BHYT_RATE - PAYROLL_BHTN_RATE);
+  const normalizedContractSalary = normalizePayrollContractSalary(contractSalary);
+  const minPayroll = calcPayrollFromGross(normalizedContractSalary, dependentCount, normalizedContractSalary);
+  const minNetWithInsurance = minPayroll.thucLinh;
   if (actualTakeHome < minNetWithInsurance) {
-    return calcPayrollFromGross(actualTakeHome, dependentCount);
+    return calcPayrollFromGross(actualTakeHome, dependentCount, contractSalary);
   }
 
-  let low = PAYROLL_BASE_SALARY;
-  let high = Math.max(actualTakeHome + 2000000, PAYROLL_BASE_SALARY);
+  let low = normalizedContractSalary;
+  let high = Math.max(actualTakeHome + 2000000, normalizedContractSalary);
 
-  while (calcPayrollFromGross(high, dependentCount).thucLinh < actualTakeHome) {
+  while (calcPayrollFromGross(high, dependentCount, contractSalary).thucLinh < actualTakeHome) {
     high += 5000000;
   }
 
   for (let i = 0; i < 60; i++) {
     const mid = (low + high) / 2;
-    const simulatedNet = calcPayrollFromGross(mid, dependentCount).thucLinh;
+    const simulatedNet = calcPayrollFromGross(mid, dependentCount, contractSalary).thucLinh;
     if (simulatedNet < actualTakeHome) low = mid;
     else high = mid;
   }
 
-  const result = calcPayrollFromGross(Math.round(high), dependentCount);
+  const result = calcPayrollFromGross(Math.round(high), dependentCount, contractSalary);
   return {
     ...result,
     thucLinh: actualTakeHome,
@@ -198,20 +239,25 @@ function calcPayrollFromNet(actualTakeHome: number, dependentCount = 0) {
 
 /** Tính lương thử việc: không bắt buộc đóng BH (hợp đồng thử việc riêng) */
 function calcPayrollProbation(grossIncome: number, dependentCount = 0) {
+  const normalizedGrossIncome = Math.max(0, Number(grossIncome) || 0);
   const tongBH = 0;
   const tnMienThue = 0;
-  const tnChiuThue = grossIncome;
+  const tnChiuThue = normalizedGrossIncome;
   const gtBanThan = PAYROLL_PERSONAL_DEDUCTION;
   const gtNguoiPhuThuoc = dependentCount * PAYROLL_DEPENDENT_DEDUCTION;
   const tntt = Math.max(0, tnChiuThue - gtBanThan - gtNguoiPhuThuoc - tongBH);
   const thue = Math.max(0, Math.round(calcPersonalIncomeTax(tntt)));
-  const thucLinh = grossIncome - thue;
+  const thucLinh = normalizedGrossIncome - thue;
   return {
+    contractSalary: 0,
     lcs: 0,
-    thuongKPI: grossIncome,
-    tongThuNhap: grossIncome,
+    thuongKPI: normalizedGrossIncome,
+    tongThuNhap: normalizedGrossIncome,
     tnMienThue,
     tnChiuThue,
+    bhxhBase: 0,
+    bhytBase: 0,
+    bhtnBase: 0,
     bhxh: 0, bhyt: 0, bhtn: 0,
     tongBH,
     gtBanThan,
@@ -223,9 +269,9 @@ function calcPayrollProbation(grossIncome: number, dependentCount = 0) {
 }
 
 /** Chọn hàm tính lương phù hợp dựa theo trạng thái hợp đồng tháng đó */
-function getPayroll(status: 'official' | 'probation' | undefined, grossIncome: number, dependentCount = 0) {
+function getPayroll(status: 'official' | 'probation' | undefined, grossIncome: number, dependentCount = 0, contractSalary = PAYROLL_DEFAULT_CONTRACT_SALARY) {
   if (status === 'probation') return calcPayrollProbation(grossIncome, dependentCount);
-  return calcPayrollFromGross(grossIncome, dependentCount);
+  return calcPayrollFromGross(grossIncome, dependentCount, contractSalary);
 }
 
 type AepShootDay = {
@@ -441,6 +487,7 @@ const SHOOTING_SCHEDULE_PRESETS: Record<ShootingProjectType, Array<Omit<Shooting
     { name: "Kịch bản", jobCategory: "Kịch bản", workUnit: "episode", ratePerUnit: 2_000_000 },
     { name: "Dựng phim", jobCategory: "Hậu kỳ", workUnit: "episode", ratePerUnit: 3_000_000 },
     { name: "Đạo diễn", jobCategory: "Đạo diễn", workUnit: "day", ratePerUnit: 3_000_000 },
+    { name: "Điều phối sản xuất", jobCategory: "Điều phối sản xuất", workUnit: "day", ratePerUnit: 3_000_000 },
   ],
   ads: [
     { name: "Kịch bản", jobCategory: "Kịch bản", workUnit: "episode", ratePerUnit: 2_000_000 },
@@ -448,6 +495,7 @@ const SHOOTING_SCHEDULE_PRESETS: Record<ShootingProjectType, Array<Omit<Shooting
     { name: "Storyboard AI", jobCategory: "Storyboard", workUnit: "episode", ratePerUnit: 1_000_000 },
     { name: "Dựng phim", jobCategory: "Hậu kỳ", workUnit: "episode", ratePerUnit: 2_000_000 },
     { name: "Đạo diễn", jobCategory: "Đạo diễn", workUnit: "day", ratePerUnit: 3_000_000 },
+    { name: "Điều phối sản xuất", jobCategory: "Điều phối sản xuất", workUnit: "day", ratePerUnit: 3_000_000 },
   ],
 };
 
@@ -480,6 +528,7 @@ const JOB_CATEGORY_OPTIONS = [
   "Kịch bản",
   "Storyboard",
   "Đạo diễn",
+  "Điều phối sản xuất",
   "Quay phim",
   "Ánh sáng",
   "Thu âm",
@@ -890,6 +939,8 @@ function parseJobGroup(input: string): { groupName: string; jobs: PreviewJob[] }
     for (let i = 1; i <= 2; i++) {
       jobs.push({ title: `Đạo diễn ${filmName} (${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 3_000_000, month: ym, expiresAt, isOnSite: true });
     }
+    // 1 Điều phối sản xuất × 3tr
+    jobs.push({ title: `Điều phối sản xuất ${filmName}`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 3_000_000, month: ym, expiresAt, isOnSite: true });
     // 2 Quay phim × 1.2tr
     for (let i = 1; i <= 2; i++) {
       jobs.push({ title: `Quay phim ${filmName} (Máy ${i})`, description: `Ngày quay ${day}/${month} — ${filmName}`, totalSalary: 1_200_000, month: ym, expiresAt, isOnSite: true });
@@ -1205,6 +1256,8 @@ export default function Home() {
   const [showSalaryPreview, setShowSalaryPreview] = useState(false);
   const [qrPreview, setQrPreview] = useState<{ name: string; amount: number; url: string } | null>(null);
   const [empStatusByMonth, setEmpStatusByMonth] = useState<Record<string, Record<string, 'official' | 'probation'>>>({});
+  const [payrollContractSalaryByMonth, setPayrollContractSalaryByMonth] = useState<PayrollContractSalaryByMonth>({});
+  const [payrollContractSalaryDrafts, setPayrollContractSalaryDrafts] = useState<Record<string, string>>({});
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedContractEmps, setSelectedContractEmps] = useState<string[]>([]);
 
@@ -1513,6 +1566,13 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch("/api/settings/payroll_contract_salaries")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setPayrollContractSalaryByMonth(normalizePayrollContractSalarySettings(d)))
+      .catch(() => {});
+  }, []);
+
   const saveProfitShares = async (shares: ProfitShare[]) => {
     try {
       await fetch("/api/settings/profit_shares", {
@@ -1521,6 +1581,36 @@ export default function Home() {
         body: JSON.stringify(shares),
       });
     } catch { /* ignore */ }
+  };
+
+  const savePayrollContractSalary = async (empId: string, month: string, rawValue: string | number) => {
+    const amount = normalizePayrollContractSalary(rawValue);
+    const draftKey = `${month}:${empId}`;
+    const previous = payrollContractSalaryByMonth;
+    const next = {
+      ...payrollContractSalaryByMonth,
+      [month]: {
+        ...(payrollContractSalaryByMonth[month] ?? {}),
+        [empId]: amount,
+      },
+    };
+    setPayrollContractSalaryByMonth(next);
+    setPayrollContractSalaryDrafts((prev) => {
+      const updated = { ...prev };
+      delete updated[draftKey];
+      return updated;
+    });
+    try {
+      const res = await fetch("/api/settings/payroll_contract_salaries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setPayrollContractSalaryByMonth(previous);
+      window.alert("Không lưu được Lương HĐ. Vui lòng thử lại.");
+    }
   };
 
   useEffect(() => {
@@ -4092,8 +4182,9 @@ export default function Home() {
                   };
                   const tableRows = rows.map((r, i) => {
                     const status = (empStatusByMonth[directorMonth]?.[r.emp.id] ?? 'official') as 'official' | 'probation';
-                    const payroll = getPayroll(status, r.totalApproved);
-                    return { i, empId: r.emp.id, name: r.emp.name, cccd: r.emp.profile?.cccd ?? '', stk: r.emp.profile?.stk ?? '', nganHang: r.emp.profile?.nganHang ?? '', status, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, tongThuNhap: payroll.tongThuNhap, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
+                    const contractSalarySetting = getEffectivePayrollContractSalary(payrollContractSalaryByMonth, r.emp.id, directorMonth);
+                    const payroll = getPayroll(status, r.totalApproved, 0, contractSalarySetting.amount);
+                    return { i, empId: r.emp.id, name: r.emp.name, cccd: r.emp.profile?.cccd ?? '', stk: r.emp.profile?.stk ?? '', nganHang: r.emp.profile?.nganHang ?? '', status, contractSalary: contractSalarySetting.amount, contractSalarySourceMonth: contractSalarySetting.sourceMonth, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, tongThuNhap: payroll.tongThuNhap, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
                   });
                   const toggleStatus = async (empId: string, current: 'official' | 'probation') => {
                     const next = current === 'probation' ? 'official' : 'probation';
@@ -4102,10 +4193,10 @@ export default function Home() {
                     await fetch('/api/settings/employment_status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
                   };
                   const exportPayrollCSV = () => {
-                    const header = "STT,Họ và tên,Loại HĐ,Lương đóng BHXH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
+                    const header = "STT,Họ và tên,Loại HĐ,Lương HĐ,Lương tính đóng BH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
                     const csvRows = tableRows.map((tr) => {
-                      const p = getPayroll(tr.status, tr.tongThuNhap);
-                      return [tr.i + 1, `"${tr.name}"`, tr.status === 'probation' ? 'Thử việc' : 'Chính thức', p.lcs, p.thuongKPI, p.tongThuNhap, p.tnMienThue, p.tnChiuThue, p.bhxh, p.bhyt, p.bhtn, p.tongBH, p.gtBanThan, p.gtNguoiPhuThuoc, p.tntt, p.thue, p.thucLinh].join(",");
+                      const p = getPayroll(tr.status, tr.tongThuNhap, 0, tr.contractSalary);
+                      return [tr.i + 1, `"${tr.name}"`, tr.status === 'probation' ? 'Thử việc' : 'Chính thức', tr.contractSalary, p.lcs, p.thuongKPI, p.tongThuNhap, p.tnMienThue, p.tnChiuThue, p.bhxh, p.bhyt, p.bhtn, p.tongBH, p.gtBanThan, p.gtNguoiPhuThuoc, p.tntt, p.thue, p.thucLinh].join(",");
                     });
                     const blob = new Blob(["\uFEFF" + [header, ...csvRows].join("\n")], { type: "text/csv;charset=utf-8;" });
                     const url = URL.createObjectURL(blob);
@@ -4132,10 +4223,10 @@ export default function Home() {
                                   <th className="px-4 py-4 border-b border-slate-200">STT</th>
                                   <th className="px-4 py-4 border-b border-slate-200 min-w-[150px]">Họ và tên</th>
                                   <th className="px-4 py-4 border-b border-slate-200">Loại HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Mức lương cố định để đóng BHXH">Lương HĐ</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Lương ghi trong HĐLĐ dùng làm nền đóng BH; sửa ở tháng này sẽ áp dụng cho các tháng sau đến khi đổi lại.">Lương HĐ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-500">Thưởng KPI</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-white font-extrabold">Tổng thu nhập gộp</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Trừ BH (10.5%)</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="BHXH 8%, BHYT 1.5%, BHTN 1%; BHXH/BHYT áp trần theo mức tham chiếu, BHTN áp trần theo lương tối thiểu vùng.">Trừ BH</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right">Giảm trừ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-400">TN Tính thuế</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-rose-400">Thuế TNCN</th>
@@ -4153,7 +4244,38 @@ export default function Home() {
                                         {tr.status === 'probation' ? '🔶 Thử việc' : '✅ Chính thức'}
                                       </button>
                                     </td>
-                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.lcs)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500 min-w-[150px]">
+                                      {(() => {
+                                        const draftKey = `${directorMonth}:${tr.empId}`;
+                                        const inputValue = payrollContractSalaryDrafts[draftKey] ?? String(tr.contractSalary);
+                                        return (
+                                          <div className="flex flex-col items-end gap-1">
+                                            <input
+                                              type="number"
+                                              inputMode="numeric"
+                                              min={PAYROLL_REFERENCE_SALARY_FROM_2026_07}
+                                              step={100000}
+                                              value={inputValue}
+                                              disabled={tr.status === "probation"}
+                                              onChange={(e) => setPayrollContractSalaryDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }))}
+                                              onBlur={(e) => savePayrollContractSalary(tr.empId, directorMonth, e.target.value)}
+                                              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                                              className="w-32 rounded-lg border border-slate-200 px-2 py-1 text-right text-xs font-semibold text-slate-700 disabled:bg-slate-50 disabled:text-slate-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                            />
+                                            <span className="text-[10px] text-slate-400">
+                                              {tr.status === "probation"
+                                                ? "Không đóng BH"
+                                                : tr.contractSalarySourceMonth && tr.contractSalarySourceMonth !== directorMonth
+                                                  ? `Từ ${monthLabel(tr.contractSalarySourceMonth)}`
+                                                  : formatCurrency(tr.contractSalary)}
+                                            </span>
+                                            {tr.status === "official" && tr.contractSalary < PAYROLL_REGION_I_MIN_SALARY_2026 && (
+                                              <span className="text-[10px] font-semibold text-amber-600">Dưới sàn Vùng I 2026</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
                                     <td className="px-4 py-3.5 text-right text-orange-600 font-medium">{formatCurrency(tr.thuongKPI)}</td>
                                     <td className="px-4 py-3.5 text-right font-bold text-black border-x border-slate-100 bg-slate-50/50 group-hover:bg-white">{formatCurrency(tr.tongThuNhap)}</td>
                                     <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.tongBH)}</td>
