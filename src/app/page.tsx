@@ -124,6 +124,16 @@ function currentISODate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+function createClientId() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isExpiredForMarketplace(job: Job, now = new Date()) {
+  if (!job.expiresAt) return false;
+  const expiresAt = new Date(job.expiresAt).getTime();
+  return Number.isFinite(expiresAt) && expiresAt < now.getTime();
+}
+
 const PAYROLL_DEFAULT_CONTRACT_SALARY = 5_400_000;
 const PAYROLL_REGION_I_MIN_SALARY_2026 = 5_310_000;
 const PAYROLL_REFERENCE_SALARY_FROM_2026_07 = 2_530_000;
@@ -2341,7 +2351,7 @@ export default function Home() {
     if (!projectName || shootDates.length === 0 || activeItems.length === 0 || (hasEpisodeItems && parsedShootEpisodes.count === 0)) return;
     setSubmitting(true);
     try {
-      const groupId = Math.random().toString(36).substring(7);
+      const groupId = createClientId();
       const projectTypeLabel = SHOOTING_PROJECT_TYPE_OPTIONS.find((option) => option.value === shootProjectType)?.label ?? "Lịch quay";
       const episodeUnitTitle = getShootingEpisodeUnitLabel(shootProjectType).replace(/^./, (letter) => letter.toUpperCase());
       const dateLabel = shootDates.length === 1 ? shootDates[0].shortLabel : `${shootDates[0].shortLabel} +${shootDates.length - 1} ngày`;
@@ -2422,11 +2432,17 @@ export default function Home() {
         body: JSON.stringify({ jobs: jobsToCreate }),
       });
       if (!res.ok) throw new Error("Không thể tạo lịch quay");
+      const createdJobs = await res.json();
+      if (!Array.isArray(createdJobs) || createdJobs.length !== jobsToCreate.length) {
+        throw new Error(`Tạo thiếu job: ${Array.isArray(createdJobs) ? createdJobs.length : 0}/${jobsToCreate.length}`);
+      }
 
       // Reset shooting form
-  resetShootingScheduleForm();
+      resetShootingScheduleForm();
       setCreateMode("none");
       await fetchAll();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Không thể tạo lịch quay");
     } finally {
       setSubmitting(false);
     }
@@ -8368,6 +8384,7 @@ export default function Home() {
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
 
           const availableJobs = jobs.filter((job) => {
+            if (isExpiredForMarketplace(job)) return false;
             if (job.jobType === "mini") {
               const claimedUnits = job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
               return (
@@ -8445,6 +8462,7 @@ export default function Home() {
           if (loading) return <LoadingBlock />;
 
           const openJobs = jobs.filter((job) => {
+            if (isExpiredForMarketplace(job)) return false;
             if (job.jobType === "mini") {
               // Mini: still open if total claimed units < totalUnits
               const claimedUnits = job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);

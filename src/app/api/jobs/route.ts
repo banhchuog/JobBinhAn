@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { getAllJobs, createJob, initSchema } from "@/lib/db";
 import { Job } from "@/types";
 
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     const workUnits = body.workUnits !== undefined ? Number(body.workUnits) : undefined;
     const ratePerUnit = body.ratePerUnit !== undefined ? Number(body.ratePerUnit) : undefined;
     const job: Job = {
-      id: Math.random().toString(36).substring(7),
+      id: randomUUID(),
       title: body.title,
       description: body.description || "",
       totalSalary,

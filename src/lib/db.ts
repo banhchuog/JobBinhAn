@@ -243,22 +243,15 @@ export async function restoreAepClassificationSnapshot(month: string, snapshotId
 // ─── Jobs ──────────────────────────────────────────────
 export async function getAllJobs(): Promise<Job[]> {
   if (!hasDatabaseUrl()) {
-    const now = new Date();
     const db = await readLocalDb();
     return db.jobs
       .map((job) => ({ ...job, month: job.month ?? job.createdAt.slice(0, 7) }))
-      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
-      .filter((job) => !(job.expiresAt && job.status === "OPEN" && new Date(job.expiresAt) < now));
+      .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
   }
-  const now = new Date();
   const { rows } = await getPool().query(`SELECT data FROM jobs ORDER BY (data->>'createdAt') DESC`);
   return rows
     .map((r) => r.data as Job)
-    .map((j) => ({ ...j, month: j.month ?? j.createdAt.slice(0, 7) }))
-    .filter((j) => {
-      if (j.expiresAt && j.status === "OPEN" && new Date(j.expiresAt) < now) return false;
-      return true;
-    });
+    .map((j) => ({ ...j, month: j.month ?? j.createdAt.slice(0, 7) }));
 }
 
 export async function createJob(job: Job): Promise<Job> {
@@ -270,6 +263,32 @@ export async function createJob(job: Job): Promise<Job> {
   }
   await getPool().query(`INSERT INTO jobs (id, data) VALUES ($1, $2)`, [job.id, JSON.stringify(job)]);
   return job;
+}
+
+export async function createJobs(jobs: Job[]): Promise<Job[]> {
+  if (jobs.length === 0) return [];
+  if (!hasDatabaseUrl()) {
+    const db = await readLocalDb();
+    db.jobs.unshift(...jobs);
+    await writeLocalDb(db);
+    return jobs;
+  }
+
+  const pool = getPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const job of jobs) {
+      await client.query(`INSERT INTO jobs (id, data) VALUES ($1, $2)`, [job.id, JSON.stringify(job)]);
+    }
+    await client.query("COMMIT");
+    return jobs;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateJob(updatedJob: Job): Promise<Job | null> {
