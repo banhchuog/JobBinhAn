@@ -73,16 +73,31 @@ function getAepHistorySourceLabel(source: string) {
   return source;
 }
 
+const VIETNAM_TIME_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function getVietnamYearMonth(value: Date) {
+  const vietnamTime = new Date(value.getTime() + VIETNAM_TIME_OFFSET_MS);
+  return `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getSalaryCutoffUtcMs(jobMonth: string) {
+  const [yearValue, monthValue] = jobMonth.split("-").map(Number);
+  if (!yearValue || !monthValue) return Number.NaN;
+  const nextMonthYear = monthValue === 12 ? yearValue + 1 : yearValue;
+  const nextMonthIndex = monthValue === 12 ? 0 : monthValue;
+  return Date.UTC(nextMonthYear, nextMonthIndex, 6, 0, 0, 0, 0) - VIETNAM_TIME_OFFSET_MS;
+}
+
 /** Trả về tháng lương (YYYY-MM) của 1 assignment.
- *  Nếu approvedAt <= ngày 5 tháng M+1 → tính vào tháng M (tháng của job).
+ *  Nếu nhận và duyệt trước 24h ngày 5 tháng M+1 theo giờ VN → tính vào tháng M (tháng của job).
  *  Fallback: dùng month của job. */
-function getSalaryMonth(jobMonth: string, approvedAt?: string): string {
+function getSalaryMonth(jobMonth: string, approvedAt?: string, assignedAt?: string): string {
   if (!approvedAt) return jobMonth;
   const approved = new Date(approvedAt);
-  // Ngày 5 tháng kế tiếp của jobMonth
-  const [y, m] = jobMonth.split("-").map(Number);
-  const cutoff = new Date(m === 12 ? y + 1 : y, m === 12 ? 0 : m, 5, 23, 59, 59); // ngày 5 tháng M+1
-  return approved <= cutoff ? jobMonth : `${approved.getFullYear()}-${String(approved.getMonth() + 1).padStart(2, "0")}`;
+  const assigned = assignedAt ? new Date(assignedAt) : approved;
+  const cutoffUtcMs = getSalaryCutoffUtcMs(jobMonth);
+  if (!Number.isFinite(approved.getTime()) || !Number.isFinite(assigned.getTime()) || !Number.isFinite(cutoffUtcMs)) return jobMonth;
+  return assigned.getTime() < cutoffUtcMs && approved.getTime() < cutoffUtcMs ? jobMonth : getVietnamYearMonth(approved);
 }
 
 /** Tạo label "Tháng 2/2026" từ "2026-02" */
@@ -1715,7 +1730,7 @@ export default function Home() {
       job.assignments.filter((assignment) => {
         if (assignment.status !== "APPROVED") return false;
         const jobMonth = job.month || job.createdAt.slice(0, 7);
-        return getSalaryMonth(jobMonth, assignment.approvedAt) === aepMonth;
+        return getSalaryMonth(jobMonth, assignment.approvedAt, assignment.assignedAt) === aepMonth;
       }).map((assignment) => ({ job, assignment }))
     );
     const allManualMonth = manualEntries[aepMonth] ?? [];
@@ -2958,7 +2973,7 @@ export default function Home() {
       const jm = job.month || job.createdAt.slice(0, 7);
       monthSet.add(jm);
       job.assignments.forEach((a) => {
-        if (a.approvedAt) monthSet.add(getSalaryMonth(jm, a.approvedAt));
+        if (a.approvedAt) monthSet.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt));
       });
     });
     return Array.from(monthSet).sort().reverse(); // mới nhất trước
@@ -4113,7 +4128,7 @@ export default function Home() {
               jobs.forEach((job) => {
                 const jm = job.month || job.createdAt.slice(0, 7);
                 s.add(jm);
-                job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt)); });
+                job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt)); });
               });
               return Array.from(s).sort().reverse();
             })();
@@ -4125,7 +4140,7 @@ export default function Home() {
                 job.assignments.filter((a) => {
                   if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                   const jm = job.month || job.createdAt.slice(0, 7);
-                  return getSalaryMonth(jm, a.approvedAt) === directorMonth;
+                  return getSalaryMonth(jm, a.approvedAt, a.assignedAt) === directorMonth;
                 }).map((a) => ({ job, assignment: a }))
               );
               const pending = jobs.flatMap((job) =>
@@ -4700,7 +4715,7 @@ export default function Home() {
               jobs.forEach((job) => {
                 const jm = job.month || job.createdAt.slice(0, 7);
                 s.add(jm);
-                job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt)); });
+                job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt)); });
               });
               return Array.from(s).sort().reverse();
             })();
@@ -4711,7 +4726,7 @@ export default function Home() {
                 job.assignments.filter((a) => {
                   if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                   const jm = job.month || job.createdAt.slice(0, 7);
-                  return getSalaryMonth(jm, a.approvedAt) === directorMonth;
+                  return getSalaryMonth(jm, a.approvedAt, a.assignedAt) === directorMonth;
                 }).map((a) => ({ job, assignment: a }))
               );
               const totalApproved = approved.reduce((s, x) => s + x.assignment.salaryEarned, 0);
@@ -4765,7 +4780,7 @@ export default function Home() {
               const salaryFromJobs = employees.map((emp) =>
                 jobs.flatMap((job) => job.assignments.filter((a) => {
                   if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
-                  return getSalaryMonth(job.month || job.createdAt.slice(0, 7), a.approvedAt) === ym;
+                  return getSalaryMonth(job.month || job.createdAt.slice(0, 7), a.approvedAt, a.assignedAt) === ym;
                 }).map((a) => a.salaryEarned))
               ).flat().reduce((s, x) => s + x, 0);
               const manualSalaryYm = (manualEntries[ym] ?? []).reduce((s, e) => s + e.amount, 0);
@@ -6265,7 +6280,7 @@ export default function Home() {
                       job.assignments.filter(a => {
                         if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                         const jm = job.month || job.createdAt.slice(0,7);
-                        return getSalaryMonth(jm, a.approvedAt) === aepMonth && aepClassification?.salaryAssignments[a.id] === true;
+                        return getSalaryMonth(jm, a.approvedAt, a.assignedAt) === aepMonth && aepClassification?.salaryAssignments[a.id] === true;
                       }).map(a => ({ job, assignment: a }))
                     );
                     const total = approved.reduce((s,x) => s + x.assignment.salaryEarned, 0);
@@ -6287,7 +6302,7 @@ export default function Home() {
                     job.assignments.filter(a => {
                       if (a.status !== "APPROVED") return false;
                       const jm = job.month || job.createdAt.slice(0,7);
-                      return getSalaryMonth(jm, a.approvedAt) === aepMonth;
+                      return getSalaryMonth(jm, a.approvedAt, a.assignedAt) === aepMonth;
                     }).map(a => ({ job, assignment: a }))
                   );
 
@@ -7709,7 +7724,7 @@ export default function Home() {
           jobs.forEach((job) => {
             const jm = job.month || job.createdAt.slice(0, 7);
             s.add(jm);
-            job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt)); });
+            job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt)); });
           });
           return Array.from(s);
         })();
@@ -7804,7 +7819,7 @@ export default function Home() {
                             job.assignments.filter((a) => {
                               if (a.employeeId !== emp.id || a.status !== "APPROVED") return false;
                               const jm = job.month || job.createdAt.slice(0, 7);
-                              return getSalaryMonth(jm, a.approvedAt) === month && classification?.salaryAssignments?.[a.id] === true;
+                              return getSalaryMonth(jm, a.approvedAt, a.assignedAt) === month && classification?.salaryAssignments?.[a.id] === true;
                             }).map((a) => ({ job, assignment: a }))
                           );
                           return { emp, approved };
@@ -8128,7 +8143,7 @@ export default function Home() {
             for (const a of job.assignments) {
               if (a.status !== "APPROVED") continue;
               const jm = job.month || job.createdAt.slice(0, 7);
-              if (getSalaryMonth(jm, a.approvedAt) !== selectedMonth) continue;
+              if (getSalaryMonth(jm, a.approvedAt, a.assignedAt) !== selectedMonth) continue;
               const entry = rankMap.get(a.employeeId);
               if (entry) {
                 entry.earned += a.salaryEarned;
@@ -8236,7 +8251,7 @@ export default function Home() {
             .filter(({ job, assignment }) => {
               if (assignment.status !== "APPROVED") return false;
               const jm = job.month || job.createdAt.slice(0, 7);
-              return getSalaryMonth(jm, assignment.approvedAt) === selectedMonth;
+              return getSalaryMonth(jm, assignment.approvedAt, assignment.assignedAt) === selectedMonth;
             })
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
           // Cộng thêm lương thủ công của tháng đang xem
