@@ -134,6 +134,12 @@ const PAYROLL_DEPENDENT_DEDUCTION = 6200000;
 const PAYROLL_BHXH_RATE = 0.08;
 const PAYROLL_BHYT_RATE = 0.015;
 const PAYROLL_BHTN_RATE = 0.01;
+const PAYROLL_MEAL_ALLOWANCE_CAP = 730_000;
+const PAYROLL_PHONE_ALLOWANCE_CAP = 300_000;
+const PAYROLL_UNIFORM_MONTHLY_CAP = Math.round(5_000_000 / 12);
+const PAYROLL_TRANSPORT_ALLOWANCE = 500_000;
+const PAYROLL_HOUSING_ALLOWANCE_CAP = 2_000_000;
+const PAYROLL_HOUSING_TAXABLE_RATE = 0.15;
 
 type PayrollContractSalaryByMonth = Record<string, Record<string, number>>;
 
@@ -183,11 +189,46 @@ function calcPersonalIncomeTax(taxableIncome: number) {
   return taxableIncome * 0.05;
 }
 
+function allocatePayrollAllowances(grossIncome: number, baseSalary: number) {
+  const shouldOptimize = grossIncome > PAYROLL_PERSONAL_DEDUCTION;
+  let remaining = Math.max(0, grossIncome - baseSalary);
+  const take = (cap: number) => {
+    if (!shouldOptimize || remaining <= 0) return 0;
+    const amount = Math.min(remaining, cap);
+    remaining -= amount;
+    return amount;
+  };
+
+  const mealAllowance = take(PAYROLL_MEAL_ALLOWANCE_CAP);
+  const phoneAllowance = take(PAYROLL_PHONE_ALLOWANCE_CAP);
+  const uniformAllowance = take(PAYROLL_UNIFORM_MONTHLY_CAP);
+  const housingAllowance = take(PAYROLL_HOUSING_ALLOWANCE_CAP);
+  const transportAllowance = take(PAYROLL_TRANSPORT_ALLOWANCE);
+  const taxableBonus = remaining;
+  const taxableIncomeWithoutHousing = baseSalary + transportAllowance + taxableBonus;
+  const housingTaxable = Math.min(housingAllowance, taxableIncomeWithoutHousing * PAYROLL_HOUSING_TAXABLE_RATE);
+  const housingExempt = Math.max(0, housingAllowance - housingTaxable);
+  const taxExemptAllowances = mealAllowance + phoneAllowance + uniformAllowance + housingExempt;
+
+  return {
+    taxableBonus,
+    mealAllowance,
+    phoneAllowance,
+    uniformAllowance,
+    transportAllowance,
+    housingAllowance,
+    housingTaxable,
+    housingExempt,
+    taxExemptAllowances,
+  };
+}
+
 function calcPayrollFromGross(grossIncome: number, dependentCount = 0, contractSalary = PAYROLL_DEFAULT_CONTRACT_SALARY) {
   const normalizedGrossIncome = Math.max(0, Number(grossIncome) || 0);
   const normalizedContractSalary = normalizePayrollContractSalary(contractSalary);
   const lcs = Math.min(normalizedGrossIncome, normalizedContractSalary);
-  const thuongKPI = Math.max(0, normalizedGrossIncome - lcs);
+  const allowanceBreakdown = allocatePayrollAllowances(normalizedGrossIncome, lcs);
+  const thuongKPI = allowanceBreakdown.taxableBonus;
   const bhxhBase = Math.min(lcs, PAYROLL_BHXH_BHYT_CAP_2026);
   const bhytBase = Math.min(lcs, PAYROLL_BHXH_BHYT_CAP_2026);
   const bhtnBase = Math.min(lcs, PAYROLL_BHTN_CAP_REGION_I_2026);
@@ -196,7 +237,7 @@ function calcPayrollFromGross(grossIncome: number, dependentCount = 0, contractS
   const bhtn = bhtnBase * PAYROLL_BHTN_RATE;
   const tongBH = bhxh + bhyt + bhtn;
 
-  const tnMienThue = 0;
+  const tnMienThue = allowanceBreakdown.taxExemptAllowances;
   const tnChiuThue = normalizedGrossIncome - tnMienThue;
   const gtBanThan = PAYROLL_PERSONAL_DEDUCTION;
   const gtNguoiPhuThuoc = dependentCount * PAYROLL_DEPENDENT_DEDUCTION;
@@ -208,6 +249,7 @@ function calcPayrollFromGross(grossIncome: number, dependentCount = 0, contractS
     contractSalary: normalizedContractSalary,
     lcs,
     thuongKPI,
+    ...allowanceBreakdown,
     tongThuNhap: normalizedGrossIncome,
     tnMienThue,
     tnChiuThue,
@@ -274,6 +316,15 @@ function calcPayrollProbation(grossIncome: number, dependentCount = 0) {
     contractSalary: 0,
     lcs: 0,
     thuongKPI: normalizedGrossIncome,
+    taxableBonus: normalizedGrossIncome,
+    mealAllowance: 0,
+    phoneAllowance: 0,
+    uniformAllowance: 0,
+    transportAllowance: 0,
+    housingAllowance: 0,
+    housingTaxable: 0,
+    housingExempt: 0,
+    taxExemptAllowances: 0,
     tongThuNhap: normalizedGrossIncome,
     tnMienThue,
     tnChiuThue,
@@ -4206,7 +4257,7 @@ export default function Home() {
                     const status = (empStatusByMonth[directorMonth]?.[r.emp.id] ?? 'official') as 'official' | 'probation';
                     const contractSalarySetting = getEffectivePayrollContractSalary(payrollContractSalaryByMonth, r.emp.id, directorMonth);
                     const payroll = getPayroll(status, r.totalApproved, 0, contractSalarySetting.amount);
-                    return { i, empId: r.emp.id, name: r.emp.name, cccd: r.emp.profile?.cccd ?? '', stk: r.emp.profile?.stk ?? '', nganHang: r.emp.profile?.nganHang ?? '', status, contractSalary: contractSalarySetting.amount, contractSalarySourceMonth: contractSalarySetting.sourceMonth, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, tongThuNhap: payroll.tongThuNhap, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
+                    return { i, empId: r.emp.id, name: r.emp.name, cccd: r.emp.profile?.cccd ?? '', stk: r.emp.profile?.stk ?? '', nganHang: r.emp.profile?.nganHang ?? '', status, contractSalary: contractSalarySetting.amount, contractSalarySourceMonth: contractSalarySetting.sourceMonth, lcs: payroll.lcs, thuongKPI: payroll.thuongKPI, mealAllowance: payroll.mealAllowance, phoneAllowance: payroll.phoneAllowance, uniformAllowance: payroll.uniformAllowance, transportAllowance: payroll.transportAllowance, housingAllowance: payroll.housingAllowance, tnMienThue: payroll.tnMienThue, tnChiuThue: payroll.tnChiuThue, tongThuNhap: payroll.tongThuNhap, bhxh: payroll.bhxh, bhyt: payroll.bhyt, bhtn: payroll.bhtn, tongBH: payroll.tongBH, gtBanThan: payroll.gtBanThan, gtNguoiPhuThuoc: payroll.gtNguoiPhuThuoc, tntt: payroll.tntt, thue: payroll.thue, thucLinh: payroll.thucLinh };
                   });
                   const toggleStatus = async (empId: string, current: 'official' | 'probation') => {
                     const next = current === 'probation' ? 'official' : 'probation';
@@ -4214,15 +4265,36 @@ export default function Home() {
                     setEmpStatusByMonth(updated);
                     await fetch('/api/settings/employment_status', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated) });
                   };
-                  const exportPayrollCSV = () => {
-                    const header = "STT,Họ và tên,Loại HĐ,Lương HĐ,Lương tính đóng BH,Thưởng KPIs/Năng suất,Tổng thu nhập gộp,Thu nhập miễn thuế,Thu nhập chịu thuế,BHXH (8%),BHYT (1.5%),BHTN (1%),Tổng khấu trừ BH,Giảm trừ bản thân (2026),Giảm trừ NPT (2026),Thu nhập tính thuế,Thuế TNCN,Thực lĩnh";
-                    const csvRows = tableRows.map((tr) => {
+                  const exportPayrollXlsx = async () => {
+                    const headers = ["STT", "Họ và tên", "Loại HĐ", "Lương HĐ", "Lương chính", "Thưởng KPI chịu thuế", "Ăn ca miễn thuế", "Điện thoại miễn thuế", "Đồng phục phân bổ", "Đi lại chịu thuế", "Hỗ trợ nhà ở", "Tổng thu nhập", "Thu nhập miễn thuế", "Thu nhập chịu thuế", "BHXH (8%)", "BHYT (1.5%)", "BHTN (1%)", "Tổng khấu trừ BH", "Giảm trừ bản thân (2026)", "Giảm trừ NPT (2026)", "Thu nhập tính thuế", "Thuế TNCN", "Thực lĩnh"];
+                    const dataRows = tableRows.map((tr) => {
                       const p = getPayroll(tr.status, tr.tongThuNhap, 0, tr.contractSalary);
-                      return [tr.i + 1, `"${tr.name}"`, tr.status === 'probation' ? 'Thử việc' : 'Chính thức', tr.contractSalary, p.lcs, p.thuongKPI, p.tongThuNhap, p.tnMienThue, p.tnChiuThue, p.bhxh, p.bhyt, p.bhtn, p.tongBH, p.gtBanThan, p.gtNguoiPhuThuoc, p.tntt, p.thue, p.thucLinh].join(",");
+                      return [tr.i + 1, tr.name, tr.status === 'probation' ? 'Thử việc' : 'Chính thức', tr.contractSalary, p.lcs, p.thuongKPI, p.mealAllowance, p.phoneAllowance, p.uniformAllowance, p.transportAllowance, p.housingAllowance, p.tongThuNhap, p.tnMienThue, p.tnChiuThue, p.bhxh, p.bhyt, p.bhtn, p.tongBH, p.gtBanThan, p.gtNguoiPhuThuoc, p.tntt, p.thue, p.thucLinh];
                     });
-                    const blob = new Blob(["\uFEFF" + [header, ...csvRows].join("\n")], { type: "text/csv;charset=utf-8;" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a"); a.href = url; a.download = `Bang-Luong-Chuan-2026-${directorMonth}.csv`; a.click(); URL.revokeObjectURL(url);
+                    const totalRow = ["", "Tổng cộng", "", ...headers.slice(3).map((_, index) => {
+                      const dataIndex = index + 3;
+                      return dataRows.reduce((sum, row) => sum + (Number(row[dataIndex]) || 0), 0);
+                    })];
+                    const XLSX = await import("xlsx");
+                    const worksheet = XLSX.utils.aoa_to_sheet([
+                      [`BẢNG TỔNG HỢP THANH TOÁN LƯƠNG CBNV - ${monthLabel(directorMonth)}`],
+                      [],
+                      headers,
+                      ...dataRows,
+                      totalRow,
+                    ]);
+                    worksheet["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+                    worksheet["!cols"] = headers.map((header, index) => ({ wch: index === 1 ? 24 : Math.max(12, Math.min(22, header.length + 2)) }));
+                    const range = XLSX.utils.decode_range(worksheet["!ref"] ?? "A1:W1");
+                    for (let row = 3; row <= range.e.r; row += 1) {
+                      for (let col = 3; col <= range.e.c; col += 1) {
+                        const address = XLSX.utils.encode_cell({ r: row, c: col });
+                        if (worksheet[address]) worksheet[address].z = "#,##0";
+                      }
+                    }
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
+                    XLSX.writeFile(workbook, `Bang-Luong-Chuan-2026-${directorMonth}.xlsx`);
                   };
                   return (
                     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4" onClick={() => setShowSalaryPreview(false)}>
@@ -4237,7 +4309,8 @@ export default function Home() {
                           </button>
                         </div>
                         <div className="overflow-auto flex-1 p-6 bg-slate-50">
-                          <p className="text-xs text-slate-500 mb-3">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
+                          <p className="text-xs text-slate-500 mb-2">Bấm vào cột <strong>Loại HĐ</strong> để chuyển trạng thái — lưu riêng theo từng tháng, không ảnh hưởng các tháng khác.</p>
+                          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mb-3">Các khoản phụ cấp miễn thuế chỉ nên dùng khi có điều kiện hưởng, mức khoán trong HĐLĐ/quy chế và chứng từ phù hợp. Phần không đủ điều kiện vẫn được tính vào thu nhập chịu thuế.</p>
                           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto shadow-sm">
                             <table className="w-full text-sm text-left">
                               <thead className="bg-slate-100 text-slate-600 text-xs font-bold whitespace-nowrap sticky top-0 uppercase tracking-wider z-10 shadow-sm">
@@ -4246,8 +4319,19 @@ export default function Home() {
                                   <th className="px-4 py-4 border-b border-slate-200 min-w-[150px]">Họ và tên</th>
                                   <th className="px-4 py-4 border-b border-slate-200">Loại HĐ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right" title="Lương ghi trong HĐLĐ dùng làm nền đóng BH; sửa ở tháng này sẽ áp dụng cho các tháng sau đến khi đổi lại.">Lương HĐ</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-500">Thưởng KPI</th>
-                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-white font-extrabold">Tổng thu nhập gộp</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">Lương chính</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-orange-500" title="Phần còn lại chịu thuế sau khi phân bổ các phụ cấp hợp lệ.">KPI chịu thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Tối đa 730.000đ/tháng không tính thuế khi đáp ứng điều kiện hồ sơ.">Ăn ca</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Khoán điện thoại theo quy chế/HĐLĐ; phần vượt quy chế phải tính thuế.">Điện thoại</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Phân bổ trần 5.000.000đ/năm cho trang phục bằng tiền.">Đồng phục</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Khoản đi lại/xăng xe cá nhân đang tính vào thu nhập chịu thuế.">Đi lại</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right" title="Hỗ trợ nhà ở chỉ được xử lý theo chứng từ/quy định phù hợp.">Nhà ở</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-slate-800 font-extrabold">Tổng thu nhập</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right text-emerald-500">Miễn thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">TN chịu thuế</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">BHXH</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">BHYT</th>
+                                  <th className="px-4 py-4 border-b border-slate-200 text-right">BHTN</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right" title="BHXH 8%, BHYT 1.5%, BHTN 1%; BHXH/BHYT áp trần theo mức tham chiếu, BHTN áp trần theo lương tối thiểu vùng.">Trừ BH</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right">Giảm trừ</th>
                                   <th className="px-4 py-4 border-b border-slate-200 text-right text-indigo-400">TN Tính thuế</th>
@@ -4298,8 +4382,19 @@ export default function Home() {
                                         );
                                       })()}
                                     </td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.lcs)}</td>
                                     <td className="px-4 py-3.5 text-right text-orange-600 font-medium">{formatCurrency(tr.thuongKPI)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600">{formatCurrency(tr.mealAllowance)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600">{formatCurrency(tr.phoneAllowance)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600">{formatCurrency(tr.uniformAllowance)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.transportAllowance)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.housingAllowance)}</td>
                                     <td className="px-4 py-3.5 text-right font-bold text-black border-x border-slate-100 bg-slate-50/50 group-hover:bg-white">{formatCurrency(tr.tongThuNhap)}</td>
+                                    <td className="px-4 py-3.5 text-right text-emerald-600 font-semibold">{formatCurrency(tr.tnMienThue)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.tnChiuThue)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.bhxh)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.bhyt)}</td>
+                                    <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.bhtn)}</td>
                                     <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.tongBH)}</td>
                                     <td className="px-4 py-3.5 text-right text-slate-500">{formatCurrency(tr.gtBanThan)}</td>
                                     <td className="px-4 py-3.5 text-right text-indigo-600 font-semibold border-x border-indigo-50/50">{formatCurrency(tr.tntt)}</td>
@@ -4329,7 +4424,7 @@ export default function Home() {
                                   </tr>
                                 ))}
                                 {tableRows.length === 0 && (
-                                  <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
+                                  <tr><td colSpan={23} className="px-4 py-8 text-center text-slate-400 font-medium">Chưa có dữ liệu tính lương trong tháng này</td></tr>
                                 )}
                               </tbody>
                             </table>
@@ -4337,9 +4432,9 @@ export default function Home() {
                         </div>
                         <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
                           <button onClick={() => setShowSalaryPreview(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg transition-colors">Đóng</button>
-                          <button onClick={exportPayrollCSV} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-sm">
+                          <button onClick={exportPayrollXlsx} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-sm">
                             <Download className="w-4 h-4" />
-                            Xuất CSV chuẩn 2026
+                            Xuất XLSX chuẩn 2026
                           </button>
                         </div>
                       </div>
