@@ -80,24 +80,31 @@ function getVietnamYearMonth(value: Date) {
   return `${vietnamTime.getUTCFullYear()}-${String(vietnamTime.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function getSalaryCutoffUtcMs(jobMonth: string) {
-  const [yearValue, monthValue] = jobMonth.split("-").map(Number);
+function getPreviousYearMonth(ym: string) {
+  const [yearValue, monthValue] = ym.split("-").map(Number);
+  if (!yearValue || !monthValue) return ym;
+  const previous = new Date(Date.UTC(yearValue, monthValue - 2, 1));
+  return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getSalaryMonthCloseUtcMs(ym: string) {
+  const [yearValue, monthValue] = ym.split("-").map(Number);
   if (!yearValue || !monthValue) return Number.NaN;
-  const nextMonthYear = monthValue === 12 ? yearValue + 1 : yearValue;
-  const nextMonthIndex = monthValue === 12 ? 0 : monthValue;
-  return Date.UTC(nextMonthYear, nextMonthIndex, 6, 0, 0, 0, 0) - VIETNAM_TIME_OFFSET_MS;
+  return Date.UTC(yearValue, monthValue - 1, 6, 0, 0, 0, 0) - VIETNAM_TIME_OFFSET_MS;
 }
 
 /** Trả về tháng lương (YYYY-MM) của 1 assignment.
- *  Nếu nhận và duyệt trước 24h ngày 5 tháng M+1 theo giờ VN → tính vào tháng M (tháng của job).
+ *  Nếu nhận và duyệt trước 24h ngày 5 theo giờ VN → tính vào tháng trước.
  *  Fallback: dùng month của job. */
 function getSalaryMonth(jobMonth: string, approvedAt?: string, assignedAt?: string): string {
   if (!approvedAt) return jobMonth;
   const approved = new Date(approvedAt);
   const assigned = assignedAt ? new Date(assignedAt) : approved;
-  const cutoffUtcMs = getSalaryCutoffUtcMs(jobMonth);
-  if (!Number.isFinite(approved.getTime()) || !Number.isFinite(assigned.getTime()) || !Number.isFinite(cutoffUtcMs)) return jobMonth;
-  return assigned.getTime() < cutoffUtcMs && approved.getTime() < cutoffUtcMs ? jobMonth : getVietnamYearMonth(approved);
+  if (!Number.isFinite(approved.getTime()) || !Number.isFinite(assigned.getTime())) return jobMonth;
+  const approvedMonth = getVietnamYearMonth(approved);
+  const cutoffUtcMs = getSalaryMonthCloseUtcMs(approvedMonth);
+  if (!Number.isFinite(cutoffUtcMs)) return jobMonth;
+  return assigned.getTime() < cutoffUtcMs && approved.getTime() < cutoffUtcMs ? getPreviousYearMonth(approvedMonth) : approvedMonth;
 }
 
 /** Tạo label "Tháng 2/2026" từ "2026-02" */
