@@ -151,6 +151,7 @@ export async function initSchema(): Promise<void> {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_booking_date ON casso_transactions (booking_date)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_is_aep ON casso_transactions (is_aep, is_incoming)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_received_at ON casso_transactions (received_at)`);
 }
 
 // ─── Settings ───────────────────────────────────────────
@@ -441,9 +442,10 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
         is_aep,
         description,
         counter_account_name,
+        received_at,
         raw,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, NOW()), $9, NOW())
       ON CONFLICT (transaction_id) DO UPDATE SET
         booking_date = EXCLUDED.booking_date,
         amount = EXCLUDED.amount,
@@ -451,6 +453,7 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
         is_aep = EXCLUDED.is_aep,
         description = EXCLUDED.description,
         counter_account_name = EXCLUDED.counter_account_name,
+        received_at = COALESCE($8::timestamptz, casso_transactions.received_at),
         raw = EXCLUDED.raw,
         updated_at = NOW()`,
       [
@@ -461,6 +464,7 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
         transaction.isAep,
         transaction.description,
         transaction.counterAccountName,
+        transaction.receivedAt ?? null,
         JSON.stringify(transaction.raw),
       ]
     );
@@ -469,11 +473,12 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
   return transactions.length;
 }
 
-export async function getDailyAepRevenue(): Promise<Record<string, number>> {
+export async function getDailyAepRevenue(days = 30): Promise<Record<string, number>> {
+  const safeDays = Math.max(1, Math.min(365, Math.round(Number(days) || 30)));
   const { rows } = await getPool().query(
     `WITH day_series AS (
        SELECT generate_series(
-         CURRENT_DATE - INTERVAL '29 days',
+         CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day',
          CURRENT_DATE,
          INTERVAL '1 day'
        )::date AS booking_date
@@ -483,19 +488,70 @@ export async function getDailyAepRevenue(): Promise<Record<string, number>> {
        FROM casso_transactions
        WHERE is_incoming = TRUE
          AND is_aep = TRUE
-         AND booking_date >= CURRENT_DATE - INTERVAL '29 days'
+         AND booking_date >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
        GROUP BY booking_date
      )
      SELECT day_series.booking_date::text AS date, CAST(COALESCE(revenue_by_day.amount, 0) AS FLOAT) AS amount
      FROM day_series
      LEFT JOIN revenue_by_day ON revenue_by_day.booking_date = day_series.booking_date
-     ORDER BY day_series.booking_date ASC`
+     ORDER BY day_series.booking_date ASC`,
+    [safeDays]
   );
 
   return rows.reduce<Record<string, number>>((acc, row) => {
     acc[row.date as string] = Number(row.amount) || 0;
     return acc;
   }, {});
+}
+
+export interface HourlyAepRevenuePoint {
+  hour: string;        // "2026-08-04 13:00"
+  date: string;        // "2026-08-04"
+  hourOfDay: number;   // 0-23
+  amount: number;      // VND
+}
+
+export async function getHourlyAepRevenue(days = 7): Promise<HourlyAepRevenuePoint[]> {
+  const safeDays = Math.max(1, Math.min(31, Math.round(Number(days) || 7)));
+  const { rows } = await getPool().query(
+    `WITH params AS (
+       SELECT date_trunc('hour', NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') AS end_hour
+     ),
+     hour_series AS (
+       SELECT generate_series(
+         (SELECT end_hour FROM params) - ($1::int * 24 - 1) * INTERVAL '1 hour',
+         (SELECT end_hour FROM params),
+         INTERVAL '1 hour'
+       ) AS hour_value
+     ),
+     revenue_by_hour AS (
+       SELECT
+         date_trunc('hour', received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS hour_value,
+         COALESCE(SUM(amount), 0) AS amount
+       FROM casso_transactions, params
+       WHERE is_incoming = TRUE
+         AND is_aep = TRUE
+         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= (params.end_hour - ($1::int * 24 - 1) * INTERVAL '1 hour')
+         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') < (params.end_hour + INTERVAL '1 hour')
+       GROUP BY 1
+     )
+     SELECT
+       to_char(hour_series.hour_value, 'YYYY-MM-DD HH24:00') AS hour,
+       to_char(hour_series.hour_value, 'YYYY-MM-DD') AS date,
+       EXTRACT(HOUR FROM hour_series.hour_value)::int AS hour_of_day,
+       CAST(COALESCE(revenue_by_hour.amount, 0) AS FLOAT) AS amount
+     FROM hour_series
+     LEFT JOIN revenue_by_hour ON revenue_by_hour.hour_value = hour_series.hour_value
+     ORDER BY hour_series.hour_value ASC`,
+    [safeDays]
+  );
+
+  return rows.map((row) => ({
+    hour: String(row.hour),
+    date: String(row.date),
+    hourOfDay: Number(row.hour_of_day) || 0,
+    amount: Number(row.amount) || 0,
+  }));
 }
 
 export interface IntradayAepRevenue {

@@ -42,6 +42,13 @@ type AepHistoryEntry = {
   data: AepClassificationState;
 };
 
+type HourlyAepRevenuePoint = {
+  hour: string;
+  date: string;
+  hourOfDay: number;
+  amount: number;
+};
+
 const DIRECTOR_PASS = "123";
 
 const EMPTY_AEP_CLASSIFICATION: AepClassificationState = {
@@ -1346,6 +1353,11 @@ export default function Home() {
   const [dailyAepRevenueData, setDailyAepRevenueData] = useState<Record<string, number> | null>(null);
   const [dailyAepRevenueLoading, setDailyAepRevenueLoading] = useState(false);
   const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
+  const [dailyAepRevenueDays, setDailyAepRevenueDays] = useState(30);
+  const [dailyAepRevenueDaysInput, setDailyAepRevenueDaysInput] = useState("30");
+  const [hourlyAepRevenueData, setHourlyAepRevenueData] = useState<HourlyAepRevenuePoint[] | null>(null);
+  const [hourlyAepRevenueLoading, setHourlyAepRevenueLoading] = useState(false);
+  const [hourlyAepRevenueError, setHourlyAepRevenueError] = useState<string | null>(null);
   // AEP: intraday (so sánh cùng thứ cùng giờ)
   const [intradayAepData, setIntradayAepData] = useState<{
     todayDate: string; lastWeekDate: string; cutoffTime: string;
@@ -1777,6 +1789,7 @@ export default function Home() {
     fetchThuChi();
     fetchRevenue();
     fetchDailyAepRevenue();
+    fetchHourlyAepRevenue();
     fetchIntradayAepRevenue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2986,11 +2999,12 @@ export default function Home() {
     }
   };
 
-  const fetchDailyAepRevenue = async () => {
+  const fetchDailyAepRevenue = async (days = dailyAepRevenueDays) => {
+    const safeDays = Math.max(1, Math.min(365, Math.round(Number(days) || 30)));
     setDailyAepRevenueLoading(true);
     setDailyAepRevenueError(null);
     try {
-      const res = await fetch("/api/revenue/daily");
+      const res = await fetch(`/api/revenue/daily?days=${safeDays}`);
       const data = await res.json();
       if (!res.ok) { setDailyAepRevenueError(data.error || "Lỗi API doanh thu ngày"); return; }
       setDailyAepRevenueData(data);
@@ -2998,6 +3012,21 @@ export default function Home() {
       setDailyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo ngày");
     } finally {
       setDailyAepRevenueLoading(false);
+    }
+  };
+
+  const fetchHourlyAepRevenue = async () => {
+    setHourlyAepRevenueLoading(true);
+    setHourlyAepRevenueError(null);
+    try {
+      const res = await fetch("/api/revenue/hourly?days=7");
+      const data = await res.json();
+      if (!res.ok) { setHourlyAepRevenueError(data.error || "Lỗi API doanh thu theo giờ"); return; }
+      setHourlyAepRevenueData(Array.isArray(data) ? data : []);
+    } catch {
+      setHourlyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo giờ");
+    } finally {
+      setHourlyAepRevenueLoading(false);
     }
   };
 
@@ -5159,7 +5188,13 @@ export default function Home() {
                 {dailyAepRevenueError && (
                   <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso ngày: {dailyAepRevenueError}
-                    <button onClick={fetchDailyAepRevenue} className="underline ml-1">Thử lại</button>
+                    <button onClick={() => fetchDailyAepRevenue()} className="underline ml-1">Thử lại</button>
+                  </p>
+                )}
+                {hourlyAepRevenueError && (
+                  <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso giờ: {hourlyAepRevenueError}
+                    <button onClick={fetchHourlyAepRevenue} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
 
@@ -5531,17 +5566,30 @@ export default function Home() {
                           .sort(([a], [b]) => a.localeCompare(b));
                         const amountByDate = new Map(allDailyEntries);
 
-                        const dailyEntries = allDailyEntries.slice(-30);
+                        const activeDailyDays = Math.max(1, Math.min(365, Math.round(Number(dailyAepRevenueDays) || 30)));
+                        const dailyEntries = allDailyEntries.slice(-activeDailyDays);
                         const rangeStart = dailyEntries[0]?.[0] ?? null;
                         const rangeEnd = dailyEntries[dailyEntries.length - 1]?.[0] ?? null;
+                        const applyDailyRange = (days: number) => {
+                          const safeDays = Math.max(1, Math.min(365, Math.round(Number(days) || 30)));
+                          setDailyAepRevenueDays(safeDays);
+                          setDailyAepRevenueDaysInput(String(safeDays));
+                          fetchDailyAepRevenue(safeDays);
+                        };
+                        const applyCustomDailyRange = () => {
+                          applyDailyRange(Number(dailyAepRevenueDaysInput));
+                        };
 
                         if (dailyEntries.length === 0) {
                           return (
                             <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                                <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
-                                Doanh thu AEP theo ngày (30 ngày gần nhất)
-                              </p>
+                              <div className="flex items-center justify-between gap-2 mb-3">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                                  <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14v-3M12 14V7M17 14v-5"/></svg>
+                                  Doanh thu AEP theo ngày ({activeDailyDays} ngày gần nhất)
+                                </p>
+                                {dailyAepRevenueLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-gray-300" />}
+                              </div>
                               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
                                 <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu ngày từ Casso</p>
                                 <p className="text-xs text-gray-400 mt-1">Sau khi webhook nhận giao dịch khớp 65k / 165k / 270k / 420k, chart ngày sẽ hiện ở đây.</p>
@@ -5605,10 +5653,37 @@ export default function Home() {
                                 </span>
                                 <div>
                                   <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo ngày</p>
-                                  <p className="text-[10px] text-gray-400">30 ngày gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
+                                  <p className="text-[10px] text-gray-400">{activeDailyDays} ngày gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
                                 </div>
                               </div>
-                              <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">{dailyChartData.length} ngày</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {[30, 60].map((days) => (
+                                  <button
+                                    key={days}
+                                    type="button"
+                                    onClick={() => applyDailyRange(days)}
+                                    className={`h-7 px-2.5 rounded-full text-[10px] font-bold border transition-colors ${activeDailyDays === days ? "bg-indigo-600 text-white border-indigo-600" : "bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-100"}`}
+                                  >
+                                    {days} ngày
+                                  </button>
+                                ))}
+                                <div className="flex items-center h-7 rounded-full border border-indigo-100 bg-indigo-50 overflow-hidden">
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={1}
+                                    max={365}
+                                    value={dailyAepRevenueDaysInput}
+                                    onChange={(e) => setDailyAepRevenueDaysInput(e.target.value)}
+                                    onBlur={applyCustomDailyRange}
+                                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                                    className="w-12 h-full bg-transparent px-2 text-[10px] font-bold text-indigo-700 outline-none text-right"
+                                    aria-label="Số ngày doanh thu"
+                                  />
+                                  <span className="pr-2 text-[10px] font-semibold text-indigo-500">ngày</span>
+                                </div>
+                                {dailyAepRevenueLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-gray-300 ml-1" />}
+                              </div>
                             </div>
 
                             {/* KPI row */}
@@ -5687,6 +5762,124 @@ export default function Home() {
                                 <p className="text-[9px] text-gray-300 mt-1">Đang cập nhật từ Casso...</p>
                               )}
                               <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường vàng = TB ngày</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Widget: Doanh thu theo giờ 7 ngày ── */}
+                      {(() => {
+                        if (!hourlyAepRevenueData && hourlyAepRevenueLoading) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 animate-pulse">
+                              <div className="h-3 bg-gray-100 rounded w-44 mb-3" />
+                              <div className="h-36 bg-gray-50 rounded-xl" />
+                            </div>
+                          );
+                        }
+
+                        const hourlyEntries = hourlyAepRevenueData ?? [];
+                        if (hourlyEntries.length === 0) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                              <div className="flex items-center justify-between gap-2 mb-3">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Doanh thu theo giờ</p>
+                                <button onClick={fetchHourlyAepRevenue} disabled={hourlyAepRevenueLoading} className="text-xs text-blue-600 underline disabled:opacity-50">
+                                  {hourlyAepRevenueLoading ? "Đang tải..." : "Tải dữ liệu"}
+                                </button>
+                              </div>
+                              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
+                                <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu theo giờ</p>
+                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo giờ từ giao dịch Casso AEP 7 ngày gần nhất.</p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const hourlyChartData = hourlyEntries.map((point) => ({
+                          hour: point.hour,
+                          date: point.date,
+                          hourOfDay: point.hourOfDay,
+                          label: point.hourOfDay === 0 ? formatShortDayMonth(point.date) : `${String(point.hourOfDay).padStart(2, "0")}h`,
+                          shortHour: `${String(point.hourOfDay).padStart(2, "0")}:00`,
+                          amount: Math.round((point.amount / 1e6) * 10) / 10,
+                        }));
+                        const rangeStart = hourlyChartData[0]?.date ?? null;
+                        const rangeEnd = hourlyChartData[hourlyChartData.length - 1]?.date ?? null;
+                        const hourlyTotal = Math.round(hourlyChartData.reduce((sum, item) => sum + item.amount, 0) * 10) / 10;
+                        const hourlyAverage = hourlyChartData.length > 0 ? Math.round((hourlyTotal / hourlyChartData.length) * 10) / 10 : 0;
+                        const bestHour = hourlyChartData.reduce((best, item) => item.amount > best.amount ? item : best, hourlyChartData[0]);
+
+                        return (
+                          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-gray-50">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-sky-50 shrink-0">
+                                  <svg className="w-3.5 h-3.5 text-sky-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                                </span>
+                                <div>
+                                  <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo giờ</p>
+                                  <p className="text-[10px] text-gray-400">7 ngày gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={fetchHourlyAepRevenue}
+                                disabled={hourlyAepRevenueLoading}
+                                className="h-7 px-2.5 rounded-full text-[10px] font-bold border border-sky-100 bg-sky-50 text-sky-600 hover:bg-sky-100 disabled:opacity-50 transition-colors flex items-center gap-1.5 shrink-0"
+                              >
+                                <RefreshCw className={`w-3 h-3 ${hourlyAepRevenueLoading ? "animate-spin" : ""}`} />
+                                7 ngày
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Tổng 7 ngày</p>
+                                <p className="text-base font-black text-sky-600 leading-none">{hourlyTotal.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                              </div>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">TB mỗi giờ</p>
+                                <p className="text-base font-black text-amber-500 leading-none">{hourlyAverage.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                              </div>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Cao nhất</p>
+                                <p className="text-base font-black text-emerald-600 leading-none">{bestHour.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-400 mt-1">{bestHour.shortHour} · {formatShortDayMonth(bestHour.date)}</p>
+                              </div>
+                            </div>
+
+                            <div className="px-3 pt-3 pb-4">
+                              <ResponsiveContainer width="100%" height={170}>
+                                <ComposedChart data={hourlyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} minTickGap={22} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (!active || !payload || payload.length === 0) return null;
+                                      const point = payload[0]?.payload as {
+                                        date: string; shortHour: string; amount: number;
+                                      };
+                                      if (!point) return null;
+                                      return (
+                                        <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
+                                          <p className="font-bold text-gray-700 mb-1">{point.shortHour} · {formatFullDate(point.date)}</p>
+                                          <p className="text-sky-600 font-semibold">Doanh thu: {point.amount.toFixed(1)}tr</p>
+                                        </div>
+                                      );
+                                    }}
+                                    cursor={{ fill: "#f9fafb" }}
+                                  />
+                                  <ReferenceLine y={hourlyAverage} stroke="#0ea5e9" strokeDasharray="5 3" strokeWidth={1.2}
+                                    label={{ value: `TB ${hourlyAverage.toFixed(1)}tr`, position: "right", fill: "#0ea5e9", fontSize: 9 }} />
+                                  <Bar dataKey="amount" name="Doanh thu giờ" radius={[4, 4, 0, 0]}>
+                                    {hourlyChartData.map((entry, index) => (
+                                      <Cell key={`cell-hour-${index}`} fill={entry.amount === 0 ? "#e5e7eb" : entry.amount >= hourlyAverage ? "#0ea5e9" : "#7dd3fc"} />
+                                    ))}
+                                  </Bar>
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Mỗi cột = 1 giờ · đường xanh = TB mỗi giờ</p>
                             </div>
                           </div>
                         );

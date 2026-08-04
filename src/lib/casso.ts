@@ -5,6 +5,7 @@ export type CassoPayloadObject = Record<string, unknown>;
 export interface StoredCassoTransaction {
   transactionId: string;
   bookingDate: string;
+  receivedAt?: string;
   amount: number;
   isIncoming: boolean;
   isAep: boolean;
@@ -34,6 +35,15 @@ export function toDateKey(value: unknown): string | null {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString().slice(0, 10);
+}
+
+export function toIsoTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const trimmed = value.trim();
+  if (!/[T\s]\d{1,2}:\d{2}/.test(trimmed)) return null;
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
 }
 
 export function getTransactions(payload: unknown): CassoPayloadObject[] {
@@ -118,10 +128,21 @@ export function getTransactionDate(tx: CassoPayloadObject): string | null {
   );
 }
 
+export function getTransactionTimestamp(tx: CassoPayloadObject): string | null {
+  return (
+    toIsoTimestamp(tx.transactionDate) ??
+    toIsoTimestamp(tx.when) ??
+    toIsoTimestamp(tx.createdAt) ??
+    toIsoTimestamp(tx.bookingDate) ??
+    toIsoTimestamp(tx.date)
+  );
+}
+
 export function normalizeCassoTransaction(tx: CassoPayloadObject): StoredCassoTransaction | null {
   const isIncoming = isIncomingTransaction(tx);
   const amount = getIncomingAmount(tx);
   const bookingDate = getTransactionDate(tx);
+  const receivedAt = getTransactionTimestamp(tx) ?? undefined;
 
   if (!amount || !bookingDate) return null;
 
@@ -143,6 +164,7 @@ export function normalizeCassoTransaction(tx: CassoPayloadObject): StoredCassoTr
   return {
     transactionId,
     bookingDate,
+    receivedAt,
     amount,
     isIncoming,
     isAep: isIncoming && AEP_AMOUNTS.has(amount),
