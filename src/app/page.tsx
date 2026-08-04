@@ -5804,6 +5804,9 @@ export default function Home() {
                           shortHour: `${String(point.hourOfDay).padStart(2, "0")}:00`,
                           amount: Math.round((point.amount / 1e6) * 10) / 10,
                         }));
+                        const hourlyXAxisTicks = hourlyChartData
+                          .filter((point) => point.hourOfDay === 0 || point.hourOfDay === 7 || point.hourOfDay === 15 || point.hourOfDay === 23)
+                          .map((point) => point.hour);
                         const rangeStart = hourlyChartData[0]?.date ?? null;
                         const rangeEnd = hourlyChartData[hourlyChartData.length - 1]?.date ?? null;
                         const hourlyTotal = Math.round(hourlyChartData.reduce((sum, item) => sum + item.amount, 0) * 10) / 10;
@@ -5852,7 +5855,19 @@ export default function Home() {
                               <ResponsiveContainer width="100%" height={170}>
                                 <ComposedChart data={hourlyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} minTickGap={22} />
+                                  <XAxis
+                                    dataKey="hour"
+                                    ticks={hourlyXAxisTicks}
+                                    tickFormatter={(value) => {
+                                      const text = String(value);
+                                      const hour = Number(text.slice(11, 13));
+                                      return hour === 0 ? formatShortDayMonth(text.slice(0, 10)) : `${String(hour).padStart(2, "0")}h`;
+                                    }}
+                                    tick={{ fontSize: 10, fill: "#d1d5db" }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    minTickGap={18}
+                                  />
                                   <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
                                   <Tooltip
                                     content={({ active, payload }) => {
