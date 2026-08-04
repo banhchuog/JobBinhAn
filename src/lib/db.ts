@@ -515,12 +515,14 @@ export async function getHourlyAepRevenue(days = 7): Promise<HourlyAepRevenuePoi
   const safeDays = Math.max(1, Math.min(31, Math.round(Number(days) || 7)));
   const { rows } = await getPool().query(
     `WITH params AS (
-       SELECT date_trunc('hour', NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') AS end_hour
+       SELECT
+         date_trunc('day', NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') - ($1::int - 1) * INTERVAL '1 day' AS start_day,
+         date_trunc('day', NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') AS current_day
      ),
      hour_series AS (
        SELECT generate_series(
-         (SELECT end_hour FROM params) - ($1::int * 24 - 1) * INTERVAL '1 hour',
-         (SELECT end_hour FROM params),
+         (SELECT start_day FROM params),
+         (SELECT current_day FROM params) + INTERVAL '23 hours',
          INTERVAL '1 hour'
        ) AS hour_value
      ),
@@ -531,8 +533,8 @@ export async function getHourlyAepRevenue(days = 7): Promise<HourlyAepRevenuePoi
        FROM casso_transactions, params
        WHERE is_incoming = TRUE
          AND is_aep = TRUE
-         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= (params.end_hour - ($1::int * 24 - 1) * INTERVAL '1 hour')
-         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') < (params.end_hour + INTERVAL '1 hour')
+         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= params.start_day
+         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') < (params.current_day + INTERVAL '1 day')
        GROUP BY 1
      )
      SELECT

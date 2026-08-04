@@ -5790,7 +5790,7 @@ export default function Home() {
                               </div>
                               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
                                 <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu theo giờ</p>
-                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo giờ từ giao dịch Casso AEP 7 ngày gần nhất.</p>
+                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo giờ từ giao dịch Casso AEP: 7 ngày gần nhất, mỗi ngày 24 giờ.</p>
                               </div>
                             </div>
                           );
@@ -5819,7 +5819,7 @@ export default function Home() {
                                 </span>
                                 <div>
                                   <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo giờ</p>
-                                  <p className="text-[10px] text-gray-400">7 ngày gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
+                                  <p className="text-[10px] text-gray-400">7 ngày gần nhất · 24 giờ/ngày · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
                                 </div>
                               </div>
                               <button
@@ -5879,7 +5879,7 @@ export default function Home() {
                                   </Bar>
                                 </ComposedChart>
                               </ResponsiveContainer>
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Mỗi cột = 1 giờ · đường xanh = TB mỗi giờ</p>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Sắp xếp từ cũ đến mới · mỗi ngày 24 cột giờ · đường xanh = TB mỗi giờ</p>
                             </div>
                           </div>
                         );
