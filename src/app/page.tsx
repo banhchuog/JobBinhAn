@@ -119,6 +119,30 @@ function currentYM() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function normalizeYearMonth(value?: string | null) {
+  const match = String(value ?? "").match(/^(\d{4})-(\d{1,2})/);
+  if (!match) return "";
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return "";
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function sortYearMonthsCurrentFirst(months: Iterable<string | null | undefined>) {
+  const current = currentYM();
+  const monthSet = new Set<string>([current]);
+  Array.from(months).forEach((month) => {
+    const normalized = normalizeYearMonth(month);
+    if (normalized) monthSet.add(normalized);
+  });
+  return [
+    current,
+    ...Array.from(monthSet)
+      .filter((month) => month !== current)
+      .sort((left, right) => right.localeCompare(left)),
+  ];
+}
+
 function currentISODate() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -132,6 +156,41 @@ function isExpiredForMarketplace(job: Job, now = new Date()) {
   if (!job.expiresAt) return false;
   const expiresAt = new Date(job.expiresAt).getTime();
   return Number.isFinite(expiresAt) && expiresAt < now.getTime();
+}
+
+const RECENT_JOB_MONTH_FILTER = "recent";
+const ALL_JOB_MONTH_FILTER = "all";
+
+function shiftYearMonth(ym: string, delta: number) {
+  const normalized = normalizeYearMonth(ym);
+  const [yearValue, monthValue] = normalized.split("-").map(Number);
+  if (!yearValue || !monthValue) return ym;
+  const date = new Date(Date.UTC(yearValue, monthValue - 1 + delta, 1));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+function getRecentJobMonths(baseMonth = currentYM()) {
+  const normalized = normalizeYearMonth(baseMonth) || currentYM();
+  return new Set([normalized, shiftYearMonth(normalized, -1)]);
+}
+
+function getJobActivityMonth(job: Job) {
+  if (job.workUnit === "day" && job.expiresAt) {
+    const expiresAt = new Date(job.expiresAt);
+    if (Number.isFinite(expiresAt.getTime())) return getVietnamYearMonth(expiresAt);
+  }
+  return normalizeYearMonth(job.month || job.createdAt.slice(0, 7)) || currentYM();
+}
+
+function matchesJobMonthFilter(month: string, filterValue: string) {
+  if (filterValue === ALL_JOB_MONTH_FILTER) return true;
+  const normalizedMonth = normalizeYearMonth(month);
+  if (filterValue === RECENT_JOB_MONTH_FILTER) return getRecentJobMonths().has(normalizedMonth);
+  return normalizedMonth === normalizeYearMonth(filterValue);
+}
+
+function matchesJobFilterMonth(job: Job, filterValue: string) {
+  return matchesJobMonthFilter(getJobActivityMonth(job), filterValue);
 }
 
 const PAYROLL_DEFAULT_CONTRACT_SALARY = 5_400_000;
@@ -1236,6 +1295,8 @@ export default function Home() {
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [jobProjectFilter, setJobProjectFilter] = useState("all");
   const [jobCategoryFilter, setJobCategoryFilter] = useState("all");
+  const [directorJobMonthFilter, setDirectorJobMonthFilter] = useState(RECENT_JOB_MONTH_FILTER);
+  const [employeeJobMonthFilter, setEmployeeJobMonthFilter] = useState(RECENT_JOB_MONTH_FILTER);
   const [marketFilter, setMarketFilter] = useState<"all" | "onsite" | "postprod" | "mini">("all");
 
   // ── Create mode: "none" | "postprod" | "mini" | "shooting" ──
@@ -1401,6 +1462,12 @@ export default function Home() {
     [jobs]
   );
 
+  const jobMonthOptions = useMemo(() => {
+    const monthSet = getRecentJobMonths();
+    jobs.forEach((job) => monthSet.add(getJobActivityMonth(job)));
+    return sortYearMonthsCurrentFirst(monthSet);
+  }, [jobs]);
+
   const uncategorizedStandardJobs = useMemo(
     () => jobs.filter((job) => job.jobType !== "mini" && !job.jobCategory?.trim()),
     [jobs]
@@ -1533,6 +1600,11 @@ export default function Home() {
       }))
       .sort((left, right) => right.dateKey.localeCompare(left.dateKey));
   }, [jobs]);
+
+  const filteredShootingCalendarDays = useMemo(
+    () => shootingCalendarDays.filter((day) => matchesJobMonthFilter(day.ym, directorJobMonthFilter)),
+    [shootingCalendarDays, directorJobMonthFilter]
+  );
 
   const editJobTotalPreview = useMemo(() => {
     if (!jobEditModal) return 0;
@@ -3050,7 +3122,7 @@ export default function Home() {
         if (a.approvedAt) monthSet.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt));
       });
     });
-    return Array.from(monthSet).sort().reverse(); // mới nhất trước
+    return sortYearMonthsCurrentFirst(monthSet); // tháng hiện tại trước, sau đó mới nhất trước
   }, [jobs]);
 
   // ══════════════════════════════════════════════════════
@@ -3680,15 +3752,28 @@ export default function Home() {
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <CalendarDays className="w-5 h-5 text-orange-500" /> Lịch quay đã đánh dấu
                   </h2>
-                  <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
-                    {shootingCalendarDays.length} ngày
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={directorJobMonthFilter}
+                      onChange={(e) => setDirectorJobMonthFilter(e.target.value)}
+                      className="px-3 py-1.5 border border-orange-200 rounded-lg text-xs font-semibold text-orange-700 bg-white hover:bg-orange-50 shrink-0"
+                    >
+                      <option value={RECENT_JOB_MONTH_FILTER}>2 tháng gần nhất</option>
+                      <option value={ALL_JOB_MONTH_FILTER}>Tất cả tháng</option>
+                      {jobMonthOptions.map((ym) => (
+                        <option key={ym} value={ym}>{monthLabel(ym)}</option>
+                      ))}
+                    </select>
+                    <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
+                      {filteredShootingCalendarDays.length}/{shootingCalendarDays.length} ngày
+                    </span>
+                  </div>
                 </div>
-                {shootingCalendarDays.length === 0 ? (
-                  <p className="text-sm text-gray-400">Chưa có ngày quay nào được tạo từ Lịch quay.</p>
+                {filteredShootingCalendarDays.length === 0 ? (
+                  <p className="text-sm text-gray-400">Không có ngày quay nào trong bộ lọc hiện tại.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {shootingCalendarDays.slice(0, 12).map((day) => {
+                    {filteredShootingCalendarDays.map((day) => {
                       const theme = getShootingCalendarTheme(day);
                       return (
                       <div key={day.dateKey} className={`rounded-xl border p-3 ${theme.card}`}>
@@ -3755,6 +3840,17 @@ export default function Home() {
                     {jobSort === "newest" ? "Mới nhất" : "Cũ nhất"}
                   </button>
                   <select
+                    value={directorJobMonthFilter}
+                    onChange={(e) => setDirectorJobMonthFilter(e.target.value)}
+                    className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 shrink-0"
+                  >
+                    <option value={RECENT_JOB_MONTH_FILTER}>2 tháng gần nhất</option>
+                    <option value={ALL_JOB_MONTH_FILTER}>Tất cả tháng</option>
+                    {jobMonthOptions.map((ym) => (
+                      <option key={ym} value={ym}>{monthLabel(ym)}</option>
+                    ))}
+                  </select>
+                  <select
                     value={jobProjectFilter}
                     onChange={(e) => setJobProjectFilter(e.target.value)}
                     className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-600 bg-white hover:bg-gray-50 shrink-0"
@@ -3774,9 +3870,9 @@ export default function Home() {
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
-                  {(jobProjectFilter !== "all" || jobCategoryFilter !== "all") && (
+                  {(jobProjectFilter !== "all" || jobCategoryFilter !== "all" || directorJobMonthFilter !== RECENT_JOB_MONTH_FILTER) && (
                     <button
-                      onClick={() => { setJobProjectFilter("all"); setJobCategoryFilter("all"); }}
+                      onClick={() => { setJobProjectFilter("all"); setJobCategoryFilter("all"); setDirectorJobMonthFilter(RECENT_JOB_MONTH_FILTER); }}
                       className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-50 shrink-0"
                     >
                       Xoá lọc
@@ -3825,6 +3921,7 @@ export default function Home() {
                   const normalizedSearch = jobSearch.trim().toLowerCase();
                   const filtered = jobs
                     .filter((j) => {
+                      if (!matchesJobFilterMonth(j, directorJobMonthFilter)) return false;
                       const haystack = [j.title, j.description, j.projectName, j.jobCategory, j.groupName, j.episodeLabel, j.dayLabel]
                         .filter(Boolean)
                         .join(" ")
@@ -4204,7 +4301,7 @@ export default function Home() {
                 s.add(jm);
                 job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt)); });
               });
-              return Array.from(s).sort().reverse();
+              return sortYearMonthsCurrentFirst(s);
             })();
 
             // Tính bảng lương theo tháng đang chọn
@@ -4835,7 +4932,7 @@ export default function Home() {
                 s.add(jm);
                 job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt)); });
               });
-              return Array.from(s).sort().reverse();
+              return sortYearMonthsCurrentFirst(s);
             })();
 
             // Tổng lương nhân viên tháng đang chọn
@@ -4881,9 +4978,10 @@ export default function Home() {
               ...( revenueData ? Object.keys(revenueData) : []),
               ...salaryMonths,
               ...Object.keys(manualEntries),
-            ])].sort().reverse();
+            ])];
+            const sortedReportMonths = sortYearMonthsCurrentFirst(allReportMonths);
 
-            const reportRows = allReportMonths.map((ym) => {
+            const reportRows = sortedReportMonths.map((ym) => {
               const txs = thuChiData?.filter((t) => t.date?.startsWith(ym)) ?? [];
               const _amt = (t: ThuChiTransaction) => t.currency === "VND" ? Number(t.amount) : Number(t.amount) * 25000;
               const thuTxs = txs.filter((t) => t.type === "Thu");
@@ -5184,7 +5282,7 @@ export default function Home() {
                           }`}>
                           Tất cả ({reportRows.length} tháng)
                         </button>
-                        {[...reportRows].reverse().map((r) => (
+                        {reportRows.map((r) => (
                           <button
                             key={r.ym}
                             onClick={() => setOverviewFilter(r.ym)}
@@ -6382,7 +6480,8 @@ export default function Home() {
                     ...(revenueData ? Object.keys(revenueData) : []),
                     ...(thuChiData ? thuChiData.map(t => t.date?.slice(0,7)).filter(Boolean) as string[] : []),
                     ...salaryMonths,
-                  ])].filter(ym => ym >= AEP_START).sort().reverse();
+                  ])];
+                  const sortedAepMonths = sortYearMonthsCurrentFirst(aepMonths).filter(ym => ym >= AEP_START);
 
                   const aepRev = revenueData?.[aepMonth] ?? 0;
 
@@ -6464,7 +6563,7 @@ export default function Home() {
                       {/* Chọn tháng */}
                       <div className="flex items-start gap-2">
                         <div className="flex gap-1 overflow-x-auto hide-scrollbar pb-0.5 flex-1">
-                          {aepMonths.map(ym => (
+                          {sortedAepMonths.map(ym => (
                               <button key={ym} onClick={() => { setAepMonth(ym); setAepDraft(null); setAepDraftDirty(false); setAepAiScanNotice(null); setAepSalaryAiNotice(null); setAepManualAiNotice(null); setAepRestoreNotice(null); setAepShootConfirmQueue([]); setAepShootDecisions({}); setAepFilterExpense(""); setAepFilterExpenseDateFrom(""); setAepFilterExpenseDateTo(""); setAepFilterSalary(""); setAepFilterManual(""); setAepExpandedExpenseDays({}); }}
                               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${aepMonth === ym ? "bg-violet-600 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}>
                               {monthLabel(ym)}{ym === currentYM() ? " ●" : ""}
@@ -7844,13 +7943,13 @@ export default function Home() {
             s.add(jm);
             job.assignments.forEach((a) => { if (a.approvedAt) s.add(getSalaryMonth(jm, a.approvedAt, a.assignedAt)); });
           });
-          return Array.from(s);
+          return sortYearMonthsCurrentFirst(s);
         })();
-        const aepMonths = [...new Set([
+        const aepMonths = sortYearMonthsCurrentFirst([
           ...(revenueData ? Object.keys(revenueData) : []),
           ...(thuChiData ? thuChiData.map((t) => t.date?.slice(0, 7)).filter(Boolean) as string[] : []),
           ...salaryMonths,
-        ])].filter((ym) => ym >= AEP_START).sort().reverse();
+        ]).filter((ym) => ym >= AEP_START);
 
         return (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4" onClick={() => setShowAepExportModal(false)}>
@@ -8384,6 +8483,7 @@ export default function Home() {
             .reduce((sum, { assignment }) => sum + assignment.salaryEarned, 0);
 
           const availableJobs = jobs.filter((job) => {
+            if (!matchesJobFilterMonth(job, employeeJobMonthFilter)) return false;
             if (isExpiredForMarketplace(job)) return false;
             if (job.jobType === "mini") {
               const claimedUnits = job.assignments.reduce((s, a) => s + (a.units ?? 1), 0);
@@ -8462,6 +8562,7 @@ export default function Home() {
           if (loading) return <LoadingBlock />;
 
           const openJobs = jobs.filter((job) => {
+            if (!matchesJobFilterMonth(job, employeeJobMonthFilter)) return false;
             if (isExpiredForMarketplace(job)) return false;
             if (job.jobType === "mini") {
               // Mini: still open if total claimed units < totalUnits
@@ -8474,12 +8575,14 @@ export default function Home() {
           });
 
           const myActiveJobs = jobs.filter((job) =>
+            matchesJobFilterMonth(job, employeeJobMonthFilter) &&
             job.assignments.some(
               (a) => a.employeeId === currentEmployee?.id && (a.status === "WORKING" || a.status === "PENDING_APPROVAL")
             )
           );
 
           const myDoneJobs = jobs.filter((job) =>
+            matchesJobFilterMonth(job, employeeJobMonthFilter) &&
             job.assignments.some(
               (a) => a.employeeId === currentEmployee?.id && a.status === "APPROVED"
             )
@@ -8696,6 +8799,24 @@ export default function Home() {
 
           return (
             <div className="space-y-8">
+              <div className="flex items-center justify-between gap-3 flex-wrap bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+                <div>
+                  <p className="text-sm font-bold text-gray-800">Bộ lọc job</p>
+                  <p className="text-xs text-gray-400">Mặc định hiện tháng này và tháng vừa qua</p>
+                </div>
+                <select
+                  value={employeeJobMonthFilter}
+                  onChange={(e) => setEmployeeJobMonthFilter(e.target.value)}
+                  className="px-3 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 bg-white hover:bg-gray-50 shrink-0"
+                >
+                  <option value={RECENT_JOB_MONTH_FILTER}>2 tháng gần nhất</option>
+                  <option value={ALL_JOB_MONTH_FILTER}>Tất cả tháng</option>
+                  {jobMonthOptions.map((ym) => (
+                    <option key={ym} value={ym}>{monthLabel(ym)}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Đang làm */}
               {myActiveJobs.length > 0 && (
                 <div>
