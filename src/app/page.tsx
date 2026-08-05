@@ -5797,7 +5797,7 @@ export default function Home() {
                               </div>
                               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
                                 <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu theo giờ</p>
-                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo giờ từ giao dịch Casso AEP: 7 ngày gần nhất, mỗi ngày 24 giờ.</p>
+                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo từng giờ từ giao dịch Casso AEP trong 168 giờ gần nhất.</p>
                               </div>
                             </div>
                           );
@@ -5829,7 +5829,7 @@ export default function Home() {
                                 </span>
                                 <div>
                                   <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo giờ</p>
-                                  <p className="text-[10px] text-gray-400">7 ngày gần nhất · 24 giờ/ngày · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
+                                  <p className="text-[10px] text-gray-400">168 giờ gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
                                 </div>
                               </div>
                               <button
@@ -5838,13 +5838,13 @@ export default function Home() {
                                 className="h-7 px-2.5 rounded-full text-[10px] font-bold border border-sky-100 bg-sky-50 text-sky-600 hover:bg-sky-100 disabled:opacity-50 transition-colors flex items-center gap-1.5 shrink-0"
                               >
                                 <RefreshCw className={`w-3 h-3 ${hourlyAepRevenueLoading ? "animate-spin" : ""}`} />
-                                7 ngày
+                                168h
                               </button>
                             </div>
 
                             <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
                               <div className="px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Tổng 7 ngày</p>
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Tổng 168h</p>
                                 <p className="text-base font-black text-sky-600 leading-none">{hourlyTotal.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
                               </div>
                               <div className="px-3 py-2.5 text-center">
@@ -5901,7 +5901,7 @@ export default function Home() {
                                   </Bar>
                                 </ComposedChart>
                               </ResponsiveContainer>
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Sắp xếp từ cũ đến mới · mỗi ngày 24 cột giờ · đường xanh = TB mỗi giờ</p>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Sắp xếp từ cũ đến mới · 168 cột giờ gần nhất · đường xanh = TB mỗi giờ</p>
                             </div>
                           </div>
                         );
