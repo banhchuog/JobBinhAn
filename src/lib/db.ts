@@ -515,15 +515,15 @@ export interface HourlyAepRevenuePoint {
   amount: number;      // VND
 }
 
-export async function getHourlyAepRevenue(days = 7): Promise<HourlyAepRevenuePoint[]> {
-  const safeDays = Math.max(1, Math.min(31, Math.round(Number(days) || 7)));
+export async function getHourlyAepRevenue(hours = 168): Promise<HourlyAepRevenuePoint[]> {
+  const safeHours = Math.max(24, Math.min(24 * 31, Math.round(Number(hours) || 168)));
   const { rows } = await getPool().query(
     `WITH params AS (
        SELECT date_trunc('hour', NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') AS end_hour
      ),
      hour_series AS (
        SELECT generate_series(
-         (SELECT end_hour FROM params) - ($1::int * 24 - 1) * INTERVAL '1 hour',
+         (SELECT end_hour FROM params) - ($1::int - 1) * INTERVAL '1 hour',
          (SELECT end_hour FROM params),
          INTERVAL '1 hour'
        ) AS hour_value
@@ -535,7 +535,7 @@ export async function getHourlyAepRevenue(days = 7): Promise<HourlyAepRevenuePoi
        FROM casso_transactions, params
        WHERE is_incoming = TRUE
          AND is_aep = TRUE
-         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= (params.end_hour - ($1::int * 24 - 1) * INTERVAL '1 hour')
+         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= (params.end_hour - ($1::int - 1) * INTERVAL '1 hour')
          AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') < (params.end_hour + INTERVAL '1 hour')
        GROUP BY 1
      )
@@ -547,7 +547,7 @@ export async function getHourlyAepRevenue(days = 7): Promise<HourlyAepRevenuePoi
      FROM hour_series
      LEFT JOIN revenue_by_hour ON revenue_by_hour.hour_value = hour_series.hour_value
      ORDER BY hour_series.hour_value ASC`,
-    [safeDays]
+    [safeHours]
   );
 
   return rows.map((row) => ({

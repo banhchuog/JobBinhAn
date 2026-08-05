@@ -5,8 +5,10 @@ export async function GET(req: Request) {
   try {
     await initSchema();
     const { searchParams } = new URL(req.url);
-    const days = Number(searchParams.get("days") ?? 7);
-    const data = await getHourlyAepRevenue(days);
+    const hoursParam = searchParams.get("hours");
+    const daysParam = searchParams.get("days");
+    const hours = hoursParam !== null ? Number(hoursParam) : Number(daysParam ?? 7) * 24;
+    const data = await getHourlyAepRevenue(hours);
     return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Lỗi không xác định";

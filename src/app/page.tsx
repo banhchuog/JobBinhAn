@@ -1358,6 +1358,8 @@ export default function Home() {
   const [hourlyAepRevenueData, setHourlyAepRevenueData] = useState<HourlyAepRevenuePoint[] | null>(null);
   const [hourlyAepRevenueLoading, setHourlyAepRevenueLoading] = useState(false);
   const [hourlyAepRevenueError, setHourlyAepRevenueError] = useState<string | null>(null);
+  const [hourlyAepRevenueHours, setHourlyAepRevenueHours] = useState(168);
+  const [hourlyAepRevenueHoursInput, setHourlyAepRevenueHoursInput] = useState("168");
   // AEP: intraday (so sánh cùng thứ cùng giờ)
   const [intradayAepData, setIntradayAepData] = useState<{
     todayDate: string; lastWeekDate: string; cutoffTime: string;
@@ -3015,11 +3017,12 @@ export default function Home() {
     }
   };
 
-  const fetchHourlyAepRevenue = async () => {
+  const fetchHourlyAepRevenue = async (hours = hourlyAepRevenueHours) => {
+    const safeHours = Math.max(24, Math.min(24 * 31, Math.round(Number(hours) || 168)));
     setHourlyAepRevenueLoading(true);
     setHourlyAepRevenueError(null);
     try {
-      const res = await fetch("/api/revenue/hourly?days=7");
+      const res = await fetch(`/api/revenue/hourly?hours=${safeHours}`);
       const data = await res.json();
       if (!res.ok) { setHourlyAepRevenueError(data.error || "Lỗi API doanh thu theo giờ"); return; }
       setHourlyAepRevenueData(Array.isArray(data) ? data : []);
@@ -5194,7 +5197,7 @@ export default function Home() {
                 {hourlyAepRevenueError && (
                   <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso giờ: {hourlyAepRevenueError}
-                    <button onClick={fetchHourlyAepRevenue} className="underline ml-1">Thử lại</button>
+                    <button onClick={() => fetchHourlyAepRevenue()} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
 
@@ -5786,18 +5789,28 @@ export default function Home() {
                         }
 
                         const hourlyEntries = hourlyAepRevenueData ?? [];
+                        const activeHourlyHours = Math.max(24, Math.min(24 * 31, Math.round(Number(hourlyAepRevenueHours) || 168)));
+                        const applyHourlyRange = (hours: number) => {
+                          const safeHours = Math.max(24, Math.min(24 * 31, Math.round(Number(hours) || 168)));
+                          setHourlyAepRevenueHours(safeHours);
+                          setHourlyAepRevenueHoursInput(String(safeHours));
+                          fetchHourlyAepRevenue(safeHours);
+                        };
+                        const applyCustomHourlyRange = () => {
+                          applyHourlyRange(Number(hourlyAepRevenueHoursInput));
+                        };
                         if (hourlyEntries.length === 0) {
                           return (
                             <div className="bg-white border border-gray-200 rounded-2xl p-4">
                               <div className="flex items-center justify-between gap-2 mb-3">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Doanh thu theo giờ</p>
-                                <button onClick={fetchHourlyAepRevenue} disabled={hourlyAepRevenueLoading} className="text-xs text-blue-600 underline disabled:opacity-50">
+                                <button onClick={() => fetchHourlyAepRevenue(activeHourlyHours)} disabled={hourlyAepRevenueLoading} className="text-xs text-blue-600 underline disabled:opacity-50">
                                   {hourlyAepRevenueLoading ? "Đang tải..." : "Tải dữ liệu"}
                                 </button>
                               </div>
                               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
                                 <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu theo giờ</p>
-                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo từng giờ từ giao dịch Casso AEP trong 168 giờ gần nhất.</p>
+                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo từng giờ từ giao dịch Casso AEP trong {activeHourlyHours} giờ gần nhất.</p>
                               </div>
                             </div>
                           );
@@ -5829,22 +5842,50 @@ export default function Home() {
                                 </span>
                                 <div>
                                   <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo giờ</p>
-                                  <p className="text-[10px] text-gray-400">168 giờ gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
+                                  <p className="text-[10px] text-gray-400">{activeHourlyHours} giờ gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
                                 </div>
                               </div>
-                              <button
-                                onClick={fetchHourlyAepRevenue}
-                                disabled={hourlyAepRevenueLoading}
-                                className="h-7 px-2.5 rounded-full text-[10px] font-bold border border-sky-100 bg-sky-50 text-sky-600 hover:bg-sky-100 disabled:opacity-50 transition-colors flex items-center gap-1.5 shrink-0"
-                              >
-                                <RefreshCw className={`w-3 h-3 ${hourlyAepRevenueLoading ? "animate-spin" : ""}`} />
-                                168h
-                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {[24, 72, 168].map((hours) => (
+                                  <button
+                                    key={hours}
+                                    type="button"
+                                    onClick={() => applyHourlyRange(hours)}
+                                    className={`h-7 px-2.5 rounded-full text-[10px] font-bold border transition-colors ${activeHourlyHours === hours ? "bg-sky-600 text-white border-sky-600" : "bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100"}`}
+                                  >
+                                    {hours}h
+                                  </button>
+                                ))}
+                                <div className="flex items-center h-7 rounded-full border border-sky-100 bg-sky-50 overflow-hidden">
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={24}
+                                    max={744}
+                                    value={hourlyAepRevenueHoursInput}
+                                    onChange={(e) => setHourlyAepRevenueHoursInput(e.target.value)}
+                                    onBlur={applyCustomHourlyRange}
+                                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                                    className="w-12 h-full bg-transparent px-2 text-[10px] font-bold text-sky-700 outline-none text-right"
+                                    aria-label="Số giờ doanh thu"
+                                  />
+                                  <span className="pr-2 text-[10px] font-semibold text-sky-500">h</span>
+                                </div>
+                                <button
+                                  onClick={() => fetchHourlyAepRevenue(activeHourlyHours)}
+                                  disabled={hourlyAepRevenueLoading}
+                                  className="h-7 px-2 rounded-full text-[10px] font-bold border border-sky-100 bg-sky-50 text-sky-600 hover:bg-sky-100 disabled:opacity-50 transition-colors flex items-center"
+                                  title="Làm mới doanh thu theo giờ"
+                                  aria-label="Làm mới doanh thu theo giờ"
+                                >
+                                  <RefreshCw className={`w-3 h-3 ${hourlyAepRevenueLoading ? "animate-spin" : ""}`} />
+                                </button>
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
                               <div className="px-3 py-2.5 text-center">
-                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Tổng 168h</p>
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Tổng {activeHourlyHours}h</p>
                                 <p className="text-base font-black text-sky-600 leading-none">{hourlyTotal.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
                               </div>
                               <div className="px-3 py-2.5 text-center">
@@ -5901,7 +5942,7 @@ export default function Home() {
                                   </Bar>
                                 </ComposedChart>
                               </ResponsiveContainer>
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Sắp xếp từ cũ đến mới · 168 cột giờ gần nhất · đường xanh = TB mỗi giờ</p>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Sắp xếp từ cũ đến mới · thấp nhất 24h · đường xanh = TB mỗi giờ</p>
                             </div>
                           </div>
                         );
