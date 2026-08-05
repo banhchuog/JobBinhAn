@@ -476,19 +476,23 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
 export async function getDailyAepRevenue(days = 30): Promise<Record<string, number>> {
   const safeDays = Math.max(1, Math.min(365, Math.round(Number(days) || 30)));
   const { rows } = await getPool().query(
-    `WITH day_series AS (
+    `WITH params AS (
+       SELECT (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS current_day
+     ),
+     day_series AS (
        SELECT generate_series(
-         CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day',
-         CURRENT_DATE,
+         (SELECT current_day FROM params) - ($1::int - 1) * INTERVAL '1 day',
+         (SELECT current_day FROM params),
          INTERVAL '1 day'
        )::date AS booking_date
      ),
      revenue_by_day AS (
        SELECT booking_date, COALESCE(SUM(amount), 0) AS amount
-       FROM casso_transactions
+       FROM casso_transactions, params
        WHERE is_incoming = TRUE
          AND is_aep = TRUE
-         AND booking_date >= CURRENT_DATE - ($1::int - 1) * INTERVAL '1 day'
+         AND booking_date >= params.current_day - ($1::int - 1) * INTERVAL '1 day'
+         AND booking_date <= params.current_day
        GROUP BY booking_date
      )
      SELECT day_series.booking_date::text AS date, CAST(COALESCE(revenue_by_day.amount, 0) AS FLOAT) AS amount

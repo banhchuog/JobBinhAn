@@ -5705,7 +5705,7 @@ export default function Home() {
                               <div className="px-3 py-2.5 text-center">
                                 <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Cao nhất</p>
                                 <p className="text-base font-black text-amber-500 leading-none">{bestDay.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
-                                <p className="text-[9px] text-gray-400 mt-1">Ngày {Number(bestDay.day)}</p>
+                                <p className="text-[9px] text-gray-400 mt-1">{formatShortDayMonth(bestDay.date)}</p>
                               </div>
                             </div>
 
@@ -5719,7 +5719,14 @@ export default function Home() {
                               <ResponsiveContainer width="100%" height={180}>
                                 <ComposedChart data={dailyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
-                                  <XAxis dataKey="dayLabel" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} minTickGap={18} />
+                                  <XAxis
+                                    dataKey="date"
+                                    tickFormatter={(value) => String(value).slice(8, 10) + "/" + String(value).slice(5, 7)}
+                                    tick={{ fontSize: 10, fill: "#d1d5db" }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    minTickGap={18}
+                                  />
                                   <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
                                   <Tooltip
                                     content={({ active, payload }) => {
