@@ -563,8 +563,8 @@ export interface IntradayAepRevenue {
   lastWeekDate: string;   // "2026-04-12"
   cutoffTime: string;     // "15:20" giờ VN hiện tại
   weekdayName: string;    // "Chủ nhật"
-  today: number;          // VND - tổng hôm nay theo ngày giao dịch Casso
-  lastWeek: number;       // VND - tổng cùng thứ tuần trước theo ngày giao dịch Casso
+  today: number;          // VND - tổng hôm nay đến giờ hiện tại
+  lastWeek: number;       // VND - tổng cùng thứ tuần trước đến cùng giờ
 }
 
 export async function getIntradayAepRevenue(): Promise<IntradayAepRevenue> {
@@ -580,13 +580,15 @@ export async function getIntradayAepRevenue(): Promise<IntradayAepRevenue> {
       SELECT COALESCE(SUM(amount), 0) AS amount
       FROM casso_transactions, params
       WHERE is_incoming = TRUE AND is_aep = TRUE
-        AND booking_date = params.today_date
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.today_date
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
     ),
     last_week_total AS (
       SELECT COALESCE(SUM(amount), 0) AS amount
       FROM casso_transactions, params
       WHERE is_incoming = TRUE AND is_aep = TRUE
-        AND booking_date = params.last_week_date
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.last_week_date
+        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
     )
     SELECT
       to_char(p.today_date, 'YYYY-MM-DD')     AS today_date,

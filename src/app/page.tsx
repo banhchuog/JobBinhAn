@@ -5969,7 +5969,7 @@ export default function Home() {
                         }
                         if (!intradayAepData) return null;
 
-                        const { todayDate, lastWeekDate, weekdayName, today, lastWeek } = intradayAepData;
+                        const { todayDate, lastWeekDate, cutoffTime, weekdayName, today, lastWeek } = intradayAepData;
                         const todayM  = Math.round(today / 1e6 * 10) / 10;
                         const lastWeekM = Math.round(lastWeek / 1e6 * 10) / 10;
                         const delta = Math.round((todayM - lastWeekM) * 10) / 10;
@@ -5991,7 +5991,7 @@ export default function Home() {
                                 <svg className="inline w-[1em] h-[1em] align-[-0.15em] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                   <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                                 </svg>
-                                {weekdayName} · theo ngày giao dịch
+                                {weekdayName} · đến {cutoffTime}
                               </p>
                               <button onClick={fetchIntradayAepRevenue} disabled={intradayAepLoading}
                                 className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 flex items-center gap-1">
@@ -6014,12 +6014,12 @@ export default function Home() {
                                   <div className={`rounded-xl px-3 py-2.5 ${isUp ? "bg-emerald-100" : isDown ? "bg-rose-100" : "bg-amber-100"}`}>
                                     <p className="text-[10px] font-semibold text-gray-500 mb-1">{weekdayName} này ({formatDate(todayDate)})</p>
                                     <p className={`text-xl font-black ${isUp ? "text-emerald-700" : isDown ? "text-rose-700" : "text-amber-700"}`}>{todayM.toFixed(1)}tr</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">theo booking date</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">đến {cutoffTime}</p>
                                   </div>
                                   <div className="rounded-xl bg-white/70 px-3 py-2.5 border border-white">
                                     <p className="text-[10px] font-semibold text-gray-400 mb-1">{weekdayName} trước ({formatDate(lastWeekDate)})</p>
                                     <p className="text-xl font-black text-gray-500">{lastWeekM > 0 ? `${lastWeekM.toFixed(1)}tr` : "—"}</p>
-                                    <p className="text-[10px] text-gray-300 mt-0.5">cùng ngày trong tuần</p>
+                                    <p className="text-[10px] text-gray-300 mt-0.5">cùng mốc {cutoffTime}</p>
                                   </div>
                                 </div>
 
@@ -6040,7 +6040,7 @@ export default function Home() {
                                   <p className="text-[11px] text-gray-400 text-center">Chưa có dữ liệu {weekdayName.toLowerCase()} tuần trước để so sánh</p>
                                 )}
 
-                                <p className="text-[10px] text-gray-300 mt-2 text-right">Dựa theo ngày giao dịch Casso · booking_date</p>
+                                <p className="text-[10px] text-gray-300 mt-2 text-right">Dựa theo thời điểm ghi nhận giao dịch · received_at</p>
                               </>
                             )}
                           </div>
