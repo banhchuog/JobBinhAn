@@ -5,6 +5,7 @@ export type CassoPayloadObject = Record<string, unknown>;
 export interface StoredCassoTransaction {
   transactionId: string;
   bookingDate: string;
+  transactionAt?: string;
   receivedAt?: string;
   amount: number;
   isIncoming: boolean;
@@ -158,7 +159,7 @@ export function normalizeCassoTransaction(tx: CassoPayloadObject): StoredCassoTr
   const isIncoming = isIncomingTransaction(tx);
   const amount = getIncomingAmount(tx);
   const bookingDate = getTransactionDate(tx);
-  const receivedAt = getTransactionTimestamp(tx) ?? undefined;
+  const transactionAt = getTransactionTimestamp(tx) ?? undefined;
 
   if (!amount || !bookingDate) return null;
 
@@ -180,7 +181,7 @@ export function normalizeCassoTransaction(tx: CassoPayloadObject): StoredCassoTr
   return {
     transactionId,
     bookingDate,
-    receivedAt,
+    transactionAt,
     amount,
     isIncoming,
     isAep: isIncoming && AEP_AMOUNTS.has(amount),

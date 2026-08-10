@@ -145,12 +145,15 @@ export async function initSchema(): Promise<void> {
       description TEXT NOT NULL DEFAULT '',
       counter_account_name TEXT NOT NULL DEFAULT '',
       raw JSONB NOT NULL DEFAULT '{}',
+      transaction_at TIMESTAMPTZ,
       received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE casso_transactions ADD COLUMN IF NOT EXISTS transaction_at TIMESTAMPTZ`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_booking_date ON casso_transactions (booking_date)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_is_aep ON casso_transactions (is_aep, is_incoming)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_transaction_at ON casso_transactions (transaction_at)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_received_at ON casso_transactions (received_at)`);
   await pool.query(`
     WITH raw_timestamps AS (
@@ -179,11 +182,11 @@ export async function initSchema(): Promise<void> {
       WHERE raw_timestamp IS NOT NULL
     )
     UPDATE casso_transactions c
-    SET received_at = p.parsed_received_at
+    SET transaction_at = p.parsed_received_at
     FROM parsed_timestamps p
     WHERE c.transaction_id = p.transaction_id
       AND p.parsed_received_at IS NOT NULL
-      AND c.received_at IS DISTINCT FROM p.parsed_received_at
+      AND c.transaction_at IS DISTINCT FROM p.parsed_received_at
   `);
 }
 
@@ -475,10 +478,11 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
         is_aep,
         description,
         counter_account_name,
+        transaction_at,
         received_at,
         raw,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, NOW()), $9, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, COALESCE($9::timestamptz, NOW()), $10, NOW())
       ON CONFLICT (transaction_id) DO UPDATE SET
         booking_date = EXCLUDED.booking_date,
         amount = EXCLUDED.amount,
@@ -486,7 +490,8 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
         is_aep = EXCLUDED.is_aep,
         description = EXCLUDED.description,
         counter_account_name = EXCLUDED.counter_account_name,
-        received_at = COALESCE($8::timestamptz, casso_transactions.received_at),
+        transaction_at = COALESCE($8::timestamptz, casso_transactions.transaction_at),
+        received_at = COALESCE($9::timestamptz, casso_transactions.received_at),
         raw = EXCLUDED.raw,
         updated_at = NOW()`,
       [
@@ -497,6 +502,7 @@ export async function upsertCassoTransactions(transactions: CassoTransactionReco
         transaction.isAep,
         transaction.description,
         transaction.counterAccountName,
+        transaction.transactionAt ?? null,
         transaction.receivedAt ?? null,
         JSON.stringify(transaction.raw),
       ]
@@ -563,13 +569,14 @@ export async function getHourlyAepRevenue(hours = 168): Promise<HourlyAepRevenue
      ),
      revenue_by_hour AS (
        SELECT
-         date_trunc('hour', received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS hour_value,
+         date_trunc('hour', transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS hour_value,
          COALESCE(SUM(amount), 0) AS amount
        FROM casso_transactions, params
        WHERE is_incoming = TRUE
          AND is_aep = TRUE
-         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= (params.end_hour - ($1::int - 1) * INTERVAL '1 hour')
-         AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh') < (params.end_hour + INTERVAL '1 hour')
+         AND transaction_at IS NOT NULL
+         AND (transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh') >= (params.end_hour - ($1::int - 1) * INTERVAL '1 hour')
+         AND (transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh') < (params.end_hour + INTERVAL '1 hour')
        GROUP BY 1
      )
      SELECT
@@ -613,15 +620,17 @@ export async function getIntradayAepRevenue(): Promise<IntradayAepRevenue> {
       SELECT COALESCE(SUM(amount), 0) AS amount
       FROM casso_transactions, params
       WHERE is_incoming = TRUE AND is_aep = TRUE
-        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.today_date
-        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
+        AND transaction_at IS NOT NULL
+        AND (transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.today_date
+        AND (transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
     ),
     last_week_total AS (
       SELECT COALESCE(SUM(amount), 0) AS amount
       FROM casso_transactions, params
       WHERE is_incoming = TRUE AND is_aep = TRUE
-        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.last_week_date
-        AND (received_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
+        AND transaction_at IS NOT NULL
+        AND (transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = params.last_week_date
+        AND (transaction_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::time <= params.cutoff_time
     )
     SELECT
       to_char(p.today_date, 'YYYY-MM-DD')     AS today_date,

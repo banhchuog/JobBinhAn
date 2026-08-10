@@ -6040,7 +6040,7 @@ export default function Home() {
                                   <p className="text-[11px] text-gray-400 text-center">Chưa có dữ liệu {weekdayName.toLowerCase()} tuần trước để so sánh</p>
                                 )}
 
-                                <p className="text-[10px] text-gray-300 mt-2 text-right">Dựa theo thời điểm ghi nhận giao dịch · received_at</p>
+                                <p className="text-[10px] text-gray-300 mt-2 text-right">Dựa theo giờ giao dịch Casso · transaction_at</p>
                               </>
                             )}
                           </div>

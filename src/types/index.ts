@@ -94,6 +94,7 @@ export interface CassoTransactionRecord {
   description: string;
   counterAccountName: string;
   raw: Record<string, unknown>;
+  transactionAt?: string;
   receivedAt?: string;
   updatedAt?: string;
 }
