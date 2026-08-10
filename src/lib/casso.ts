@@ -41,6 +41,22 @@ export function toIsoTimestamp(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   const trimmed = value.trim();
   if (!/[T\s]\d{1,2}:\d{2}/.test(trimmed)) return null;
+
+  const localMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T\s](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/);
+  if (localMatch) {
+    const [, year, month, day, hour, minute, second = "0", millisecond = "0"] = localMatch;
+    const utcMs = Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour) - 7,
+      Number(minute),
+      Number(second),
+      Number(millisecond.padEnd(3, "0"))
+    );
+    return Number.isFinite(utcMs) ? new Date(utcMs).toISOString() : null;
+  }
+
   const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString();

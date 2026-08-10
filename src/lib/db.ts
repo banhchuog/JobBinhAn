@@ -152,6 +152,39 @@ export async function initSchema(): Promise<void> {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_booking_date ON casso_transactions (booking_date)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_is_aep ON casso_transactions (is_aep, is_incoming)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_casso_transactions_received_at ON casso_transactions (received_at)`);
+  await pool.query(`
+    WITH raw_timestamps AS (
+      SELECT
+        transaction_id,
+        COALESCE(
+          NULLIF(raw->>'transactionDate', ''),
+          NULLIF(raw->>'when', ''),
+          NULLIF(raw->>'createdAt', ''),
+          NULLIF(raw->>'bookingDate', ''),
+          NULLIF(raw->>'date', '')
+        ) AS raw_timestamp
+      FROM casso_transactions
+    ),
+    parsed_timestamps AS (
+      SELECT
+        transaction_id,
+        CASE
+          WHEN raw_timestamp ~ '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}[T ][0-9]{1,2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]{1,3})?)?$'
+            THEN (replace(raw_timestamp, 'T', ' ')::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')
+          WHEN raw_timestamp ~ '[T ][0-9]{1,2}:[0-9]{2}'
+            THEN raw_timestamp::timestamptz
+          ELSE NULL
+        END AS parsed_received_at
+      FROM raw_timestamps
+      WHERE raw_timestamp IS NOT NULL
+    )
+    UPDATE casso_transactions c
+    SET received_at = p.parsed_received_at
+    FROM parsed_timestamps p
+    WHERE c.transaction_id = p.transaction_id
+      AND p.parsed_received_at IS NOT NULL
+      AND c.received_at IS DISTINCT FROM p.parsed_received_at
+  `);
 }
 
 // ─── Settings ───────────────────────────────────────────
