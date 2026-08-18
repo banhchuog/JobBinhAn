@@ -49,6 +49,12 @@ type HourlyAepRevenuePoint = {
   amount: number;
 };
 
+type WeeklyAepRevenuePoint = {
+  weekStart: string;
+  weekEnd: string;
+  amount: number;
+};
+
 const DIRECTOR_PASS = "123";
 
 const EMPTY_AEP_CLASSIFICATION: AepClassificationState = {
@@ -1355,6 +1361,11 @@ export default function Home() {
   const [dailyAepRevenueError, setDailyAepRevenueError] = useState<string | null>(null);
   const [dailyAepRevenueDays, setDailyAepRevenueDays] = useState(30);
   const [dailyAepRevenueDaysInput, setDailyAepRevenueDaysInput] = useState("30");
+  const [weeklyAepRevenueData, setWeeklyAepRevenueData] = useState<WeeklyAepRevenuePoint[] | null>(null);
+  const [weeklyAepRevenueLoading, setWeeklyAepRevenueLoading] = useState(false);
+  const [weeklyAepRevenueError, setWeeklyAepRevenueError] = useState<string | null>(null);
+  const [weeklyAepRevenueWeeks, setWeeklyAepRevenueWeeks] = useState(12);
+  const [weeklyAepRevenueWeeksInput, setWeeklyAepRevenueWeeksInput] = useState("12");
   const [hourlyAepRevenueData, setHourlyAepRevenueData] = useState<HourlyAepRevenuePoint[] | null>(null);
   const [hourlyAepRevenueLoading, setHourlyAepRevenueLoading] = useState(false);
   const [hourlyAepRevenueError, setHourlyAepRevenueError] = useState<string | null>(null);
@@ -1791,6 +1802,7 @@ export default function Home() {
     fetchThuChi();
     fetchRevenue();
     fetchDailyAepRevenue();
+    fetchWeeklyAepRevenue();
     fetchHourlyAepRevenue();
     fetchIntradayAepRevenue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3014,6 +3026,22 @@ export default function Home() {
       setDailyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo ngày");
     } finally {
       setDailyAepRevenueLoading(false);
+    }
+  };
+
+  const fetchWeeklyAepRevenue = async (weeks = weeklyAepRevenueWeeks) => {
+    const safeWeeks = Math.max(4, Math.min(52, Math.round(Number(weeks) || 12)));
+    setWeeklyAepRevenueLoading(true);
+    setWeeklyAepRevenueError(null);
+    try {
+      const res = await fetch(`/api/revenue/weekly?weeks=${safeWeeks}`);
+      const data = await res.json();
+      if (!res.ok) { setWeeklyAepRevenueError(data.error || "Lỗi API doanh thu tuần"); return; }
+      setWeeklyAepRevenueData(Array.isArray(data) ? data : []);
+    } catch {
+      setWeeklyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo tuần");
+    } finally {
+      setWeeklyAepRevenueLoading(false);
     }
   };
 
@@ -5194,6 +5222,12 @@ export default function Home() {
                     <button onClick={() => fetchDailyAepRevenue()} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
+                {weeklyAepRevenueError && (
+                  <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso tuần: {weeklyAepRevenueError}
+                    <button onClick={() => fetchWeeklyAepRevenue()} className="underline ml-1">Thử lại</button>
+                  </p>
+                )}
                 {hourlyAepRevenueError && (
                   <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso giờ: {hourlyAepRevenueError}
@@ -5559,6 +5593,179 @@ export default function Home() {
                                 </ComposedChart>
                               </ResponsiveContainer>
                               <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường tím = TB tháng</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {(() => {
+                        const weeklyEntries = weeklyAepRevenueData ?? [];
+                        const activeWeeklyWeeks = Math.max(4, Math.min(52, Math.round(Number(weeklyAepRevenueWeeks) || 12)));
+                        const applyWeeklyRange = (weeks: number) => {
+                          const safeWeeks = Math.max(4, Math.min(52, Math.round(Number(weeks) || 12)));
+                          setWeeklyAepRevenueWeeks(safeWeeks);
+                          setWeeklyAepRevenueWeeksInput(String(safeWeeks));
+                          fetchWeeklyAepRevenue(safeWeeks);
+                        };
+                        const applyCustomWeeklyRange = () => {
+                          applyWeeklyRange(Number(weeklyAepRevenueWeeksInput));
+                        };
+
+                        if (!weeklyAepRevenueData && weeklyAepRevenueLoading) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4 animate-pulse">
+                              <div className="h-3 bg-gray-100 rounded w-44 mb-3" />
+                              <div className="h-36 bg-gray-50 rounded-xl" />
+                            </div>
+                          );
+                        }
+
+                        if (weeklyEntries.length === 0) {
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                              <div className="flex items-center justify-between gap-2 mb-3">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Doanh thu theo tuần</p>
+                                <button onClick={() => fetchWeeklyAepRevenue(activeWeeklyWeeks)} disabled={weeklyAepRevenueLoading} className="text-xs text-blue-600 underline disabled:opacity-50">
+                                  {weeklyAepRevenueLoading ? "Đang tải..." : "Tải dữ liệu"}
+                                </button>
+                              </div>
+                              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center">
+                                <p className="text-sm font-semibold text-gray-600">Chưa có dữ liệu doanh thu theo tuần</p>
+                                <p className="text-xs text-gray-400 mt-1">Dữ liệu được gom theo tuần từ ngày giao dịch Casso.</p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const weeklyChartData = weeklyEntries.map((point, index, arr) => {
+                          const amount = Math.round((point.amount / 1e6) * 10) / 10;
+                          const prev = index > 0 ? arr[index - 1].amount : null;
+                          const growth = prev !== null && prev > 0 ? Math.round((point.amount - prev) / prev * 100) : null;
+                          return {
+                            weekStart: point.weekStart,
+                            weekEnd: point.weekEnd,
+                            label: `${formatShortDayMonth(point.weekStart)}-${formatShortDayMonth(point.weekEnd)}`,
+                            amount,
+                            growth,
+                          };
+                        });
+                        const rangeStart = weeklyChartData[0]?.weekStart ?? null;
+                        const rangeEnd = weeklyChartData[weeklyChartData.length - 1]?.weekEnd ?? null;
+                        const weeklyTotal = Math.round(weeklyChartData.reduce((sum, item) => sum + item.amount, 0) * 10) / 10;
+                        const weeklyAverage = weeklyChartData.length > 0 ? Math.round((weeklyTotal / weeklyChartData.length) * 10) / 10 : 0;
+                        const bestWeek = weeklyChartData.reduce((best, item) => item.amount > best.amount ? item : best, weeklyChartData[0]);
+                        const latestWeek = weeklyChartData[weeklyChartData.length - 1];
+                        const previousWeek = weeklyChartData.length >= 2 ? weeklyChartData[weeklyChartData.length - 2] : null;
+
+                        return (
+                          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                            <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-gray-50">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-teal-50 shrink-0">
+                                  <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                </span>
+                                <div>
+                                  <p className="text-[11px] font-bold text-gray-700 leading-tight">Doanh thu theo tuần</p>
+                                  <p className="text-[10px] text-gray-400">{activeWeeklyWeeks} tuần gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {[8, 12, 24].map((weeks) => (
+                                  <button
+                                    key={weeks}
+                                    type="button"
+                                    onClick={() => applyWeeklyRange(weeks)}
+                                    className={`h-7 px-2.5 rounded-full text-[10px] font-bold border transition-colors ${activeWeeklyWeeks === weeks ? "bg-teal-600 text-white border-teal-600" : "bg-teal-50 text-teal-600 border-teal-100 hover:bg-teal-100"}`}
+                                  >
+                                    {weeks} tuần
+                                  </button>
+                                ))}
+                                <div className="flex items-center h-7 rounded-full border border-teal-100 bg-teal-50 overflow-hidden">
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={4}
+                                    max={52}
+                                    value={weeklyAepRevenueWeeksInput}
+                                    onChange={(e) => setWeeklyAepRevenueWeeksInput(e.target.value)}
+                                    onBlur={applyCustomWeeklyRange}
+                                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                                    className="w-12 h-full bg-transparent px-2 text-[10px] font-bold text-teal-700 outline-none text-right"
+                                    aria-label="Số tuần doanh thu"
+                                  />
+                                  <span className="pr-2 text-[10px] font-semibold text-teal-500">tuần</span>
+                                </div>
+                                <button
+                                  onClick={() => fetchWeeklyAepRevenue(activeWeeklyWeeks)}
+                                  disabled={weeklyAepRevenueLoading}
+                                  className="h-7 px-2 rounded-full text-[10px] font-bold border border-teal-100 bg-teal-50 text-teal-600 hover:bg-teal-100 disabled:opacity-50 transition-colors flex items-center"
+                                  title="Làm mới doanh thu theo tuần"
+                                  aria-label="Làm mới doanh thu theo tuần"
+                                >
+                                  <RefreshCw className={`w-3 h-3 ${weeklyAepRevenueLoading ? "animate-spin" : ""}`} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 divide-x divide-gray-50 border-b border-gray-50">
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Tuần mới nhất</p>
+                                <p className="text-base font-black text-teal-600 leading-none">{latestWeek.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                {previousWeek && latestWeek.growth !== null ? (
+                                  <p className={`text-[9px] font-bold mt-1 ${latestWeek.growth >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                    {latestWeek.growth >= 0 ? "↑" : "↓"}{Math.abs(latestWeek.growth)}%
+                                  </p>
+                                ) : <p className="text-[9px] text-gray-300 mt-1">{latestWeek.label}</p>}
+                              </div>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">TB mỗi tuần</p>
+                                <p className="text-base font-black text-amber-500 leading-none">{weeklyAverage.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-300 mt-1">{activeWeeklyWeeks} tuần</p>
+                              </div>
+                              <div className="px-3 py-2.5 text-center">
+                                <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Cao nhất</p>
+                                <p className="text-base font-black text-emerald-600 leading-none">{bestWeek.amount.toFixed(1)}<span className="text-[10px] font-bold ml-0.5">tr</span></p>
+                                <p className="text-[9px] text-gray-400 mt-1">{bestWeek.label}</p>
+                              </div>
+                            </div>
+
+                            <div className="px-3 pt-3 pb-4">
+                              <ResponsiveContainer width="100%" height={170}>
+                                <ComposedChart data={weeklyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
+                                  <XAxis dataKey="weekStart" tickFormatter={(value) => formatShortDayMonth(String(value))} tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} minTickGap={14} />
+                                  <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (!active || !payload || payload.length === 0) return null;
+                                      const point = payload[0]?.payload as {
+                                        weekStart: string; weekEnd: string; label: string; amount: number; growth: number | null;
+                                      };
+                                      if (!point) return null;
+                                      return (
+                                        <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
+                                          <p className="font-bold text-gray-700 mb-1">{formatFullDate(point.weekStart)} → {formatFullDate(point.weekEnd)}</p>
+                                          <p className="text-teal-600 font-semibold">Doanh thu: {point.amount.toFixed(1)}tr</p>
+                                          {point.growth !== null && (
+                                            <p className={`mt-0.5 font-semibold ${point.growth >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
+                                              {point.growth >= 0 ? "↑" : "↓"} {Math.abs(point.growth)}% vs tuần trước
+                                            </p>
+                                          )}
+                                        </div>
+                                      );
+                                    }}
+                                    cursor={{ fill: "#f9fafb" }}
+                                  />
+                                  <ReferenceLine y={weeklyAverage} stroke="#0d9488" strokeDasharray="5 3" strokeWidth={1.2}
+                                    label={{ value: `TB ${weeklyAverage.toFixed(1)}tr`, position: "right", fill: "#0d9488", fontSize: 9 }} />
+                                  <Bar dataKey="amount" name="Doanh thu tuần" radius={[5, 5, 0, 0]}>
+                                    {weeklyChartData.map((entry, index) => (
+                                      <Cell key={`cell-week-${index}`} fill={entry.amount >= weeklyAverage ? "#0d9488" : "#5eead4"} />
+                                    ))}
+                                  </Bar>
+                                </ComposedChart>
+                              </ResponsiveContainer>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Tuần tính từ Thứ Hai đến Chủ nhật · đường xanh = TB mỗi tuần</p>
                             </div>
                           </div>
                         );

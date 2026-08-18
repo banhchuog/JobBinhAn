@@ -547,6 +547,53 @@ export async function getDailyAepRevenue(days = 30): Promise<Record<string, numb
   }, {});
 }
 
+export interface WeeklyAepRevenuePoint {
+  weekStart: string;   // "2026-08-03"
+  weekEnd: string;     // "2026-08-09"
+  amount: number;      // VND
+}
+
+export async function getWeeklyAepRevenue(weeks = 12): Promise<WeeklyAepRevenuePoint[]> {
+  const safeWeeks = Math.max(4, Math.min(52, Math.round(Number(weeks) || 12)));
+  const { rows } = await getPool().query(
+    `WITH params AS (
+       SELECT date_trunc('week', (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)::date AS current_week_start
+     ),
+     week_series AS (
+       SELECT generate_series(
+         (SELECT current_week_start FROM params) - ($1::int - 1) * INTERVAL '1 week',
+         (SELECT current_week_start FROM params),
+         INTERVAL '1 week'
+       )::date AS week_start
+     ),
+     revenue_by_week AS (
+       SELECT
+         date_trunc('week', booking_date)::date AS week_start,
+         COALESCE(SUM(amount), 0) AS amount
+       FROM casso_transactions, params
+       WHERE is_incoming = TRUE
+         AND is_aep = TRUE
+         AND booking_date >= params.current_week_start - ($1::int - 1) * INTERVAL '1 week'
+         AND booking_date < params.current_week_start + INTERVAL '1 week'
+       GROUP BY 1
+     )
+     SELECT
+       week_series.week_start::text AS week_start,
+       (week_series.week_start + INTERVAL '6 days')::date::text AS week_end,
+       CAST(COALESCE(revenue_by_week.amount, 0) AS FLOAT) AS amount
+     FROM week_series
+     LEFT JOIN revenue_by_week ON revenue_by_week.week_start = week_series.week_start
+     ORDER BY week_series.week_start ASC`,
+    [safeWeeks]
+  );
+
+  return rows.map((row) => ({
+    weekStart: String(row.week_start),
+    weekEnd: String(row.week_end),
+    amount: Number(row.amount) || 0,
+  }));
+}
+
 export interface HourlyAepRevenuePoint {
   hour: string;        // "2026-08-04 13:00"
   date: string;        // "2026-08-04"
