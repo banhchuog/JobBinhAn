@@ -547,6 +547,201 @@ export async function getDailyAepRevenue(days = 30): Promise<Record<string, numb
   }, {});
 }
 
+const DEFAULT_REVENUE_WEEKDAY_WEIGHTS = [1.45, 0.9, 0.9, 0.95, 1, 1.1, 1.45];
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function parseIsoDateUtc(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function formatIsoDateUtc(value: Date) {
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+}
+
+function addIsoDays(value: string, days: number) {
+  const date = parseIsoDateUtc(value);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatIsoDateUtc(date);
+}
+
+function getIsoWeekday(value: string) {
+  return parseIsoDateUtc(value).getUTCDay();
+}
+
+function getIsoMonthEnd(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return formatIsoDateUtc(new Date(Date.UTC(year, month, 0)));
+}
+
+function listIsoDates(start: string, end: string) {
+  const dates: string[] = [];
+  for (let cursor = start; cursor <= end; cursor = addIsoDays(cursor, 1)) {
+    dates.push(cursor);
+  }
+  return dates;
+}
+
+function countWeekendDates(dates: string[]) {
+  return dates.filter((date) => {
+    const weekday = getIsoWeekday(date);
+    return weekday === 0 || weekday === 6;
+  }).length;
+}
+
+export interface AepForecastPeriod {
+  periodStart: string;
+  periodEnd: string;
+  actual: number;
+  predicted: number;
+  elapsedWeight: number;
+  totalWeight: number;
+  remainingDays: number;
+  remainingWeekendDays: number;
+}
+
+export interface AepRevenueForecast {
+  currentDate: string;
+  dayProgress: number;
+  lookbackDays: number;
+  formula: string;
+  weekdayWeights: Array<{
+    weekday: number;
+    weight: number;
+    averageAmount: number;
+    samples: number;
+  }>;
+  week: AepForecastPeriod;
+  month: AepForecastPeriod;
+}
+
+export async function getAepRevenueForecast(lookbackDays = 180): Promise<AepRevenueForecast> {
+  const safeLookbackDays = Math.max(56, Math.min(365, Math.round(Number(lookbackDays) || 180)));
+  const { rows } = await getPool().query(
+    `WITH params AS (
+       SELECT
+         (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS current_day,
+         GREATEST(0.08, LEAST(1, EXTRACT(EPOCH FROM ((NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh')::time)) / 86400.0)) AS day_progress
+     ),
+     day_series AS (
+       SELECT generate_series(
+         (SELECT current_day FROM params) - $1::int * INTERVAL '1 day',
+         (SELECT current_day FROM params),
+         INTERVAL '1 day'
+       )::date AS booking_date
+     ),
+     revenue_by_day AS (
+       SELECT booking_date, COALESCE(SUM(amount), 0) AS amount
+       FROM casso_transactions
+       WHERE is_incoming = TRUE
+         AND is_aep = TRUE
+         AND booking_date >= (SELECT current_day FROM params) - $1::int * INTERVAL '1 day'
+         AND booking_date <= (SELECT current_day FROM params)
+       GROUP BY booking_date
+     )
+     SELECT
+       day_series.booking_date::text AS date,
+       CAST(COALESCE(revenue_by_day.amount, 0) AS FLOAT) AS amount,
+       params.current_day::text AS current_day,
+       CAST(params.day_progress AS FLOAT) AS day_progress
+     FROM day_series
+     CROSS JOIN params
+     LEFT JOIN revenue_by_day ON revenue_by_day.booking_date = day_series.booking_date
+     ORDER BY day_series.booking_date ASC`,
+    [safeLookbackDays]
+  );
+
+  const currentDate = String(rows[0]?.current_day ?? formatIsoDateUtc(new Date()));
+  const dayProgress = clampNumber(Number(rows[0]?.day_progress) || 1, 0.08, 1);
+  const amountByDate = new Map<string, number>();
+  for (const row of rows) amountByDate.set(String(row.date), Number(row.amount) || 0);
+
+  const completedDays = rows.filter((row) => String(row.date) < currentDate);
+  const globalAverage = completedDays.length > 0
+    ? completedDays.reduce((sum, row) => sum + (Number(row.amount) || 0), 0) / completedDays.length
+    : 0;
+
+  const weekdayStats = Array.from({ length: 7 }, (_, weekday) => ({
+    weekday,
+    total: 0,
+    samples: 0,
+  }));
+
+  for (const row of completedDays) {
+    const date = String(row.date);
+    const weekday = getIsoWeekday(date);
+    weekdayStats[weekday].total += Number(row.amount) || 0;
+    weekdayStats[weekday].samples += 1;
+  }
+
+  const rawWeights = weekdayStats.map((stat) => {
+    const averageAmount = stat.samples > 0 ? stat.total / stat.samples : 0;
+    const learnedWeight = globalAverage > 0 && stat.samples >= 3 ? averageAmount / globalAverage : DEFAULT_REVENUE_WEEKDAY_WEIGHTS[stat.weekday];
+    const smoothedWeight = learnedWeight * 0.75 + DEFAULT_REVENUE_WEEKDAY_WEIGHTS[stat.weekday] * 0.25;
+    return {
+      weekday: stat.weekday,
+      weight: clampNumber(smoothedWeight, 0.35, 2.75),
+      averageAmount,
+      samples: stat.samples,
+    };
+  });
+  const weightAverage = rawWeights.reduce((sum, item) => sum + item.weight, 0) / rawWeights.length || 1;
+  const weekdayWeights = rawWeights.map((item) => ({
+    ...item,
+    weight: item.weight / weightAverage,
+  }));
+
+  const getWeight = (date: string) => weekdayWeights[getIsoWeekday(date)]?.weight ?? 1;
+  const sumActual = (dates: string[]) => dates.reduce((sum, date) => sum + (amountByDate.get(date) ?? 0), 0);
+  const sumWeight = (dates: string[]) => dates.reduce((sum, date) => sum + getWeight(date), 0);
+
+  const projectPeriod = (periodStart: string, periodEnd: string): AepForecastPeriod => {
+    const allDates = listIsoDates(periodStart, periodEnd);
+    const elapsedDates = allDates.filter((date) => date <= currentDate);
+    const completedElapsedDates = elapsedDates.filter((date) => date < currentDate);
+    const futureDates = allDates.filter((date) => date > currentDate);
+    const actual = sumActual(elapsedDates);
+    const totalWeight = sumWeight(allDates);
+    const elapsedWeight = sumWeight(completedElapsedDates) + (allDates.includes(currentDate) ? getWeight(currentDate) * dayProgress : 0);
+    const predicted = elapsedWeight > 0 ? actual * (totalWeight / elapsedWeight) : actual;
+
+    return {
+      periodStart,
+      periodEnd,
+      actual,
+      predicted: Math.max(actual, predicted),
+      elapsedWeight,
+      totalWeight,
+      remainingDays: futureDates.length,
+      remainingWeekendDays: countWeekendDates(futureDates),
+    };
+  };
+
+  const weekday = getIsoWeekday(currentDate);
+  const weekStart = addIsoDays(currentDate, -((weekday + 6) % 7));
+  const weekEnd = addIsoDays(weekStart, 6);
+  const monthStart = `${currentDate.slice(0, 7)}-01`;
+  const monthEnd = getIsoMonthEnd(currentDate);
+
+  return {
+    currentDate,
+    dayProgress,
+    lookbackDays: safeLookbackDays,
+    formula: "actual_to_date * total_weighted_days / elapsed_weighted_days; weekday weights learned from completed Casso AEP days and smoothed with a weekend uplift prior",
+    weekdayWeights: weekdayWeights.map((item) => ({
+      weekday: item.weekday,
+      weight: Math.round(item.weight * 100) / 100,
+      averageAmount: Math.round(item.averageAmount),
+      samples: item.samples,
+    })),
+    week: projectPeriod(weekStart, weekEnd),
+    month: projectPeriod(monthStart, monthEnd),
+  };
+}
+
 export interface WeeklyAepRevenuePoint {
   weekStart: string;   // "2026-08-03"
   weekEnd: string;     // "2026-08-09"

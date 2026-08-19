@@ -55,6 +55,26 @@ type WeeklyAepRevenuePoint = {
   amount: number;
 };
 
+type AepForecastPeriod = {
+  periodStart: string;
+  periodEnd: string;
+  actual: number;
+  predicted: number;
+  elapsedWeight: number;
+  totalWeight: number;
+  remainingDays: number;
+  remainingWeekendDays: number;
+};
+
+type AepRevenueForecast = {
+  currentDate: string;
+  dayProgress: number;
+  lookbackDays: number;
+  formula: string;
+  week: AepForecastPeriod;
+  month: AepForecastPeriod;
+};
+
 const DIRECTOR_PASS = "123";
 
 const EMPTY_AEP_CLASSIFICATION: AepClassificationState = {
@@ -1366,6 +1386,9 @@ export default function Home() {
   const [weeklyAepRevenueError, setWeeklyAepRevenueError] = useState<string | null>(null);
   const [weeklyAepRevenueWeeks, setWeeklyAepRevenueWeeks] = useState(12);
   const [weeklyAepRevenueWeeksInput, setWeeklyAepRevenueWeeksInput] = useState("12");
+  const [aepRevenueForecast, setAepRevenueForecast] = useState<AepRevenueForecast | null>(null);
+  const [aepRevenueForecastLoading, setAepRevenueForecastLoading] = useState(false);
+  const [aepRevenueForecastError, setAepRevenueForecastError] = useState<string | null>(null);
   const [hourlyAepRevenueData, setHourlyAepRevenueData] = useState<HourlyAepRevenuePoint[] | null>(null);
   const [hourlyAepRevenueLoading, setHourlyAepRevenueLoading] = useState(false);
   const [hourlyAepRevenueError, setHourlyAepRevenueError] = useState<string | null>(null);
@@ -1803,6 +1826,7 @@ export default function Home() {
     fetchRevenue();
     fetchDailyAepRevenue();
     fetchWeeklyAepRevenue();
+    fetchAepRevenueForecast();
     fetchHourlyAepRevenue();
     fetchIntradayAepRevenue();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3042,6 +3066,21 @@ export default function Home() {
       setWeeklyAepRevenueError("Không lấy được dữ liệu doanh thu AEP theo tuần");
     } finally {
       setWeeklyAepRevenueLoading(false);
+    }
+  };
+
+  const fetchAepRevenueForecast = async () => {
+    setAepRevenueForecastLoading(true);
+    setAepRevenueForecastError(null);
+    try {
+      const res = await fetch("/api/revenue/forecast?lookbackDays=180");
+      const data = await res.json();
+      if (!res.ok) { setAepRevenueForecastError(data.error || "Lỗi API dự đoán doanh thu"); return; }
+      setAepRevenueForecast(data);
+    } catch {
+      setAepRevenueForecastError("Không lấy được dữ liệu dự đoán doanh thu AEP");
+    } finally {
+      setAepRevenueForecastLoading(false);
     }
   };
 
@@ -5228,6 +5267,12 @@ export default function Home() {
                     <button onClick={() => fetchWeeklyAepRevenue()} className="underline ml-1">Thử lại</button>
                   </p>
                 )}
+                {aepRevenueForecastError && (
+                  <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Dự đoán: {aepRevenueForecastError}
+                    <button onClick={() => fetchAepRevenueForecast()} className="underline ml-1">Thử lại</button>
+                  </p>
+                )}
                 {hourlyAepRevenueError && (
                   <p className="text-xs text-orange-600 flex items-center gap-1.5 px-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Casso giờ: {hourlyAepRevenueError}
@@ -5518,11 +5563,18 @@ export default function Home() {
                         const maxMonth = aepChartData.reduce((best, d) => d.amount > best.amount ? d : best, aepChartData[0]);
                         const lastMonth = aepChartData[aepChartData.length - 1];
                         const prevMonth = aepChartData.length >= 2 ? aepChartData[aepChartData.length - 2] : null;
+                        const monthForecast = aepRevenueForecast?.month;
+                        const activeMonthForecast = monthForecast && lastMonth.ym === monthForecast.periodStart.slice(0, 7) ? monthForecast : null;
+                        const monthForecastRatio = activeMonthForecast && activeMonthForecast.elapsedWeight > 0
+                          ? activeMonthForecast.totalWeight / activeMonthForecast.elapsedWeight
+                          : 1;
+                        const monthForecastAmount = activeMonthForecast ? Math.round(Math.max(lastMonth.amount, lastMonth.amount * monthForecastRatio) * 10) / 10 : null;
+                        const monthForecastDelta = monthForecastAmount !== null ? Math.round((monthForecastAmount - lastMonth.amount) * 10) / 10 : null;
 
                         return (
                           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                             {/* Header */}
-                            <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-gray-50">
+                            <div className="px-4 pt-4 pb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-50">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-emerald-50 shrink-0">
                                   <svg className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 6V2M12 6V2M17 6V2"/></svg>
@@ -5532,7 +5584,15 @@ export default function Home() {
                                   <p className="text-[10px] text-gray-400">Anh Em Phim · triệu đồng</p>
                                 </div>
                               </div>
-                              <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 shrink-0">{aepChartData.length} tháng</span>
+                              <div className="flex flex-wrap items-center justify-end gap-1">
+                                {activeMonthForecast && monthForecastAmount !== null && (
+                                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                    Dự đoán {monthForecastAmount.toFixed(1)}tr
+                                  </span>
+                                )}
+                                {aepRevenueForecastLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin text-gray-300" />}
+                                <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100">{aepChartData.length} tháng</span>
+                              </div>
                             </div>
 
                             {/* KPI row */}
@@ -5585,6 +5645,10 @@ export default function Home() {
                                   />
                                   <ReferenceLine y={avg} stroke="#6366f1" strokeDasharray="5 3" strokeWidth={1.2}
                                     label={{ value: `TB ${avg.toFixed(0)}tr`, position: "right", fill: "#6366f1", fontSize: 9 }} />
+                                  {monthForecastAmount !== null && (
+                                    <ReferenceLine y={monthForecastAmount} stroke="#10b981" strokeOpacity={0.38} strokeDasharray="2 5" strokeWidth={2}
+                                      label={{ value: `Dự đoán ${monthForecastAmount.toFixed(1)}tr`, position: "right", fill: "#059669", fontSize: 9 }} />
+                                  )}
                                   <Bar dataKey="amount" name="Doanh thu AEP" radius={[5, 5, 0, 0]}>
                                     {aepChartData.map((entry, index) => (
                                       <Cell key={`cell-month-${index}`} fill={entry.amount >= avg ? "#10b981" : "#6ee7b7"} />
@@ -5592,7 +5656,12 @@ export default function Home() {
                                   </Bar>
                                 </ComposedChart>
                               </ResponsiveContainer>
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường tím = TB tháng</p>
+                              {activeMonthForecast && monthForecastDelta !== null && (
+                                <p className="text-[9px] text-emerald-500 text-right mt-1">
+                                  Dự đoán hết tháng còn {activeMonthForecast.remainingDays} ngày, {activeMonthForecast.remainingWeekendDays} ngày T7/CN · {monthForecastDelta >= 0 ? "+" : ""}{monthForecastDelta.toFixed(1)}tr so với hiện tại
+                                </p>
+                              )}
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường tím = TB tháng · vạch xanh mờ = dự đoán hết tháng</p>
                             </div>
                           </div>
                         );
@@ -5656,10 +5725,17 @@ export default function Home() {
                         const bestWeek = weeklyChartData.reduce((best, item) => item.amount > best.amount ? item : best, weeklyChartData[0]);
                         const latestWeek = weeklyChartData[weeklyChartData.length - 1];
                         const previousWeek = weeklyChartData.length >= 2 ? weeklyChartData[weeklyChartData.length - 2] : null;
+                        const weekForecast = aepRevenueForecast?.week;
+                        const activeWeekForecast = weekForecast && latestWeek.weekStart === weekForecast.periodStart && latestWeek.weekEnd === weekForecast.periodEnd ? weekForecast : null;
+                        const weeklyForecastRatio = activeWeekForecast && activeWeekForecast.elapsedWeight > 0
+                          ? activeWeekForecast.totalWeight / activeWeekForecast.elapsedWeight
+                          : 1;
+                        const weeklyForecastAmount = activeWeekForecast ? Math.round(Math.max(latestWeek.amount, latestWeek.amount * weeklyForecastRatio) * 10) / 10 : null;
+                        const weeklyForecastDelta = weeklyForecastAmount !== null ? Math.round((weeklyForecastAmount - latestWeek.amount) * 10) / 10 : null;
 
                         return (
                           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                            <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-2 border-b border-gray-50">
+                            <div className="px-4 pt-4 pb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-50">
                               <div className="flex items-center gap-2 min-w-0">
                                 <span className="flex items-center justify-center w-7 h-7 rounded-xl bg-teal-50 shrink-0">
                                   <svg className="w-3.5 h-3.5 text-teal-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -5669,7 +5745,12 @@ export default function Home() {
                                   <p className="text-[10px] text-gray-400">{activeWeeklyWeeks} tuần gần nhất · triệu đồng{rangeStart && rangeEnd ? ` · ${formatFullDate(rangeStart)} → ${formatFullDate(rangeEnd)}` : ""}</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex flex-wrap items-center justify-end gap-1">
+                                {activeWeekForecast && weeklyForecastAmount !== null && (
+                                  <span className="h-7 px-2.5 rounded-full text-[10px] font-bold border border-teal-100 bg-teal-50 text-teal-700 flex items-center">
+                                    Dự đoán {weeklyForecastAmount.toFixed(1)}tr
+                                  </span>
+                                )}
                                 {[8, 12, 24].map((weeks) => (
                                   <button
                                     key={weeks}
@@ -5758,6 +5839,10 @@ export default function Home() {
                                   />
                                   <ReferenceLine y={weeklyAverage} stroke="#0d9488" strokeDasharray="5 3" strokeWidth={1.2}
                                     label={{ value: `TB ${weeklyAverage.toFixed(1)}tr`, position: "right", fill: "#0d9488", fontSize: 9 }} />
+                                  {weeklyForecastAmount !== null && (
+                                    <ReferenceLine y={weeklyForecastAmount} stroke="#14b8a6" strokeOpacity={0.38} strokeDasharray="2 5" strokeWidth={2}
+                                      label={{ value: `Dự đoán ${weeklyForecastAmount.toFixed(1)}tr`, position: "right", fill: "#0f766e", fontSize: 9 }} />
+                                  )}
                                   <Bar dataKey="amount" name="Doanh thu tuần" radius={[5, 5, 0, 0]}>
                                     {weeklyChartData.map((entry, index) => (
                                       <Cell key={`cell-week-${index}`} fill={entry.amount >= weeklyAverage ? "#0d9488" : "#5eead4"} />
@@ -5765,7 +5850,12 @@ export default function Home() {
                                   </Bar>
                                 </ComposedChart>
                               </ResponsiveContainer>
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Tuần tính từ Thứ Hai đến Chủ nhật · đường xanh = TB mỗi tuần</p>
+                              {activeWeekForecast && weeklyForecastDelta !== null && (
+                                <p className="text-[9px] text-teal-500 text-right mt-1">
+                                  Dự đoán hết tuần còn {activeWeekForecast.remainingDays} ngày, {activeWeekForecast.remainingWeekendDays} ngày T7/CN · {weeklyForecastDelta >= 0 ? "+" : ""}{weeklyForecastDelta.toFixed(1)}tr so với hiện tại
+                                </p>
+                              )}
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Tuần tính từ Thứ Hai đến Chủ nhật · đường xanh = TB mỗi tuần · vạch xanh mờ = dự đoán hết tuần</p>
                             </div>
                           </div>
                         );
