@@ -5570,6 +5570,15 @@ export default function Home() {
                           : 1;
                         const monthForecastAmount = activeMonthForecast ? Math.round(Math.max(lastMonth.amount, lastMonth.amount * monthForecastRatio) * 10) / 10 : null;
                         const monthForecastDelta = monthForecastAmount !== null ? Math.round((monthForecastAmount - lastMonth.amount) * 10) / 10 : null;
+                        const aepChartDataWithForecast = aepChartData.map((item) => ({
+                          ...item,
+                          forecastRemaining: activeMonthForecast && monthForecastDelta !== null && item.ym === lastMonth.ym
+                            ? Math.max(0, monthForecastDelta)
+                            : 0,
+                          forecastTotal: activeMonthForecast && monthForecastAmount !== null && item.ym === lastMonth.ym
+                            ? monthForecastAmount
+                            : null,
+                        }));
 
                         return (
                           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -5621,18 +5630,21 @@ export default function Home() {
                             {/* Chart */}
                             <div className="px-3 pt-3 pb-4">
                               <ResponsiveContainer width="100%" height={180}>
-                                <ComposedChart data={aepChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
+                                <ComposedChart data={aepChartDataWithForecast} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
                                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} />
                                   <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(v) => `${v}tr`} axisLine={false} tickLine={false} />
                                   <Tooltip
                                     content={({ active, payload }) => {
                                       if (!active || !payload?.length) return null;
-                                      const d = payload[0]?.payload as { name: string; amount: number; growth: number | null };
+                                      const d = payload[0]?.payload as { name: string; amount: number; growth: number | null; forecastTotal: number | null; forecastRemaining: number };
                                       return (
                                         <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
                                           <p className="font-bold text-gray-700 mb-1">{d.name}</p>
                                           <p className="text-emerald-600 font-semibold">Doanh thu: {d.amount.toFixed(1)}tr</p>
+                                          {d.forecastTotal !== null && d.forecastRemaining > 0 && (
+                                            <p className="mt-0.5 text-emerald-500 font-semibold">Dự đoán hết tháng: {d.forecastTotal.toFixed(1)}tr</p>
+                                          )}
                                           {d.growth !== null && (
                                             <p className={`mt-0.5 font-semibold ${d.growth >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
                                               {d.growth >= 0 ? "↑" : "↓"} {Math.abs(d.growth)}% vs tháng trước
@@ -5645,15 +5657,12 @@ export default function Home() {
                                   />
                                   <ReferenceLine y={avg} stroke="#6366f1" strokeDasharray="5 3" strokeWidth={1.2}
                                     label={{ value: `TB ${avg.toFixed(0)}tr`, position: "right", fill: "#6366f1", fontSize: 9 }} />
-                                  {monthForecastAmount !== null && (
-                                    <ReferenceLine y={monthForecastAmount} stroke="#10b981" strokeOpacity={0.38} strokeDasharray="2 5" strokeWidth={2}
-                                      label={{ value: `Dự đoán ${monthForecastAmount.toFixed(1)}tr`, position: "right", fill: "#059669", fontSize: 9 }} />
-                                  )}
-                                  <Bar dataKey="amount" name="Doanh thu AEP" radius={[5, 5, 0, 0]}>
-                                    {aepChartData.map((entry, index) => (
+                                  <Bar dataKey="amount" name="Doanh thu AEP" stackId="monthForecast" radius={[5, 5, 0, 0]}>
+                                    {aepChartDataWithForecast.map((entry, index) => (
                                       <Cell key={`cell-month-${index}`} fill={entry.amount >= avg ? "#10b981" : "#6ee7b7"} />
                                     ))}
                                   </Bar>
+                                  <Bar dataKey="forecastRemaining" name="Dự đoán còn lại" stackId="monthForecast" fill="#10b981" fillOpacity={0.22} radius={[5, 5, 0, 0]} />
                                 </ComposedChart>
                               </ResponsiveContainer>
                               {activeMonthForecast && monthForecastDelta !== null && (
@@ -5661,7 +5670,7 @@ export default function Home() {
                                   Dự đoán hết tháng còn {activeMonthForecast.remainingDays} ngày, {activeMonthForecast.remainingWeekendDays} ngày T7/CN · {monthForecastDelta >= 0 ? "+" : ""}{monthForecastDelta.toFixed(1)}tr so với hiện tại
                                 </p>
                               )}
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường tím = TB tháng · vạch xanh mờ = dự đoán hết tháng</p>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Cột đậm = trên trung bình · đường tím = TB tháng · phần cột mờ = dự đoán còn lại của tháng hiện tại</p>
                             </div>
                           </div>
                         );
@@ -5732,6 +5741,15 @@ export default function Home() {
                           : 1;
                         const weeklyForecastAmount = activeWeekForecast ? Math.round(Math.max(latestWeek.amount, latestWeek.amount * weeklyForecastRatio) * 10) / 10 : null;
                         const weeklyForecastDelta = weeklyForecastAmount !== null ? Math.round((weeklyForecastAmount - latestWeek.amount) * 10) / 10 : null;
+                        const weeklyChartDataWithForecast = weeklyChartData.map((item) => ({
+                          ...item,
+                          forecastRemaining: activeWeekForecast && weeklyForecastDelta !== null && item.weekStart === latestWeek.weekStart
+                            ? Math.max(0, weeklyForecastDelta)
+                            : 0,
+                          forecastTotal: activeWeekForecast && weeklyForecastAmount !== null && item.weekStart === latestWeek.weekStart
+                            ? weeklyForecastAmount
+                            : null,
+                        }));
 
                         return (
                           <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
@@ -5812,7 +5830,7 @@ export default function Home() {
 
                             <div className="px-3 pt-3 pb-4">
                               <ResponsiveContainer width="100%" height={170}>
-                                <ComposedChart data={weeklyChartData} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
+                                <ComposedChart data={weeklyChartDataWithForecast} margin={{ top: 8, right: 32, left: -16, bottom: 0 }}>
                                   <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" vertical={false} />
                                   <XAxis dataKey="weekStart" tickFormatter={(value) => formatShortDayMonth(String(value))} tick={{ fontSize: 10, fill: "#d1d5db" }} axisLine={false} tickLine={false} minTickGap={14} />
                                   <YAxis tick={{ fontSize: 10, fill: "#d1d5db" }} tickFormatter={(value) => `${value}tr`} axisLine={false} tickLine={false} />
@@ -5821,12 +5839,16 @@ export default function Home() {
                                       if (!active || !payload || payload.length === 0) return null;
                                       const point = payload[0]?.payload as {
                                         weekStart: string; weekEnd: string; label: string; amount: number; growth: number | null;
+                                        forecastTotal: number | null; forecastRemaining: number;
                                       };
                                       if (!point) return null;
                                       return (
                                         <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 text-xs shadow-md">
                                           <p className="font-bold text-gray-700 mb-1">{formatFullDate(point.weekStart)} → {formatFullDate(point.weekEnd)}</p>
                                           <p className="text-teal-600 font-semibold">Doanh thu: {point.amount.toFixed(1)}tr</p>
+                                          {point.forecastTotal !== null && point.forecastRemaining > 0 && (
+                                            <p className="mt-0.5 text-teal-500 font-semibold">Dự đoán hết tuần: {point.forecastTotal.toFixed(1)}tr</p>
+                                          )}
                                           {point.growth !== null && (
                                             <p className={`mt-0.5 font-semibold ${point.growth >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                                               {point.growth >= 0 ? "↑" : "↓"} {Math.abs(point.growth)}% vs tuần trước
@@ -5839,15 +5861,12 @@ export default function Home() {
                                   />
                                   <ReferenceLine y={weeklyAverage} stroke="#0d9488" strokeDasharray="5 3" strokeWidth={1.2}
                                     label={{ value: `TB ${weeklyAverage.toFixed(1)}tr`, position: "right", fill: "#0d9488", fontSize: 9 }} />
-                                  {weeklyForecastAmount !== null && (
-                                    <ReferenceLine y={weeklyForecastAmount} stroke="#14b8a6" strokeOpacity={0.38} strokeDasharray="2 5" strokeWidth={2}
-                                      label={{ value: `Dự đoán ${weeklyForecastAmount.toFixed(1)}tr`, position: "right", fill: "#0f766e", fontSize: 9 }} />
-                                  )}
-                                  <Bar dataKey="amount" name="Doanh thu tuần" radius={[5, 5, 0, 0]}>
-                                    {weeklyChartData.map((entry, index) => (
+                                  <Bar dataKey="amount" name="Doanh thu tuần" stackId="weekForecast" radius={[5, 5, 0, 0]}>
+                                    {weeklyChartDataWithForecast.map((entry, index) => (
                                       <Cell key={`cell-week-${index}`} fill={entry.amount >= weeklyAverage ? "#0d9488" : "#5eead4"} />
                                     ))}
                                   </Bar>
+                                  <Bar dataKey="forecastRemaining" name="Dự đoán còn lại" stackId="weekForecast" fill="#14b8a6" fillOpacity={0.24} radius={[5, 5, 0, 0]} />
                                 </ComposedChart>
                               </ResponsiveContainer>
                               {activeWeekForecast && weeklyForecastDelta !== null && (
@@ -5855,7 +5874,7 @@ export default function Home() {
                                   Dự đoán hết tuần còn {activeWeekForecast.remainingDays} ngày, {activeWeekForecast.remainingWeekendDays} ngày T7/CN · {weeklyForecastDelta >= 0 ? "+" : ""}{weeklyForecastDelta.toFixed(1)}tr so với hiện tại
                                 </p>
                               )}
-                              <p className="text-[9px] text-gray-300 text-right mt-1">Tuần tính từ Thứ Hai đến Chủ nhật · đường xanh = TB mỗi tuần · vạch xanh mờ = dự đoán hết tuần</p>
+                              <p className="text-[9px] text-gray-300 text-right mt-1">Tuần tính từ Thứ Hai đến Chủ nhật · đường xanh = TB mỗi tuần · phần cột mờ = dự đoán còn lại của tuần hiện tại</p>
                             </div>
                           </div>
                         );
